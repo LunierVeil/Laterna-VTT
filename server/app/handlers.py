@@ -1,8 +1,11 @@
-"""Применение команд. Единственное место, где меняется состояние сцены.
+"""Применение команд. Единственное место, где меняется состояние.
 
 Контракт каждого хендлера: получить сессию, сцену и payload, провести
 валидацию, изменить БД, вернуть (event_name, event_payload). Инкремент
 seq и рассылка - снаружи, в main.py, под локом сцены.
+
+Команды кампании (CAMPAIGN_HANDLERS) получают вместо сцены кампанию:
+чат и список сцен общие, seq сцены они не трогают. Рассылает их main.py.
 
 Если хендлер кидает CommandError, клиенту уходит error и его
 оптимистичное изменение откатывается.
@@ -19,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import dice
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
-from .models import Message, Scene, Token, Wall
+from .models import Campaign, Message, Scene, Token, Wall
 from .roles import Actor
 
 
@@ -39,6 +42,11 @@ def _num(payload: dict, key: str, default=None) -> float:
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
+
+
+def _require_gm(actor: Actor) -> None:
+    if not actor.is_gm:
+        raise CommandError("это может только ГМ")
 
 
 def _require_owner(obj: Token | Wall, actor: Actor, message: str) -> None:
@@ -190,7 +198,7 @@ async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     }
 
 
-async def chat_say(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+async def chat_say(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     text = str(payload.get("text") or "").strip()
     if not text:
         raise CommandError("пустое сообщение")
@@ -204,18 +212,54 @@ async def chat_say(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
         except dice.DiceError as exc:
             raise CommandError(str(exc))
         message = Message(
-            scene_id=scene.id,
+            campaign_id=campaign.id,
             author=actor.name,
             text=formula,
             kind="roll",
             roll_json=json.dumps(result.to_dict(), ensure_ascii=False),
         )
     else:
-        message = Message(scene_id=scene.id, author=actor.name, text=text, kind="text")
+        message = Message(campaign_id=campaign.id, author=actor.name, text=text, kind="text")
 
     db.add(message)
     await db.flush()
     return "chat.said", {"message": message.to_dict()}
+
+
+async def _campaign_scene(db: AsyncSession, campaign: Campaign, payload: dict) -> Scene:
+    scene = await db.get(Scene, payload.get("id")) if payload.get("id") else None
+    if scene is None or scene.campaign_id != campaign.id:
+        raise CommandError("сцена не найдена")
+    return scene
+
+
+async def scene_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    name = str(payload.get("name") or "").strip()[:200] or "Новая сцена"
+    scene = Scene(campaign_id=campaign.id, name=name)
+    db.add(scene)
+    await db.flush()
+    # Новая сцена скрыта: игрокам её покажет только scene.activate.
+    return "scene.created", {"id": scene.id}
+
+
+async def scene_activate(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    scene = await _campaign_scene(db, campaign, payload)
+    campaign.active_scene_id = scene.id
+    await db.flush()
+    return "scene.activated", {"id": scene.id}
+
+
+async def scene_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    scene = await _campaign_scene(db, campaign, payload)
+    if scene.id == campaign.active_scene_id:
+        # Иначе игрокам некуда деваться. Сначала покажи им другую сцену.
+        raise CommandError("эту сцену сейчас видят игроки - сначала покажи другую")
+    await db.delete(scene)
+    await db.flush()
+    return "scene.deleted", {"id": scene.id}
 
 
 HANDLERS = {
@@ -226,5 +270,11 @@ HANDLERS = {
     "wall.add": wall_add,
     "wall.remove": wall_remove,
     "scene.update": scene_update,
+}
+
+CAMPAIGN_HANDLERS = {
     "chat.say": chat_say,
+    "scene.create": scene_create,
+    "scene.activate": scene_activate,
+    "scene.delete": scene_delete,
 }

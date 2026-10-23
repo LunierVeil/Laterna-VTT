@@ -6,7 +6,9 @@ import { Toolbar } from "./ui/Toolbar";
 import { Chat } from "./ui/Chat";
 import { TokenPanel } from "./ui/TokenPanel";
 import { useUi } from "./state/store";
-import type { Scene } from "./types";
+import type { Scene, SceneInfo } from "./types";
+
+const GM_SCENE = "lanterna.gmScene";
 
 function NamePrompt() {
   const setUser = useUi((s) => s.setUser);
@@ -43,11 +45,21 @@ export default function App() {
     events: { name: string; payload: any; cmdId: string | null }[];
   }>({ scene: null, events: [] });
 
+  // Игрок всегда в активной сцене. ГМ возвращается туда, где был.
   useEffect(() => {
-    void fetch("/api/scenes")
+    void fetch("/api/campaign")
       .then((r) => r.json())
-      .then((list) => setSceneId(list[0]?.id ?? null))
-      .catch((e) => console.error("не получил список сцен", e));
+      .then((c: { active_scene_id: string; scenes?: SceneInfo[] }) => {
+        const saved = localStorage.getItem(GM_SCENE);
+        const ok = c.scenes?.some((s) => s.id === saved);
+        setSceneId(ok ? saved : c.active_scene_id);
+      })
+      .catch((e) => console.error("не получил кампанию", e));
+  }, []);
+
+  const openScene = useCallback((id: string) => {
+    localStorage.setItem(GM_SCENE, id);
+    setSceneId(id);
   }, []);
 
   const socket = useMemo(
@@ -66,6 +78,12 @@ export default function App() {
   useEffect(() => {
     if (!socket) return;
     const ui = useUi.getState();
+
+    // Сокет новый - значит, и сцена, скорее всего, другая: снапшот и
+    // выделение от прошлой к ней не относятся.
+    buffered.current = { scene: null, events: [] };
+    ui.setSelected(null);
+    ui.setChaining(false);
 
     const off = socket.on((msg) => {
       if (msg.type === "snapshot") {
@@ -93,8 +111,23 @@ export default function App() {
         ui.flashError(msg.message);
         return;
       }
-      if (msg.name === "chat.said") {
-        ui.pushMessage(msg.payload.message);
+      if (msg.type === "chat") {
+        ui.pushMessage(msg.message);
+        return;
+      }
+      if (msg.type === "campaign") {
+        ui.setCampaign(msg.active_scene_id, msg.scenes);
+        // Игрока ведёт ГМ: он всегда там, где активная сцена. ГМ остаётся,
+        // где был, пока его сцену не удалили.
+        const stay = msg.scenes
+          ? msg.scenes.some((s) => s.id === sceneId)
+          : msg.active_scene_id === sceneId;
+        if (!stay) setSceneId(msg.active_scene_id);
+        return;
+      }
+      if (msg.type === "reply") {
+        // ГМ создал сцену - сразу открываем её, чтобы готовить.
+        if (msg.name === "scene.created") openScene(msg.payload.id);
         return;
       }
       if (msg.name === "scene.updated") {
@@ -118,7 +151,7 @@ export default function App() {
       socket.close();
       useUi.getState().setConnected(false);
     };
-  }, [socket, gmKey]);
+  }, [socket, gmKey, sceneId, openScene]);
 
   const error = useUi((s) => s.error);
 
@@ -127,7 +160,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar socket={socket} />
+      <Toolbar socket={socket} sceneId={sceneId!} onOpenScene={openScene} />
       <main>
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />

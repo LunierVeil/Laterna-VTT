@@ -94,6 +94,26 @@ main { display: flex; flex: 1; min-height: 0; }
 .scene-menu-row input { width: 80px; }
 .scene-menu-note { margin: 0; font-size: 12px; }
 
+/* scenes list */
+.scenes-pop { width: 380px; }
+.scene-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.scene-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px; border-radius: 6px; border: 1px solid transparent;
+}
+.scene-row-here { border-color: var(--line); background: #20232b; }
+.scene-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scene-row-here .scene-row-name { font-weight: 600; }
+.scene-row-live { font-size: 11px; color: #9fe0a6; white-space: nowrap; }
+.scene-row-actions { display: flex; gap: 4px; flex: none; }
+.scene-row-actions .tool { padding: 3px 8px; font-size: 12px; }
+.scene-new-name { flex: 1; min-width: 0; }
+.tool-danger { border-color: #c0624f; color: #f0a3a3; }
+.prep-badge {
+  font-size: 11px; color: var(--accent); border: 1px dashed var(--accent);
+  border-radius: 4px; padding: 1px 6px;
+}
+
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot-on { background: #6cc070; }
 .dot-off { background: #c0624f; }
@@ -101,7 +121,7 @@ main { display: flex; flex: 1; min-height: 0; }
 .muted { color: var(--muted); }
 .hint { color: var(--muted); }
 .hint-active { color: var(--accent); }
-.users { color: var(--muted); font-size: 12px; }
+.users { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 /* chat */
 .chat {

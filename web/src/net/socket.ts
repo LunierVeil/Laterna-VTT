@@ -21,6 +21,7 @@ export class SceneSocket {
   private lastSeq = -1;
   private closedByUs = false;
   private retry = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private sceneId: string,
@@ -46,11 +47,15 @@ export class SceneSocket {
       // перезатрёт состояние.
       this.revertAll();
       this.retry += 1;
-      setTimeout(() => this.connect(), Math.min(1000 * this.retry, 8000));
+      this.retryTimer = setTimeout(() => this.connect(), Math.min(1000 * this.retry, 8000));
     };
   }
 
   close() {
+    // Сервер мог закрыть сокет чуть раньше нас (сцену скрыли) - тогда
+    // переподключение уже запланировано, и без этого старый сокет
+    // через секунду ожил бы и полез в старую сцену.
+    clearTimeout(this.retryTimer);
     this.closedByUs = true;
     this.ws?.close();
   }
@@ -86,7 +91,8 @@ export class SceneSocket {
       return;
     }
 
-    if (msg.type === "presence") {
+    // Чат и список сцен общие на кампанию и идут мимо seq сцены.
+    if (msg.type === "presence" || msg.type === "chat" || msg.type === "campaign" || msg.type === "reply") {
       this.emit(msg);
       return;
     }

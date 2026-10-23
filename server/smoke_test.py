@@ -3,14 +3,19 @@
     python server/smoke_test.py
 
 Проверяет то, что сломать проще всего: порядок seq, подтверждение
-команды по cmd_id, блокировку движения стеной и серверный бросок.
+команды по cmd_id, блокировку движения стеной, серверный бросок и то,
+что скрытая сцена не утекает игроку.
+
+Ключ ГМ берётся из LANTERNA_GM_KEY или из server/gm_key.txt.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
+from pathlib import Path
 
 import httpx
 import websockets
@@ -18,6 +23,11 @@ import websockets
 
 BASE = "http://127.0.0.1:8000"
 WS = "ws://127.0.0.1:8000"
+
+
+def gm_cookie() -> str:
+    key = os.getenv("LANTERNA_GM_KEY") or (Path(__file__).parent / "gm_key.txt").read_text().strip()
+    return f"lanterna_gm={key}"
 
 
 async def recv_until(ws, predicate, timeout=5.0):
@@ -97,8 +107,8 @@ async def main() -> int:
             "type": "cmd", "id": "c5", "name": "chat.say",
             "payload": {"text": "/r 4d6kh3+2"},
         }))
-        ev = await recv_until(gm, lambda m: m.get("name") == "chat.said")
-        roll = ev["payload"]["message"]["roll"]
+        ev = await recv_until(gm, lambda m: m.get("type") == "chat")
+        roll = ev["message"]["roll"]
         assert roll is not None, "бросок не распознан"
         dice_term = roll["terms"][0]
         assert len(dice_term["rolls"]) == 4 and len(dice_term["kept"]) == 3
@@ -110,6 +120,34 @@ async def main() -> int:
         await gm.send(json.dumps({"type": "cmd", "id": "c6", "name": "nope.nope", "payload": {}}))
         err = await recv_until(gm, lambda m: m.get("type") == "error")
         print(f"неизвестная команда отклонена: {err['message']}")
+
+    # 7. Скрытая сцена: ГМ создаёт, игрок не может до неё добраться.
+    # Активацию не проверяем: тест гоняют на живом сервере, она бы
+    # перекинула настоящих игроков.
+    cookie = {"Cookie": gm_cookie()}
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm", additional_headers=cookie) as gm:
+        snap = json.loads(await gm.recv())
+        assert snap["you"]["is_gm"], "ключ ГМ не принят"
+        await gm.send(json.dumps({
+            "type": "cmd", "id": "c7", "name": "scene.create", "payload": {"name": "smoke: скрытая"},
+        }))
+        hidden_id = (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["id"]
+        try:
+            async with websockets.connect(f"{WS}/ws/scene/{hidden_id}?user=player") as player:
+                first = json.loads(await player.recv())
+                assert first["type"] == "campaign" and "scenes" not in first, first
+                assert first["active_scene_id"] != hidden_id
+            async with httpx.AsyncClient() as client:
+                r = await client.get(f"{BASE}/api/scenes/{hidden_id}")
+                assert r.status_code == 404, r.status_code
+                names = [s["id"] for s in (await client.get(f"{BASE}/api/scenes")).json()]
+                assert hidden_id not in names, "скрытая сцена в списке игрока"
+            print("скрытая сцена игроку недоступна")
+        finally:
+            await gm.send(json.dumps({
+                "type": "cmd", "id": "c8", "name": "scene.delete", "payload": {"id": hidden_id},
+            }))
+            await recv_until(gm, lambda m: m.get("type") == "reply")
 
     print("\nвсе проверки прошли")
     return 0

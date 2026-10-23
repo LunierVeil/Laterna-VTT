@@ -69,6 +69,15 @@ export type ServerMessage =
   | { type: "snapshot"; seq: number; scene: Scene; you?: { name: string; is_gm: boolean } }
   | { type: "event"; seq: number; name: string; payload: any; cmd_id: string | null }
   | { type: "error"; message: string; cmd_id: string | null }
-  | { type: "presence"; users: string[] };
+  | { type: "presence"; users: string[] }
+  | { type: "chat"; message: Message }
+  // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
+  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[] }
+  | { type: "reply"; name: string; payload: any; cmd_id: string | null };
+
+export interface SceneInfo {
+  id: string;
+  name: string;
+}
 
 export type Tool = "select" | "wall" | "token" | "erase";

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
+import { usePopover } from "./usePopover";
 
 // Должны совпадать с MAX_SCENE_SIDE и MAX_UPLOAD_BYTES в server/app/config.py.
 const MAX_SIDE = 8192;
@@ -13,28 +14,12 @@ const MAX_BYTES = 25 * 1024 * 1024;
 export function SceneMenu({ socket }: { socket: SceneSocket }) {
   const gridSize = useUi((s) => s.gridSize);
   const background = useUi((s) => s.background);
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, root } = usePopover();
   const [busy, setBusy] = useState(false);
   const [grid, setGrid] = useState(String(gridSize));
-  const root = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
 
   useEffect(() => setGrid(String(gridSize)), [gridSize]);
-
-  // Закрыть по клику мимо и по Esc.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const fail = (msg: string) => useUi.getState().flashError(msg);
 

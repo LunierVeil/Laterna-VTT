@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Message, Token, Tool } from "../types";
+import type { Message, SceneInfo, Token, Tool } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner" | "size">;
@@ -43,6 +43,9 @@ interface UiState {
   background: string | null;
   chaining: boolean;
   selected: SelectedToken | null;
+  activeSceneId: string | null;
+  /** Все сцены кампании - знает только ГМ. */
+  scenes: SceneInfo[];
 
   setUser: (u: string) => void;
   dropGmKey: () => void;
@@ -58,6 +61,7 @@ interface UiState {
   setScene: (name: string, gridSize: number, background: string | null) => void;
   setChaining: (c: boolean) => void;
   setSelected: (t: SelectedToken | null) => void;
+  setCampaign: (activeSceneId: string, scenes: SceneInfo[] | undefined) => void;
 }
 
 /**
@@ -83,6 +87,8 @@ export const useUi = create<UiState>((set) => ({
   background: null,
   chaining: false,
   selected: null,
+  activeSceneId: null,
+  scenes: [],
 
   setUser: (user) => {
     localStorage.setItem("lanterna.user", user);
@@ -109,4 +115,5 @@ export const useUi = create<UiState>((set) => ({
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),
   setSelected: (selected) => set({ selected }),
+  setCampaign: (activeSceneId, scenes) => set(scenes ? { activeSceneId, scenes } : { activeSceneId }),
 }));

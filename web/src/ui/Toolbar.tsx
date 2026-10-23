@@ -2,6 +2,7 @@ import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { Tool } from "../types";
 import { SceneMenu } from "./SceneMenu";
+import { ScenesMenu } from "./ScenesMenu";
 
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Выбор", hint: "ЛКМ - двигать токен, по пустому месту - панорама, Delete - удалить свой токен" },
@@ -10,8 +11,17 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "erase", label: "Стереть", hint: "Клик по стене - удалить. Красная - твоя, серая - чужая, её не удалить" },
 ];
 
-export function Toolbar({ socket }: { socket: SceneSocket }) {
-  const { tool, setTool, users, connected, sceneName, chaining, isGm } = useUi();
+export function Toolbar({
+  socket,
+  sceneId,
+  onOpenScene,
+}: {
+  socket: SceneSocket;
+  sceneId: string;
+  onOpenScene: (id: string) => void;
+}) {
+  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId } = useUi();
+  const hidden = isGm && activeSceneId !== null && sceneId !== activeSceneId;
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
     : TOOLS.find((t) => t.id === tool)?.hint;
@@ -21,8 +31,10 @@ export function Toolbar({ socket }: { socket: SceneSocket }) {
       <div className="toolbar-left">
         <strong>{sceneName || "Сцена"}</strong>
         {isGm && <span className="gm-badge" title="ты ведёшь игру">ГМ</span>}
+        {hidden && <span className="prep-badge">заготовка - игроки не видят</span>}
         <span className={connected ? "dot dot-on" : "dot dot-off"} />
         <span className="muted">{connected ? "на связи" : "нет связи"}</span>
+        {isGm && <ScenesMenu socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
         {isGm && <SceneMenu socket={socket} />}
       </div>
 

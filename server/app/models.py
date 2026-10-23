@@ -24,8 +24,17 @@ class Campaign(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String(200), default="Новая кампания")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Сцена, которую видят игроки. Остальные - заготовки ГМ, игрокам их
+    # сервер не отдаёт вовсе. Без FK: сцена и кампания ссылались бы друг
+    # на друга, а удаление активной сцены всё равно запрещено в хендлере.
+    active_scene_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     scenes: Mapped[list["Scene"]] = relationship(
+        back_populates="campaign", cascade="all, delete-orphan"
+    )
+    # Чат общий на кампанию: ГМ в заготовке видит, что пишут игроки, а
+    # переключение сцены не стирает историю бросков.
+    messages: Mapped[list["Message"]] = relationship(
         back_populates="campaign", cascade="all, delete-orphan"
     )
 
@@ -36,6 +45,8 @@ class Scene(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200), default="Новая сцена")
+    # Для порядка в списке сцен: id случайные, по ним не отсортируешь.
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     width: Mapped[int] = mapped_column(Integer, default=4000)
     height: Mapped[int] = mapped_column(Integer, default=3000)
@@ -51,9 +62,6 @@ class Scene(Base):
         back_populates="scene", cascade="all, delete-orphan"
     )
     walls: Mapped[list["Wall"]] = relationship(
-        back_populates="scene", cascade="all, delete-orphan"
-    )
-    messages: Mapped[list["Message"]] = relationship(
         back_populates="scene", cascade="all, delete-orphan"
     )
 
@@ -151,7 +159,9 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    scene_id: Mapped[str] = mapped_column(ForeignKey("scenes.id", ondelete="CASCADE"), index=True)
+    campaign_id: Mapped[str] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="CASCADE"), index=True
+    )
 
     author: Mapped[str] = mapped_column(String(100))
     text: Mapped[str] = mapped_column(Text, default="")
@@ -159,7 +169,7 @@ class Message(Base):
     roll_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
-    scene: Mapped[Scene] = relationship(back_populates="messages")
+    campaign: Mapped[Campaign] = relationship(back_populates="messages")
 
     def to_dict(self) -> dict:
         import json
