@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+# [asyncio] тянет greenlet. Без него async-движок SQLAlchemy не стартует,
+# и на свежих Python он не приезжает транзитивно.
+sqlalchemy[asyncio]>=2.0.36
+greenlet>=3.2
+pydantic>=2.9
+aiosqlite>=0.20
+asyncpg>=0.30
+
+# Нужно только для smoke_test.py
+httpx>=0.27

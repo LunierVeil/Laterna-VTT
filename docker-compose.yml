@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lanterna
+      POSTGRES_PASSWORD: lanterna
+      POSTGRES_DB: lanterna
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lanterna"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build: ./server
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lanterna:lanterna@db:5432/lanterna
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/app:/app/app
+
+  web:
+    build: ./web
+    environment:
+      # Vite проксирует /api и /ws на этот адрес внутри сети compose.
+      VITE_API_TARGET: http://server:8000
+    depends_on:
+      - server
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web/src:/app/src
+      - ./web/index.html:/app/index.html
+
+volumes:
+  pgdata:
