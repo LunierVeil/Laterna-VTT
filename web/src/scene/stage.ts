@@ -16,6 +16,7 @@ const COLORS = {
 export interface StageCallbacks {
   onMoveToken: (id: string, x: number, y: number, prev: { x: number; y: number }) => void;
   onAddToken: (x: number, y: number) => void;
+  onRemoveToken: (id: string) => void;
   /** Возвращает id отправленной команды - по нему стейдж узнаёт свои стены. */
   onAddWall: (x1: number, y1: number, x2: number, y2: number) => string;
   onRemoveWall: (id: string) => void;
@@ -259,6 +260,9 @@ export class SceneStage {
   private removeToken(id: string) {
     const view = this.tokens.get(id);
     if (!view) return;
+    // Токен могли удалить, пока его тащат (другой клиент). Иначе на
+    // отпускании уйдёт token.move для несуществующего токена.
+    if (this.dragging?.view === view) this.dragging = null;
     view.node.destroy({ children: true });
     this.tokens.delete(id);
     if (this.selectedId === id) this.select(null);
@@ -429,6 +433,13 @@ export class SceneStage {
       e.preventDefault();
       if (this.wallStart) this.endChain();
       else this.undoWall();
+      return;
+    }
+    // Backspace - для маков, где отдельной Delete нет.
+    if ((e.key === "Delete" || e.key === "Backspace") && this.tool === "select" && this.selectedId) {
+      e.preventDefault();
+      // Не оптимистично: ждём token.removed от сервера, он может отказать.
+      if (!this.dragging) this.cb.onRemoveToken(this.selectedId);
     }
   };
 

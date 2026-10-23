@@ -2,7 +2,7 @@ import { useUi } from "../state/store";
 import type { Tool } from "../types";
 
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
-  { id: "select", label: "Выбор", hint: "ЛКМ - двигать токен, по пустому месту - панорама" },
+  { id: "select", label: "Выбор", hint: "ЛКМ - двигать токен, по пустому месту - панорама, Delete - удалить свой токен" },
   { id: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену" },
 ];

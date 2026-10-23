@@ -90,6 +90,10 @@ async def token_remove(db: AsyncSession, scene: Scene, user: str, payload: dict)
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
+    # Удалять можно только свой токен. Удаление чужого - отдельная
+    # механика с правами (ГМ), её пока нет.
+    if token.owner is not None and token.owner != user:
+        raise CommandError("нельзя удалить чужой токен")
     await db.delete(token)
     await db.flush()
     return "token.removed", {"id": payload["id"]}
