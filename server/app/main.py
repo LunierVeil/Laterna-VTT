@@ -3,14 +3,18 @@ from __future__ import annotations
 import json
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+import uuid
+
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import protocol
+from .config import MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import HANDLERS, CommandError
 from .hub import hub
@@ -85,6 +89,40 @@ async def scene_snapshot(db: AsyncSession, scene_id: str) -> dict | None:
         "walls": [w.to_dict() for w in scene.walls],
         "messages": [m.to_dict() for m in reversed(messages)],
     }
+
+
+def _image_ext(data: bytes) -> str | None:
+    """Тип по сигнатуре, а не по имени файла или Content-Type - их шлёт клиент."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+@app.post("/api/uploads")
+async def upload(request: Request) -> dict:
+    # TODO: без аутентификации загрузить файл может любой в сети.
+    # Тело запроса - сама картинка, без multipart: не нужна лишняя зависимость.
+    data = bytearray()
+    async for chunk in request.stream():
+        data += chunk
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, f"файл больше {MAX_UPLOAD_BYTES // (1024 * 1024)} МБ")
+
+    # SVG не принимаем намеренно: внутри может быть скрипт.
+    ext = _image_ext(bytes(data[:16]))
+    if ext is None:
+        raise HTTPException(415, "нужна картинка PNG, JPEG или WebP")
+
+    # Имя - случайное: исходное имя файла никуда не попадает, обход
+    # каталогов через него невозможен.
+    name = f"{uuid.uuid4().hex}.{ext}"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / name).write_bytes(data)
+    return {"url": f"/uploads/{name}"}
 
 
 @app.get("/api/health")
@@ -170,3 +208,8 @@ async def handle_raw(websocket: WebSocket, scene_id: str, user: str, raw: str) -
             await db.commit()
 
         await hub.broadcast(scene_id, protocol.event(name, seq, payload, command.id))
+
+
+# Монтируется последним, чтобы не перекрыть маршруты выше.
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

@@ -13,6 +13,7 @@ interface UiState {
   error: string | null;
   sceneName: string;
   gridSize: number;
+  background: string | null;
   chaining: boolean;
   selected: SelectedToken | null;
 
@@ -23,7 +24,9 @@ interface UiState {
   setUsers: (u: string[]) => void;
   setConnected: (c: boolean) => void;
   setError: (e: string | null) => void;
-  setScene: (name: string, gridSize: number) => void;
+  /** Показать ошибку тостом на пару секунд. */
+  flashError: (e: string) => void;
+  setScene: (name: string, gridSize: number, background: string | null) => void;
   setChaining: (c: boolean) => void;
   setSelected: (t: SelectedToken | null) => void;
 }
@@ -46,6 +49,7 @@ export const useUi = create<UiState>((set) => ({
   error: null,
   sceneName: "",
   gridSize: 70,
+  background: null,
   chaining: false,
   selected: null,
 
@@ -59,7 +63,14 @@ export const useUi = create<UiState>((set) => ({
   setUsers: (users) => set({ users }),
   setConnected: (connected) => set({ connected }),
   setError: (error) => set({ error }),
-  setScene: (sceneName, gridSize) => set({ sceneName, gridSize }),
+  flashError: (error) => {
+    set({ error });
+    setTimeout(() => {
+      // Не гасим более свежую ошибку, пришедшую за это время.
+      if (useUi.getState().error === error) set({ error: null });
+    }, 2500);
+  },
+  setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),
   setSelected: (selected) => set({ selected }),
 }));

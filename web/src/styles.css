@@ -74,6 +74,21 @@ main { display: flex; flex: 1; min-height: 0; }
 .tool:hover { border-color: #3c4152; }
 .tool-active { border-color: var(--accent); color: var(--accent); }
 
+.tool:disabled { opacity: 0.5; cursor: default; }
+
+/* scene menu */
+.scene-menu { position: relative; margin-left: 8px; }
+.scene-menu-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; width: 250px;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px;
+}
+.scene-menu-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.scene-menu-row label { flex: 1; }
+.scene-menu-row input { width: 80px; }
+.scene-menu-note { margin: 0; font-size: 12px; }
+
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot-on { background: #6cc070; }
 .dot-off { background: #c0624f; }

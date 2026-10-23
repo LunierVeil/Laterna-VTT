@@ -24,6 +24,8 @@ services:
       - "8000:8000"
     volumes:
       - ./server/app:/app/app
+      # Загруженные карты переживают пересборку контейнера.
+      - ./server/uploads:/app/uploads
 
   web:
     build: ./web

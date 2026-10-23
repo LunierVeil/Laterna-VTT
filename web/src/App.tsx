@@ -69,7 +69,7 @@ export default function App() {
       if (msg.type === "snapshot") {
         ui.setConnected(true);
         ui.setMessages(msg.scene.messages);
-        ui.setScene(msg.scene.name, msg.scene.grid_size);
+        ui.setScene(msg.scene.name, msg.scene.grid_size, msg.scene.background_url);
         buffered.current.scene = msg.scene;
         buffered.current.events = [];
         stageRef.current?.setSnapshot(msg.scene);
@@ -80,13 +80,16 @@ export default function App() {
         return;
       }
       if (msg.type === "error") {
-        ui.setError(msg.message);
-        setTimeout(() => useUi.getState().setError(null), 2500);
+        ui.flashError(msg.message);
         return;
       }
       if (msg.name === "chat.said") {
         ui.pushMessage(msg.payload.message);
         return;
+      }
+      if (msg.name === "scene.updated") {
+        // Имя и клетка нужны интерфейсу; сама сцена - дальше, в стейдж.
+        ui.setScene(msg.payload.name, msg.payload.grid_size, msg.payload.background_url);
       }
       if (stageRef.current) {
         stageRef.current.applyEvent(msg.name, msg.payload, msg.cmd_id);
@@ -114,7 +117,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar />
+      <Toolbar socket={socket} />
       <main>
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />

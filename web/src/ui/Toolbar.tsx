@@ -1,5 +1,7 @@
 import { useUi } from "../state/store";
+import type { SceneSocket } from "../net/socket";
 import type { Tool } from "../types";
+import { SceneMenu } from "./SceneMenu";
 
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Выбор", hint: "ЛКМ - двигать токен, по пустому месту - панорама, Delete - удалить свой токен" },
@@ -8,7 +10,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "erase", label: "Стереть", hint: "Клик по стене - удалить. Красная - твоя, серая - чужая, её не удалить" },
 ];
 
-export function Toolbar() {
+export function Toolbar({ socket }: { socket: SceneSocket }) {
   const { tool, setTool, users, connected, sceneName, chaining } = useUi();
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
@@ -20,6 +22,7 @@ export function Toolbar() {
         <strong>{sceneName || "Сцена"}</strong>
         <span className={connected ? "dot dot-on" : "dot dot-off"} />
         <span className="muted">{connected ? "на связи" : "нет связи"}</span>
+        <SceneMenu socket={socket} />
       </div>
 
       <div className="toolbar-tools">

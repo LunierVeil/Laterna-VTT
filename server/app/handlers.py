@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import dice
+from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
 from .models import Message, Scene, Token, Wall
 
@@ -153,18 +154,34 @@ async def wall_remove(db: AsyncSession, scene: Scene, user: str, payload: dict):
     return "wall.removed", {"id": payload["id"]}
 
 
+_UPLOAD_URL = re.compile(r"/uploads/(?P<name>[0-9a-f]{32}\.(?:png|jpg|webp))")
+
+
 async def scene_update(db: AsyncSession, scene: Scene, user: str, payload: dict):
     if "grid_size" in payload:
         scene.grid_size = int(_clamp(_num(payload, "grid_size"), 10, 400))
     if "name" in payload:
         scene.name = str(payload["name"])[:200]
     if "background_url" in payload:
-        scene.background_url = payload["background_url"]
+        url = payload["background_url"]
+        if url is not None:
+            # Только то, что загружено через /api/uploads. Произвольный URL
+            # заставил бы браузеры всех игроков ходить на чужой сервер.
+            m = _UPLOAD_URL.fullmatch(str(url))
+            if not m or not (UPLOAD_DIR / m.group("name")).is_file():
+                raise CommandError("фон - только загруженная картинка")
+        scene.background_url = url
+    if "width" in payload:
+        scene.width = int(_clamp(_num(payload, "width"), 100, MAX_SCENE_SIDE))
+    if "height" in payload:
+        scene.height = int(_clamp(_num(payload, "height"), 100, MAX_SCENE_SIDE))
     await db.flush()
     return "scene.updated", {
         "grid_size": scene.grid_size,
         "name": scene.name,
         "background_url": scene.background_url,
+        "width": scene.width,
+        "height": scene.height,
     }
 
 

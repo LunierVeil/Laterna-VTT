@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text, FederatedPointerEvent } from "pixi.js";
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Scene, Token, Wall, Tool } from "../types";
 
 const COLORS = {
@@ -58,6 +58,8 @@ export class SceneStage {
   app = new Application();
   private world = new Container();
   private bg = new Graphics();
+  private map = new Sprite();
+  private mapUrl: string | null = null;
   private gridLayer = new Graphics();
   private wallLayer = new Graphics();
   private ghostLayer = new Graphics();
@@ -117,7 +119,9 @@ export class SceneStage {
 
     parent.appendChild(this.app.canvas);
 
-    this.world.addChild(this.bg, this.gridLayer, this.wallLayer, this.ghostLayer, this.tokenLayer);
+    this.map.visible = false;
+
+    this.world.addChild(this.bg, this.map, this.gridLayer, this.wallLayer, this.ghostLayer, this.tokenLayer);
     this.app.stage.addChild(this.world);
 
     this.app.stage.eventMode = "static";
@@ -207,6 +211,7 @@ export class SceneStage {
 
     this.drawBackground();
     this.drawGrid();
+    this.setMap(scene.background_url);
 
     for (const w of scene.walls) this.walls.set(w.id, w);
     this.drawWalls();
@@ -246,10 +251,13 @@ export class SceneStage {
         this.drawWalls();
         break;
       case "scene.updated":
-        if (payload.grid_size) {
-          this.gridSize = payload.grid_size;
-          this.drawGrid();
-        }
+        this.gridSize = payload.grid_size;
+        this.sceneWidth = payload.width;
+        this.sceneHeight = payload.height;
+        this.drawBackground();
+        this.drawGrid();
+        this.drawWalls();
+        this.setMap(payload.background_url);
         break;
     }
   }
@@ -346,6 +354,32 @@ export class SceneStage {
   private drawBackground() {
     this.bg.clear();
     this.bg.rect(0, 0, this.sceneWidth, this.sceneHeight).fill({ color: COLORS.sceneFill });
+    // Карта растягивается на всю сцену: размер сцены и так берётся из картинки.
+    this.map.width = this.sceneWidth;
+    this.map.height = this.sceneHeight;
+  }
+
+  /**
+   * Подложка сцены. Грузится асинхронно, поэтому проверяем, что за время
+   * загрузки фон не сменили ещё раз и стейдж не разрушили - иначе старая
+   * картинка, догрузившись позже, перетрёт новую.
+   */
+  private setMap(url: string | null) {
+    if (url === this.mapUrl) return;
+    this.mapUrl = url;
+    if (!url) {
+      this.map.texture = Texture.EMPTY;
+      this.map.visible = false;
+      return;
+    }
+    Assets.load<Texture>(url)
+      .then((tex) => {
+        if (this.destroyed || this.mapUrl !== url) return;
+        this.map.texture = tex;
+        this.map.visible = true;
+        this.drawBackground();
+      })
+      .catch((e) => console.error("не удалось загрузить карту", url, e));
   }
 
   private drawGrid() {

@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 venv/
 *.db
+server/uploads/
 
 # Node
 node_modules/
