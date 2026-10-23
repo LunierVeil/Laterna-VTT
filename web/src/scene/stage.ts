@@ -101,6 +101,11 @@ export class SceneStage {
     private me: string,
   ) {}
 
+  /** То же правило, что _require_owner на сервере: своё, общее или ГМ. */
+  private canEdit(owner: string | null) {
+    return this.gm || owner === null || owner === this.me;
+  }
+
   setGm(gm: boolean) {
     if (this.destroyed) return;
     this.gm = gm;
@@ -443,7 +448,7 @@ export class SceneStage {
       return;
     }
     // Чужую тоже подсвечиваем, но блёклым ореолом: клик по ней сервер отклонит.
-    const mine = this.gm || w.owner === null || w.owner === this.me;
+    const mine = this.canEdit(w.owner);
     g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
     if (mine) g.stroke({ width: 8, color: COLORS.eraseOwn, alpha: 0.9 });
     else g.stroke({ width: 14, color: COLORS.eraseForeign, alpha: 0.35 });
@@ -499,6 +504,10 @@ export class SceneStage {
     if (this.tool !== "select") return;
     e.stopPropagation();
     this.select(view.data.id);
+    // Чужой токен выбрать можно (посмотреть), тащить - нет: сервер всё
+    // равно откажет, и токен отскочил бы назад. Решает сервер, это - чтобы
+    // не дёргать картинку зря.
+    if (!this.canEdit(view.data.owner)) return;
     const p = this.toScene(e);
     this.dragging = {
       view,

@@ -84,23 +84,33 @@ async def main() -> int:
         await recv_until(player, lambda m: m.get("name") == "wall.added")
         print("wall.added ok")
 
-        # 3. Движение сквозь стену должно быть отклонено
-        await player.send(json.dumps({
+        # 3. Движение сквозь стену должно быть отклонено (двигает владелец)
+        await gm.send(json.dumps({
             "type": "cmd", "id": "c3", "name": "token.move",
             "payload": {"id": token_id, "x": 300, "y": 100},
         }))
-        err = await recv_until(player, lambda m: m.get("type") == "error")
+        err = await recv_until(gm, lambda m: m.get("type") == "error")
         assert err["cmd_id"] == "c3", err
+        assert "стена" in err["message"], err
         print(f"движение сквозь стену отклонено: {err['message']}")
 
-        # 4. Движение вдоль стены должно пройти
-        await player.send(json.dumps({
+        # 4. Движение вдоль стены должно пройти, и его видит второй клиент
+        await gm.send(json.dumps({
             "type": "cmd", "id": "c4", "name": "token.move",
             "payload": {"id": token_id, "x": 150, "y": 250},
         }))
         ev = await recv_until(player, lambda m: m.get("name") == "token.moved")
         assert ev["payload"]["x"] == 150
         print("легальное движение ok")
+
+        # 4б. Чужой токен игрок не двигает
+        await player.send(json.dumps({
+            "type": "cmd", "id": "c4b", "name": "token.move",
+            "payload": {"id": token_id, "x": 150, "y": 320},
+        }))
+        err = await recv_until(player, lambda m: m.get("type") == "error")
+        assert err["cmd_id"] == "c4b", err
+        print(f"чужой токен не двигается: {err['message']}")
 
         # 5. Бросок кубов на сервере
         await gm.send(json.dumps({

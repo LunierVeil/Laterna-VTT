@@ -82,6 +82,8 @@ async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict
     token = await db.get(Token, token_id) if token_id else None
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
+    # Своего персонажа двигает игрок, чужого - только ГМ.
+    _require_owner(token, actor, "нельзя двигать чужой токен")
 
     nx = _clamp(_num(payload, "x"), 0, scene.width)
     ny = _clamp(_num(payload, "y"), 0, scene.height)
