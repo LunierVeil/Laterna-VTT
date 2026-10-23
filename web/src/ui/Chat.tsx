@@ -2,19 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { Message } from "../types";
+import { DicePanel } from "./DicePanel";
 
 function RollLine({ m }: { m: Message }) {
   if (!m.roll) return null;
   const parts = m.roll.terms.map((t, i) => {
     if (t.kind === "flat") return <span key={i} className="term-flat">{t.sign < 0 ? "-" : "+"}{t.value}</span>;
+    const sides = Number(/d(\d+)/i.exec(t.text)?.[1] ?? 0);
+    // kept - мультимножество, а не набор значений: при 4d6kh3 и [2,6,1,1]
+    // зачёркнута должна быть ровно одна единица, а не ни одной.
+    const left = [...t.kept];
     return (
       <span key={i} className="term-dice">
         {i > 0 && (t.sign < 0 ? "-" : "+")}
-        {t.rolls.map((r, j) => (
-          <b key={j} className={t.kept.includes(r) ? "die" : "die die-dropped"}>
-            {r}
-          </b>
-        ))}
+        {t.rolls.map((r, j) => {
+          const k = left.indexOf(r);
+          if (k >= 0) left.splice(k, 1);
+          let cls = "die";
+          if (k < 0) cls += " die-dropped";
+          else if (r === sides) cls += " die-max";
+          else if (r === 1) cls += " die-min";
+          return (
+            <b key={j} className={cls}>
+              {r}
+            </b>
+          );
+        })}
       </span>
     );
   });
@@ -57,6 +70,7 @@ export function Chat({ socket }: { socket: SceneSocket }) {
         ))}
         <div ref={bottom} />
       </div>
+      <DicePanel socket={socket} />
       <form className="chat-input" onSubmit={send}>
         <input
           value={text}
