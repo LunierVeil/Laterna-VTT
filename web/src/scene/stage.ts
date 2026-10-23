@@ -20,7 +20,12 @@ export interface StageCallbacks {
   /** Возвращает id отправленной команды - по нему стейдж узнаёт свои стены. */
   onAddWall: (x1: number, y1: number, x2: number, y2: number) => string;
   onRemoveWall: (id: string) => void;
-  onSelect: (id: string | null) => void;
+  /**
+   * Выбранный токен для панели свойств. Зовётся при выборе и при
+   * token.updated выбранного, но не при перемещении - иначе драг
+   * потащит за собой ререндер React.
+   */
+  onSelect: (token: Token | null) => void;
   /** Рисуется ли сейчас цепочка стен - для подсказки в интерфейсе. */
   onChainChange: (active: boolean) => void;
 }
@@ -183,6 +188,10 @@ export class SceneStage {
     for (const w of scene.walls) this.walls.set(w.id, w);
     this.drawWalls();
     for (const t of scene.tokens) this.addToken(t);
+
+    // После переподключения выбранный токен мог исчезнуть или измениться.
+    const sel = this.selectedId;
+    this.select(sel && this.tokens.has(sel) ? sel : null);
   }
 
   applyEvent(name: string, payload: any, cmdId?: string | null) {
@@ -255,6 +264,7 @@ export class SceneStage {
     view.data = data;
     view.label.text = data.name;
     this.redrawToken(view);
+    if (this.selectedId === data.id) this.cb.onSelect(data);
   }
 
   private removeToken(id: string) {
@@ -301,7 +311,7 @@ export class SceneStage {
       const v = this.tokens.get(id);
       if (v) this.redrawToken(v);
     }
-    this.cb.onSelect(id);
+    this.cb.onSelect(id ? (this.tokens.get(id)?.data ?? null) : null);
   }
 
   get selected(): string | null {

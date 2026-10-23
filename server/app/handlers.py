@@ -11,6 +11,7 @@ seq и рассылка - снаружи, в main.py, под локом сцен
 from __future__ import annotations
 
 import json
+import re
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,13 @@ def _num(payload: dict, key: str, default=None) -> float:
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
+
+
+def _require_owner(token: Token, user: str, message: str) -> None:
+    # Менять и удалять можно только свой токен. Чужой - отдельная механика
+    # с правами (ГМ), её пока нет. Токен без владельца - общий.
+    if token.owner is not None and token.owner != user:
+        raise CommandError(message)
 
 
 async def token_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
@@ -77,7 +85,19 @@ async def token_update(db: AsyncSession, scene: Scene, user: str, payload: dict)
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
-    for field in ("name", "color", "image_url", "owner"):
+    # Без этой проверки чужой игрок переписал бы owner на себя и удалил токен.
+    _require_owner(token, user, "нельзя менять чужой токен")
+    if "name" in payload:
+        name = str(payload["name"] or "").strip()
+        if not name:
+            raise CommandError("пустое имя")
+        token.name = name[:200]
+    if "color" in payload:
+        color = str(payload["color"])
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+            raise CommandError("цвет должен быть вида #rrggbb")
+        token.color = color.lower()
+    for field in ("image_url", "owner"):
         if field in payload:
             setattr(token, field, payload[field])
     if "size" in payload:
@@ -90,10 +110,7 @@ async def token_remove(db: AsyncSession, scene: Scene, user: str, payload: dict)
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
-    # Удалять можно только свой токен. Удаление чужого - отдельная
-    # механика с правами (ГМ), её пока нет.
-    if token.owner is not None and token.owner != user:
-        raise CommandError("нельзя удалить чужой токен")
+    _require_owner(token, user, "нельзя удалить чужой токен")
     await db.delete(token)
     await db.flush()
     return "token.removed", {"id": payload["id"]}

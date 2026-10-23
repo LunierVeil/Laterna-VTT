@@ -4,6 +4,7 @@ import { SceneView } from "./scene/SceneView";
 import type { SceneStage } from "./scene/stage";
 import { Toolbar } from "./ui/Toolbar";
 import { Chat } from "./ui/Chat";
+import { TokenPanel } from "./ui/TokenPanel";
 import { useUi } from "./state/store";
 import type { Scene } from "./types";
 
@@ -115,7 +116,10 @@ export default function App() {
     <div className="app">
       <Toolbar />
       <main>
-        <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
+        <div className="scene-area">
+          <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
+          <TokenPanel socket={socket} />
+        </div>
         <Chat socket={socket} />
       </main>
       {error && <div className="toast">{error}</div>}

@@ -37,7 +37,10 @@ export function SceneView({
       onRemoveWall: (id) => {
         socket.send("wall.remove", { id });
       },
-      onSelect: () => {},
+      onSelect: (t) =>
+        useUi
+          .getState()
+          .setSelected(t ? { id: t.id, name: t.name, color: t.color, owner: t.owner } : null),
       onChainChange: (active) => useUi.getState().setChaining(active),
     });
 
