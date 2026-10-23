@@ -31,6 +31,7 @@ Message            чат и броски
 | `blocks_sound` | на будущее |
 | `kind` | `wall` / `door` / `secret_door` / `window` / `invisible` |
 | `door_state` | `closed` / `open` / `locked` |
+| `owner` | кто поставил; удалить может только он. `null` - общая стена |
 
 Сегодня работает только `blocks_movement`. Остальное лежит в БД и ждёт этапа освещения.
 

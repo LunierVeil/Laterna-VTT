@@ -39,10 +39,10 @@ def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def _require_owner(token: Token, user: str, message: str) -> None:
-    # Менять и удалять можно только свой токен. Чужой - отдельная механика
-    # с правами (ГМ), её пока нет. Токен без владельца - общий.
-    if token.owner is not None and token.owner != user:
+def _require_owner(obj: Token | Wall, user: str, message: str) -> None:
+    # Менять и удалять можно только своё. Чужое - отдельная механика
+    # с правами (ГМ), её пока нет. Объект без владельца - общий.
+    if obj.owner is not None and obj.owner != user:
         raise CommandError(message)
 
 
@@ -128,6 +128,7 @@ async def wall_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
         blocks_movement=bool(payload.get("blocks_movement", True)),
         blocks_sight=bool(payload.get("blocks_sight", True)),
         blocks_sound=bool(payload.get("blocks_sound", False)),
+        owner=user,
     )
     if (wall.x1, wall.y1) == (wall.x2, wall.y2):
         raise CommandError("стена нулевой длины")
@@ -140,6 +141,7 @@ async def wall_remove(db: AsyncSession, scene: Scene, user: str, payload: dict):
     wall = await db.get(Wall, payload.get("id"))
     if wall is None or wall.scene_id != scene.id:
         raise CommandError("стена не найдена")
+    _require_owner(wall, user, "нельзя удалить чужую стену")
     await db.delete(wall)
     await db.flush()
     return "wall.removed", {"id": payload["id"]}

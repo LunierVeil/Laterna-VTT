@@ -126,6 +126,9 @@ class Wall(Base):
     blocks_sight: Mapped[bool] = mapped_column(Boolean, default=True)
     blocks_sound: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Кто поставил. Удалять можно только свою стену; без владельца - общая.
+    owner: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     scene: Mapped[Scene] = relationship(back_populates="walls")
 
     def to_dict(self) -> dict:
@@ -140,6 +143,7 @@ class Wall(Base):
             "blocks_movement": self.blocks_movement,
             "blocks_sight": self.blocks_sight,
             "blocks_sound": self.blocks_sound,
+            "owner": self.owner,
         }
 
 

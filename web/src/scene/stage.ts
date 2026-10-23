@@ -11,7 +11,18 @@ const COLORS = {
   wallGhost: 0xffb562,
   selection: 0xffd166,
   label: 0xe8e8ec,
+  eraseOwn: 0xe0605a,
+  eraseForeign: 0x8b90a0,
 };
+
+/** Расстояние от точки до отрезка стены. */
+function distToWall(p: { x: number; y: number }, w: Wall): number {
+  const dx = w.x2 - w.x1;
+  const dy = w.y2 - w.y1;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 ? Math.max(0, Math.min(1, ((p.x - w.x1) * dx + (p.y - w.y1) * dy) / len2)) : 0;
+  return Math.hypot(p.x - (w.x1 + t * dx), p.y - (w.y1 + t * dy));
+}
 
 export interface StageCallbacks {
   onMoveToken: (id: string, x: number, y: number, prev: { x: number; y: number }) => void;
@@ -73,7 +84,11 @@ export class SceneStage {
   private myWallCmds = new Set<string>();
   private myWalls: string[] = [];
 
-  constructor(private cb: StageCallbacks) {}
+  /** me - имя этого клиента: подсветка в режиме стирания различает свои и чужие стены. */
+  constructor(
+    private cb: StageCallbacks,
+    private me: string,
+  ) {}
 
   async mount(parent: HTMLElement) {
     await this.app.init({
@@ -147,6 +162,8 @@ export class SceneStage {
     if (this.destroyed) return;
     this.tool = tool;
     this.endChain();
+    this.setCursor("default");
+    if (tool === "erase") this.updateEraseHover();
   }
 
   /** Закончить цепочку стен, не выходя из инструмента. */
@@ -348,6 +365,49 @@ export class SceneStage {
       g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
       g.stroke({ width: 4, color: isDoor ? COLORS.door : COLORS.wall, alpha: 0.9 });
     }
+    // Стену под курсором могли удалить или добавить рядом новую.
+    if (this.tool === "erase") this.updateEraseHover();
+  }
+
+  // --- стирание стен --------------------------------------------------
+
+  /** Ближайшая стена в пределах нескольких экранных пикселей от точки. */
+  private wallAt(p: { x: number; y: number }): Wall | null {
+    let best: Wall | null = null;
+    let bestDist = 8 / this.world.scale.x;
+    for (const w of this.walls.values()) {
+      const d = distToWall(p, w);
+      if (d <= bestDist) {
+        best = w;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  private updateEraseHover() {
+    const g = this.ghostLayer;
+    g.clear();
+    const w = this.wallAt(this.pointerScene);
+    if (!w) {
+      this.setCursor("default");
+      return;
+    }
+    // Чужую тоже подсвечиваем, но блёклым ореолом: клик по ней сервер отклонит.
+    const mine = w.owner === null || w.owner === this.me;
+    g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
+    if (mine) g.stroke({ width: 8, color: COLORS.eraseOwn, alpha: 0.9 });
+    else g.stroke({ width: 14, color: COLORS.eraseForeign, alpha: 0.35 });
+    this.setCursor(mine ? "pointer" : "not-allowed");
+  }
+
+  /**
+   * PixiJS применяет stage.cursor только на следующем движении мыши.
+   * Когда стена исчезла под неподвижным курсором, ставим его сразу.
+   */
+  private setCursor(cursor: string) {
+    this.app.stage.cursor = cursor;
+    this.app.canvas.style.cursor = cursor === "default" ? "inherit" : cursor;
   }
 
   private drawGhostWall() {
@@ -394,7 +454,17 @@ export class SceneStage {
       return;
     }
 
-    if (e.button === 1 || e.button === 2 || this.tool === "select") {
+    if (this.tool === "erase" && e.button === 0) {
+      const wall = this.wallAt(p);
+      if (wall) {
+        // Не оптимистично: стена пропадёт по wall.removed, сервер может отказать.
+        this.cb.onRemoveWall(wall.id);
+        return;
+      }
+      // Мимо стен - панорама, как в режиме выбора.
+    }
+
+    if (e.button === 1 || e.button === 2 || this.tool === "select" || this.tool === "erase") {
       if (this.tool === "select" && e.button === 0) this.select(null);
       this.panning = {
         startX: e.global.x,
@@ -471,6 +541,7 @@ export class SceneStage {
     }
 
     if (this.tool === "wall" && this.wallStart) this.drawGhostWall();
+    if (this.tool === "erase") this.updateEraseHover();
   };
 
   private onPointerUp = () => {

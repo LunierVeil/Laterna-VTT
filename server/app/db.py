@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -20,6 +21,21 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_check_columns)
+
+
+def _check_columns(conn) -> None:
+    # create_all не добавляет колонки в существующие таблицы. Без этой
+    # проверки старая база падает на первом запросе с "no such column".
+    insp = inspect(conn)
+    for table in Base.metadata.sorted_tables:
+        have = {c["name"] for c in insp.get_columns(table.name)}
+        missing = [c.name for c in table.columns if c.name not in have]
+        if missing:
+            raise RuntimeError(
+                f"в таблице {table.name} нет колонок {missing}: схема новее базы. "
+                "Миграций пока нет - пересоздай базу (./dev.sh reset)."
+            )
 
 
 async def get_session() -> AsyncSession:

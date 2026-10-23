@@ -23,6 +23,7 @@ export interface Wall {
   blocks_movement: boolean;
   blocks_sight: boolean;
   blocks_sound: boolean;
+  owner: string | null;
 }
 
 export interface RollTerm {
@@ -69,4 +70,4 @@ export type ServerMessage =
   | { type: "error"; message: string; cmd_id: string | null }
   | { type: "presence"; users: string[] };
 
-export type Tool = "select" | "wall" | "token";
+export type Tool = "select" | "wall" | "token" | "erase";

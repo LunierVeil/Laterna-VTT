@@ -42,7 +42,7 @@ export function SceneView({
           .getState()
           .setSelected(t ? { id: t.id, name: t.name, color: t.color, owner: t.owner } : null),
       onChainChange: (active) => useUi.getState().setChaining(active),
-    });
+    }, useUi.getState().user);
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
     // В StrictMode эффект отрабатывает дважды, поэтому нужен свой флаг:

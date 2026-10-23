@@ -5,6 +5,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Выбор", hint: "ЛКМ - двигать токен, по пустому месту - панорама, Delete - удалить свой токен" },
   { id: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену" },
+  { id: "erase", label: "Стереть", hint: "Клик по стене - удалить. Красная - твоя, серая - чужая, её не удалить" },
 ];
 
 export function Toolbar() {
