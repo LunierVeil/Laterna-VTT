@@ -32,7 +32,17 @@ docker compose up --build
 
 Фронт: http://localhost:5173, API: http://localhost:8000
 
-### без docker
+### без docker, одной командой
+
+```
+./dev.sh          # сервер + фронт, Ctrl+C гасит оба
+./dev.sh reset    # с чистой базой
+./dev.sh check    # тайпчек + smoke_test при живом сервере
+```
+
+Ручные проверки после изменений - в CHECKLIST.md.
+
+### без docker, вручную
 
 Бэкенд (SQLite, никакой настройки):
 
