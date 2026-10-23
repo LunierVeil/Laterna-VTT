@@ -101,7 +101,13 @@ async def token_update(db: AsyncSession, scene: Scene, user: str, payload: dict)
         if field in payload:
             setattr(token, field, payload[field])
     if "size" in payload:
-        token.size = _clamp(float(payload["size"]), 0.25, 10)
+        size = _clamp(_num(payload, "size"), 0.25, 10)
+        # Держим на месте левый верхний угол, а не центр: иначе токен 2x2
+        # встанет центром в клетку и съедет с сетки на полклетки.
+        shift = (size - token.size) * scene.grid_size / 2
+        token.x = _clamp(token.x + shift, 0, scene.width)
+        token.y = _clamp(token.y + shift, 0, scene.height)
+        token.size = size
     await db.flush()
     return "token.updated", {"token": token.to_dict()}
 

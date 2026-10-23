@@ -73,7 +73,13 @@ export class SceneStage {
   private tool: Tool = "select";
   private selectedId: string | null = null;
 
-  private dragging: { view: TokenView; from: { x: number; y: number } } | null = null;
+  // grab - где внутри токена его взяли, чтобы большой токен не прыгал
+  // центром под курсор.
+  private dragging: {
+    view: TokenView;
+    from: { x: number; y: number };
+    grab: { x: number; y: number };
+  } | null = null;
   private panning: { startX: number; startY: number; origX: number; origY: number } | null = null;
   private wallStart: { x: number; y: number } | null = null;
   private pointerScene = { x: 0, y: 0 };
@@ -422,9 +428,17 @@ export class SceneStage {
 
   // --- привязка к сетке -----------------------------------------------
 
-  private snapCenter(p: { x: number; y: number }) {
+  /**
+   * Центр токена размера size, привязанный к сетке. Нечётные размеры
+   * встают центром в клетку, чётные - на пересечение линий.
+   */
+  private snapToken(p: { x: number; y: number }, size: number) {
     const g = this.gridSize;
-    return { x: Math.floor(p.x / g) * g + g / 2, y: Math.floor(p.y / g) * g + g / 2 };
+    const half = (size * g) / 2;
+    return {
+      x: Math.round((p.x - half) / g) * g + half,
+      y: Math.round((p.y - half) / g) * g + half,
+    };
   }
 
   private snapCorner(p: { x: number; y: number }) {
@@ -442,7 +456,12 @@ export class SceneStage {
     if (this.tool !== "select") return;
     e.stopPropagation();
     this.select(view.data.id);
-    this.dragging = { view, from: { x: view.data.x, y: view.data.y } };
+    const p = this.toScene(e);
+    this.dragging = {
+      view,
+      from: { x: view.data.x, y: view.data.y },
+      grab: { x: p.x - view.data.x, y: p.y - view.data.y },
+    };
   };
 
   private onBackgroundDown = (e: FederatedPointerEvent) => {
@@ -476,7 +495,7 @@ export class SceneStage {
     }
 
     if (this.tool === "token" && e.button === 0) {
-      const c = this.snapCenter(p);
+      const c = this.snapToken(p, 1);
       this.cb.onAddToken(c.x, c.y);
       return;
     }
@@ -535,8 +554,12 @@ export class SceneStage {
     }
 
     if (this.dragging) {
-      const c = this.snapCenter(this.pointerScene);
-      this.dragging.view.node.position.set(c.x, c.y);
+      const { view, grab } = this.dragging;
+      const c = this.snapToken(
+        { x: this.pointerScene.x - grab.x, y: this.pointerScene.y - grab.y },
+        view.data.size,
+      );
+      view.node.position.set(c.x, c.y);
       return;
     }
 

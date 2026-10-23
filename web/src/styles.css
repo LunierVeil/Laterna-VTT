@@ -41,6 +41,8 @@ main { display: flex; flex: 1; min-height: 0; }
   border: 2px solid transparent; border-radius: 50%;
 }
 .swatch-active { border-color: var(--text); }
+.sizes { display: flex; gap: 4px; }
+.sizes .tool { flex: 1; padding: 4px 0; font-size: 12px; }
 /* Свой цвет: пунктирный "+", настоящий input[type=color] прозрачно поверх. */
 .swatch-custom {
   position: relative; display: grid; place-items: center;

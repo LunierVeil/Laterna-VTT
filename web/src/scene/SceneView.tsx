@@ -40,7 +40,7 @@ export function SceneView({
       onSelect: (t) =>
         useUi
           .getState()
-          .setSelected(t ? { id: t.id, name: t.name, color: t.color, owner: t.owner } : null),
+          .setSelected(t ? { id: t.id, name: t.name, color: t.color, owner: t.owner, size: t.size } : null),
       onChainChange: (active) => useUi.getState().setChaining(active),
     }, useUi.getState().user);
 

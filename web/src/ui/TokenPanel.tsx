@@ -7,6 +7,12 @@ const PALETTE = [
   "#5b8fd6", "#8a6fd1", "#c46fb0", "#8b8f99", "#e8e8ec",
 ];
 
+const SIZES = [
+  { size: 1, label: "Средний", hint: "1×1" },
+  { size: 2, label: "Большой", hint: "2×2" },
+  { size: 3, label: "Огромный", hint: "3×3" },
+];
+
 /**
  * Свойства выбранного токена. Ничего не меняет сама - шлёт token.update
  * и показывает то, что пришло обратно от сервера.
@@ -132,6 +138,19 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
           +
           <input ref={picker} type="color" className="swatch-picker" defaultValue={token.color} />
         </label>
+      </div>
+      <div className="sizes">
+        {SIZES.map((s) => (
+          <button
+            key={s.size}
+            type="button"
+            title={s.hint}
+            className={s.size === token.size ? "tool tool-active" : "tool"}
+            onClick={() => s.size !== token.size && socket.send("token.update", { id: token.id, size: s.size })}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
     </>
   );

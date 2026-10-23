@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Message, Token, Tool } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
-export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner">;
+export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner" | "size">;
 
 interface UiState {
   user: string;
@@ -34,7 +34,7 @@ interface UiState {
  * Гонять каждое перемещение токена через React-стейт означает ререндер
  * на каждый кадр драга.
  *
- * Исключение - selected: имя, цвет и владелец выбранного токена для
+ * Исключение - selected: имя, цвет, размер и владелец выбранного токена для
  * панели свойств. Обновляется только при выборе и token.updated.
  */
 export const useUi = create<UiState>((set) => ({
