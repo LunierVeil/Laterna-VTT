@@ -20,12 +20,16 @@ const SIZES = [
 export function TokenPanel({ socket }: { socket: SceneSocket }) {
   const selected = useUi((s) => s.selected);
   const user = useUi((s) => s.user);
+  const isGm = useUi((s) => s.isGm);
   if (!selected) return null;
 
   const mine = selected.owner === null || selected.owner === user;
+  // ГМ правит любой токен, но видит, чей он.
+  const editable = mine || isGm;
   return (
     <div className="token-panel">
-      {mine ? (
+      {!mine && isGm && <div className="muted">токен игрока {selected.owner}</div>}
+      {editable ? (
         <TokenEditor key={selected.id} token={selected} socket={socket} />
       ) : (
         <>

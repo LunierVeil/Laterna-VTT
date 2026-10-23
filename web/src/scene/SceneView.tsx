@@ -14,6 +14,7 @@ export function SceneView({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const tool = useUi((s) => s.tool);
+  const isGm = useUi((s) => s.isGm);
 
   useEffect(() => {
     const stage = new SceneStage({
@@ -56,6 +57,7 @@ export function SceneView({
         if (cancelled || !stage.isAlive) return;
         stageRef.current = stage;
         stage.setTool(useUi.getState().tool);
+        stage.setGm(useUi.getState().isGm);
         onReady(stage);
       })
       .catch((e) => console.error("не удалось поднять сцену", e));
@@ -70,6 +72,10 @@ export function SceneView({
   useEffect(() => {
     stageRef.current?.setTool(tool);
   }, [tool, stageRef]);
+
+  useEffect(() => {
+    stageRef.current?.setGm(isGm);
+  }, [isGm, stageRef]);
 
   return <div className="scene" ref={host} />;
 }

@@ -92,11 +92,20 @@ export class SceneStage {
   private myWallCmds = new Set<string>();
   private myWalls: string[] = [];
 
+  // ГМ может стирать любые стены. Решает сервер, это только для подсветки.
+  private gm = false;
+
   /** me - имя этого клиента: подсветка в режиме стирания различает свои и чужие стены. */
   constructor(
     private cb: StageCallbacks,
     private me: string,
   ) {}
+
+  setGm(gm: boolean) {
+    if (this.destroyed) return;
+    this.gm = gm;
+    if (this.tool === "erase") this.updateEraseHover();
+  }
 
   async mount(parent: HTMLElement) {
     await this.app.init({
@@ -434,7 +443,7 @@ export class SceneStage {
       return;
     }
     // Чужую тоже подсвечиваем, но блёклым ореолом: клик по ней сервер отклонит.
-    const mine = w.owner === null || w.owner === this.me;
+    const mine = this.gm || w.owner === null || w.owner === this.me;
     g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
     if (mine) g.stroke({ width: 8, color: COLORS.eraseOwn, alpha: 0.9 });
     else g.stroke({ width: 14, color: COLORS.eraseForeign, alpha: 0.35 });

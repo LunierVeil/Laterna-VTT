@@ -50,8 +50,10 @@ def _require_gm(actor: Actor) -> None:
 
 
 def _require_owner(obj: Token | Wall, actor: Actor, message: str) -> None:
-    # Менять и удалять можно только своё. Чужое - отдельная механика
-    # с правами (ГМ), её пока нет. Объект без владельца - общий.
+    # Своё может менять владелец, чужое - только ГМ: он ведёт партию и
+    # убирает за всеми. Объект без владельца - общий.
+    if actor.is_gm:
+        return
     if obj.owner is not None and obj.owner != actor.name:
         raise CommandError(message)
 
