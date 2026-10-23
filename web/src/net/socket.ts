@@ -30,6 +30,7 @@ export class SceneSocket {
   connect() {
     this.closedByUs = false;
     const proto = location.protocol === "https:" ? "wss" : "ws";
+    // Ключ ГМ сюда не добавляем: он едет в cookie, адрес сокета попадает в логи.
     const url = `${proto}://${location.host}/ws/scene/${this.sceneId}?user=${encodeURIComponent(this.user)}`;
     const ws = new WebSocket(url);
     this.ws = ws;

@@ -20,6 +20,7 @@ from . import dice
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
 from .models import Message, Scene, Token, Wall
+from .roles import Actor
 
 
 class CommandError(Exception):
@@ -40,14 +41,14 @@ def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def _require_owner(obj: Token | Wall, user: str, message: str) -> None:
+def _require_owner(obj: Token | Wall, actor: Actor, message: str) -> None:
     # Менять и удалять можно только своё. Чужое - отдельная механика
     # с правами (ГМ), её пока нет. Объект без владельца - общий.
-    if obj.owner is not None and obj.owner != user:
+    if obj.owner is not None and obj.owner != actor.name:
         raise CommandError(message)
 
 
-async def token_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     token = Token(
         scene_id=scene.id,
         name=str(payload.get("name") or "Токен")[:200],
@@ -57,14 +58,16 @@ async def token_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
         color=str(payload.get("color") or "#c75c5c")[:20],
         image_url=payload.get("image_url"),
         layer="gm" if payload.get("layer") == "gm" else "tokens",
-        owner=payload.get("owner") or user,
+        # Чужое имя владельцем может поставить только ГМ: иначе игрок
+        # создавал бы токены от имени другого.
+        owner=(payload.get("owner") if actor.is_gm else None) or actor.name,
     )
     db.add(token)
     await db.flush()
     return "token.added", {"token": token.to_dict()}
 
 
-async def token_move(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     token_id = payload.get("id")
     token = await db.get(Token, token_id) if token_id else None
     if token is None or token.scene_id != scene.id:
@@ -82,12 +85,12 @@ async def token_move(db: AsyncSession, scene: Scene, user: str, payload: dict):
     return "token.moved", {"id": token.id, "x": token.x, "y": token.y}
 
 
-async def token_update(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
     # Без этой проверки чужой игрок переписал бы owner на себя и удалил токен.
-    _require_owner(token, user, "нельзя менять чужой токен")
+    _require_owner(token, actor, "нельзя менять чужой токен")
     if "name" in payload:
         name = str(payload["name"] or "").strip()
         if not name:
@@ -113,17 +116,17 @@ async def token_update(db: AsyncSession, scene: Scene, user: str, payload: dict)
     return "token.updated", {"token": token.to_dict()}
 
 
-async def token_remove(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
-    _require_owner(token, user, "нельзя удалить чужой токен")
+    _require_owner(token, actor, "нельзя удалить чужой токен")
     await db.delete(token)
     await db.flush()
     return "token.removed", {"id": payload["id"]}
 
 
-async def wall_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     wall = Wall(
         scene_id=scene.id,
         x1=_num(payload, "x1"),
@@ -135,7 +138,7 @@ async def wall_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
         blocks_movement=bool(payload.get("blocks_movement", True)),
         blocks_sight=bool(payload.get("blocks_sight", True)),
         blocks_sound=bool(payload.get("blocks_sound", False)),
-        owner=user,
+        owner=actor.name,
     )
     if (wall.x1, wall.y1) == (wall.x2, wall.y2):
         raise CommandError("стена нулевой длины")
@@ -144,11 +147,11 @@ async def wall_add(db: AsyncSession, scene: Scene, user: str, payload: dict):
     return "wall.added", {"wall": wall.to_dict()}
 
 
-async def wall_remove(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def wall_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     wall = await db.get(Wall, payload.get("id"))
     if wall is None or wall.scene_id != scene.id:
         raise CommandError("стена не найдена")
-    _require_owner(wall, user, "нельзя удалить чужую стену")
+    _require_owner(wall, actor, "нельзя удалить чужую стену")
     await db.delete(wall)
     await db.flush()
     return "wall.removed", {"id": payload["id"]}
@@ -157,7 +160,9 @@ async def wall_remove(db: AsyncSession, scene: Scene, user: str, payload: dict):
 _UPLOAD_URL = re.compile(r"/uploads/(?P<name>[0-9a-f]{32}\.(?:png|jpg|webp))")
 
 
-async def scene_update(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    if not actor.is_gm:
+        raise CommandError("сцену меняет только ГМ")
     if "grid_size" in payload:
         scene.grid_size = int(_clamp(_num(payload, "grid_size"), 10, 400))
     if "name" in payload:
@@ -185,7 +190,7 @@ async def scene_update(db: AsyncSession, scene: Scene, user: str, payload: dict)
     }
 
 
-async def chat_say(db: AsyncSession, scene: Scene, user: str, payload: dict):
+async def chat_say(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     text = str(payload.get("text") or "").strip()
     if not text:
         raise CommandError("пустое сообщение")
@@ -200,13 +205,13 @@ async def chat_say(db: AsyncSession, scene: Scene, user: str, payload: dict):
             raise CommandError(str(exc))
         message = Message(
             scene_id=scene.id,
-            author=user,
+            author=actor.name,
             text=formula,
             kind="roll",
             roll_json=json.dumps(result.to_dict(), ensure_ascii=False),
         )
     else:
-        message = Message(scene_id=scene.id, author=user, text=text, kind="text")
+        message = Message(scene_id=scene.id, author=actor.name, text=text, kind="text")
 
     db.add(message)
     await db.flush()

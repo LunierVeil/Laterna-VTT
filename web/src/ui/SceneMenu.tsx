@@ -56,6 +56,7 @@ export function SceneMenu({ socket }: { socket: SceneSocket }) {
         return fail(`карта ${width}×${height}, максимум ${MAX_SIDE} по стороне - уменьши`);
       }
 
+      // Ключ ГМ уходит cookie, сервер проверяет его сам.
       const res = await fetch("/api/uploads", { method: "POST", body: f });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) return fail(body.detail || `загрузка не удалась (${res.status})`);

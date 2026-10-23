@@ -30,8 +30,10 @@ def event(name: str, seq: int, payload: dict, cmd_id: str | None = None) -> dict
     }
 
 
-def snapshot(seq: int, scene: dict) -> dict:
-    return {"type": "snapshot", "seq": seq, "scene": scene}
+def snapshot(seq: int, scene: dict, you: dict) -> dict:
+    # you - кем сервер считает этого клиента. Интерфейсу нужно знать,
+    # показывать ли инструменты ГМ; права всё равно проверяет сервер.
+    return {"type": "snapshot", "seq": seq, "scene": scene, "you": you}
 
 
 def error(message: str, cmd_id: str | None = None) -> dict:

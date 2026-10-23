@@ -62,9 +62,10 @@ main { display: flex; flex: 1; min-height: 0; }
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
-.toolbar-left { display: flex; align-items: center; gap: 8px; }
+.toolbar-left { display: flex; align-items: center; gap: 8px; flex: none; white-space: nowrap; }
 .toolbar-tools { display: flex; gap: 6px; }
-.toolbar-right { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+.toolbar-right { margin-left: auto; display: flex; gap: 14px; align-items: center; min-width: 0; }
+.toolbar-right .hint, .toolbar-right .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .tool {
   background: #22252e; color: var(--text);
@@ -74,6 +75,10 @@ main { display: flex; flex: 1; min-height: 0; }
 .tool:hover { border-color: #3c4152; }
 .tool-active { border-color: var(--accent); color: var(--accent); }
 
+.gm-badge {
+  font-size: 11px; font-weight: 700; color: #1a1a1a; background: var(--accent);
+  border-radius: 4px; padding: 1px 6px;
+}
 .tool:disabled { opacity: 0.5; cursor: default; }
 
 /* scene menu */

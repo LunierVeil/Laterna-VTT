@@ -82,8 +82,8 @@ for _ in $(seq 50); do port_busy 8000 && break; sleep 0.2; done
 (cd "$ROOT/web" && npm run dev --silent) &
 
 echo
-echo "  Игрок 1: http://localhost:5173"
-echo "  Игрок 2: http://127.0.0.1:5173   (другой адрес = другое имя)"
+echo "  ГМ:    ссылка «Ссылка ГМ» ниже, в выводе сервера"
+echo "  Игрок: http://127.0.0.1:5173   (другой адрес = другое имя и без прав ГМ)"
 echo "  Ctrl+C - остановить"
 echo
 

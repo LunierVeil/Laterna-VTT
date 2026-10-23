@@ -5,6 +5,7 @@ __pycache__/
 venv/
 *.db
 server/uploads/
+server/gm_key.txt
 
 # Node
 node_modules/

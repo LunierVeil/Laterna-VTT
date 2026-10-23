@@ -30,6 +30,7 @@ function NamePrompt() {
 
 export default function App() {
   const user = useUi((s) => s.user);
+  const gmKey = useUi((s) => s.gmKey);
   const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
 
@@ -50,8 +51,9 @@ export default function App() {
   }, []);
 
   const socket = useMemo(
+    // gmKey в зависимостях: ключ сброшен -> переподключаемся уже игроком.
     () => (sceneId && user ? new SceneSocket(sceneId, user) : null),
-    [sceneId, user],
+    [sceneId, user, gmKey],
   );
 
   const handleReady = useCallback((stage: SceneStage) => {
@@ -68,6 +70,14 @@ export default function App() {
     const off = socket.on((msg) => {
       if (msg.type === "snapshot") {
         ui.setConnected(true);
+        if (msg.you) {
+          ui.setIsGm(msg.you.is_gm);
+          // Ключ устарел (сервер выдал новый) - не держим его и не шлём дальше.
+          if (gmKey && !msg.you.is_gm) {
+            ui.dropGmKey();
+            ui.flashError("ключ ГМ не подошёл - вошёл как игрок");
+          }
+        }
         ui.setMessages(msg.scene.messages);
         ui.setScene(msg.scene.name, msg.scene.grid_size, msg.scene.background_url);
         buffered.current.scene = msg.scene;
@@ -108,7 +118,7 @@ export default function App() {
       socket.close();
       useUi.getState().setConnected(false);
     };
-  }, [socket]);
+  }, [socket, gmKey]);
 
   const error = useUi((s) => s.error);
 

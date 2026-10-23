@@ -14,17 +14,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import protocol
-from .config import MAX_UPLOAD_BYTES, UPLOAD_DIR
+from .config import FRONTEND_URL, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import HANDLERS, CommandError
 from .hub import hub
 from .models import Campaign, Message, Scene
+from .roles import GM_COOKIE, GM_KEY, Actor, is_gm_key
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await ensure_demo_scene()
+    print(f"\n  Ссылка ГМ: {FRONTEND_URL}/?gm={GM_KEY}\n  Не показывай её игрокам.\n", flush=True)
     yield
 
 
@@ -104,7 +106,9 @@ def _image_ext(data: bytes) -> str | None:
 
 @app.post("/api/uploads")
 async def upload(request: Request) -> dict:
-    # TODO: без аутентификации загрузить файл может любой в сети.
+    # Карты загружает только ГМ - он же их и ставит на сцену.
+    if not is_gm_key(request.cookies.get(GM_COOKIE)):
+        raise HTTPException(403, "загружать карты может только ГМ")
     # Тело запроса - сама картинка, без multipart: не нужна лишняя зависимость.
     data = bytearray()
     async for chunk in request.stream():
@@ -146,7 +150,8 @@ async def get_scene(scene_id: str, db: AsyncSession = Depends(get_session)):
 async def scene_socket(websocket: WebSocket, scene_id: str, user: str = "anon"):
     # TODO: это не аутентификация. Имя приходит query-параметром и никак
     # не проверяется. Перед любым публичным хостингом - заменить.
-    user = (user or "anon")[:100]
+    # ГМ определяется ключом, а не именем: см. roles.py.
+    actor = Actor(name=(user or "anon")[:100], is_gm=is_gm_key(websocket.cookies.get(GM_COOKIE)))
 
     await websocket.accept()
 
@@ -157,15 +162,16 @@ async def scene_socket(websocket: WebSocket, scene_id: str, user: str = "anon"):
             await websocket.close()
             return
         scene = await db.get(Scene, scene_id)
-        await websocket.send_json(protocol.snapshot(scene.seq, snap))
+        you = {"name": actor.name, "is_gm": actor.is_gm}
+        await websocket.send_json(protocol.snapshot(scene.seq, snap, you))
 
-    await hub.join(scene_id, websocket, user)
+    await hub.join(scene_id, websocket, actor.name)
     await hub.broadcast(scene_id, protocol.presence(hub.users(scene_id)))
 
     try:
         while True:
             raw = await websocket.receive_text()
-            await handle_raw(websocket, scene_id, user, raw)
+            await handle_raw(websocket, scene_id, actor, raw)
     except WebSocketDisconnect:
         pass
     finally:
@@ -173,7 +179,7 @@ async def scene_socket(websocket: WebSocket, scene_id: str, user: str = "anon"):
         await hub.broadcast(scene_id, protocol.presence(hub.users(scene_id)))
 
 
-async def handle_raw(websocket: WebSocket, scene_id: str, user: str, raw: str) -> None:
+async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str) -> None:
     try:
         command = protocol.Command.model_validate_json(raw)
     except ValidationError:
@@ -193,7 +199,7 @@ async def handle_raw(websocket: WebSocket, scene_id: str, user: str, raw: str) -
                 await hub.send(websocket, protocol.error("сцена не найдена", command.id))
                 return
             try:
-                name, payload = await handler(db, scene, user, command.payload)
+                name, payload = await handler(db, scene, actor, command.payload)
             except CommandError as exc:
                 await db.rollback()
                 await hub.send(websocket, protocol.error(str(exc), command.id))

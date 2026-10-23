@@ -65,7 +65,8 @@ export interface Scene {
 }
 
 export type ServerMessage =
-  | { type: "snapshot"; seq: number; scene: Scene }
+  // you есть только в снапшоте из сокета; при resync через REST его нет.
+  | { type: "snapshot"; seq: number; scene: Scene; you?: { name: string; is_gm: boolean } }
   | { type: "event"; seq: number; name: string; payload: any; cmd_id: string | null }
   | { type: "error"; message: string; cmd_id: string | null }
   | { type: "presence"; users: string[] };

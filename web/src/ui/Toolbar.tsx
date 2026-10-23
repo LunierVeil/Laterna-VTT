@@ -11,7 +11,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
 ];
 
 export function Toolbar({ socket }: { socket: SceneSocket }) {
-  const { tool, setTool, users, connected, sceneName, chaining } = useUi();
+  const { tool, setTool, users, connected, sceneName, chaining, isGm } = useUi();
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
     : TOOLS.find((t) => t.id === tool)?.hint;
@@ -20,9 +20,10 @@ export function Toolbar({ socket }: { socket: SceneSocket }) {
     <header className="toolbar">
       <div className="toolbar-left">
         <strong>{sceneName || "Сцена"}</strong>
+        {isGm && <span className="gm-badge" title="ты ведёшь игру">ГМ</span>}
         <span className={connected ? "dot dot-on" : "dot dot-off"} />
         <span className="muted">{connected ? "на связи" : "нет связи"}</span>
-        <SceneMenu socket={socket} />
+        {isGm && <SceneMenu socket={socket} />}
       </div>
 
       <div className="toolbar-tools">
