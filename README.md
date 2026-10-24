@@ -88,8 +88,11 @@ npm run dev
 ### Проверка
 
 ```
-cd server && python smoke_test.py
+server/.venv/bin/python -m unittest discover -s tests -t .   # без сервера
+cd server && python smoke_test.py                             # при живом сервере
 ```
+
+Или всё сразу: `./dev.sh check`.
 
 Проверяет порядок seq, подтверждение команд по cmd_id, блокировку
 движения стеной и серверный бросок кубов.

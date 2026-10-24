@@ -3,7 +3,7 @@
 #
 #   ./dev.sh          поднять сервер (:8000) и фронт (:5173), Ctrl+C - погасить оба
 #   ./dev.sh reset    то же, но сначала стереть базу и загруженные карты
-#   ./dev.sh check    тайпчек фронта + smoke_test (сервер должен быть запущен)
+#   ./dev.sh check    тайпчек фронта, unit-тесты и smoke_test (сервер должен быть запущен)
 #   ./dev.sh gm       напечатать ссылку ГМ (ключ из server/gm_key.txt)
 set -euo pipefail
 
@@ -44,6 +44,8 @@ case "${1:-}" in
     need_deps
     echo "> tsc"
     (cd "$ROOT/web" && npx --no-install tsc --noEmit -p .)
+    echo "> unit-тесты"
+    (cd "$ROOT" && "$PY" -m unittest discover -s tests -t . -q)
     echo "> smoke_test"
     # Не "порт открыт", а "сервер отвечает": uvicorn --reload держит порт
     # и тогда, когда рабочий процесс упал или ещё поднимается.

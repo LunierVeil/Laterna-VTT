@@ -5,7 +5,8 @@
 с девтулзами будет крутить d20 как захочет.
 
 Поддержано: 2d6+3, d20, 4d6kh3 (keep highest), 2d20kl1 (keep lowest),
-несколько слагаемых: 1d8+1d6+2.
+несколько слагаемых: 1d8+1d6+2. Русская "к" вместо "d" - тоже: так урон
+записан в листах Long Story Short ("1к8+4").
 """
 
 from __future__ import annotations
@@ -69,7 +70,9 @@ def _roll_die(sides: int) -> int:
 
 
 def roll(formula: str) -> RollResult:
-    raw = formula.strip().lower().replace(" ", "")
+    # "к" - кириллица, только как разделитель кубов. kh/kl - латиница,
+    # их это не задевает.
+    raw = formula.strip().lower().replace(" ", "").replace("к", "d")
     if not raw:
         raise DiceError("пустая формула")
     if len(raw) > 100:
