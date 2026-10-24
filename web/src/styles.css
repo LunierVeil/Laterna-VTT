@@ -259,6 +259,8 @@ button[type="submit"] {
 .sheet-table .sheet-input-wrap { width: 100%; }
 .sheet-input-wrap a { color: var(--accent); text-decoration: none; }
 .sheet-bad { border-color: #c0624f !important; }
+.sheet-hint { color: #f0a3a3; font-size: 11px; white-space: nowrap; }
+.sheet-ability .sheet-input-wrap { flex-direction: column; }
 select {
   background: #22252e; color: var(--text);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;

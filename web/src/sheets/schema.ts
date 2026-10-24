@@ -18,6 +18,12 @@ export interface Field {
   options?: { value: string; label: string }[];
   /** Ширина колонки или поля в символах, примерно. */
   width?: number;
+  /**
+   * Пределы для number - защита от опечатки (+99 вместо +9), а не правило
+   * игры. Вне пределов форма не сохраняет. Числа в листе - только целые.
+   */
+  min?: number;
+  max?: number;
 }
 
 export type Block =
@@ -27,7 +33,15 @@ export type Block =
    * Характеристики: data[path][key] = { score, save }. Модификатор
    * считается из значения - это арифметика, а не правило.
    */
-  | { kind: "abilities"; title: string; path: string; items: { key: string; label: string }[] }
+  | {
+      kind: "abilities";
+      title: string;
+      path: string;
+      items: { key: string; label: string }[];
+      /** Пределы значения характеристики. */
+      min: number;
+      max: number;
+    }
   /** Фиксированный список строк с одинаковыми полями: навыки. data[path][item.key][field.key]. */
   | {
       kind: "checklist";

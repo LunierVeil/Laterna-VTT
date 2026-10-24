@@ -3,6 +3,9 @@ import type { SheetSchema } from "./schema";
 /**
  * Лист D&D 5e. Только поля: никаких классов, расчётов и проверок правил.
  * Игрок вписывает числа сам, как в бумажном листе или в Roll20.
+ *
+ * min/max - не правила, а защита от опечаток, с запасом под хоумбрю.
+ * Тесно - поправь здесь.
  */
 export const dnd5e: SheetSchema = {
   id: "dnd5e",
@@ -14,31 +17,34 @@ export const dnd5e: SheetSchema = {
       fields: [
         { key: "info.class", label: "Класс", kind: "text" },
         { key: "info.subclass", label: "Подкласс", kind: "text" },
-        { key: "info.level", label: "Уровень", kind: "number", width: 4 },
+        { key: "info.level", label: "Уровень", kind: "number", width: 4, min: 1, max: 20 },
         { key: "info.race", label: "Раса / вид", kind: "text" },
         { key: "info.background", label: "Предыстория", kind: "text" },
         { key: "info.alignment", label: "Мировоззрение", kind: "text" },
-        { key: "info.xp", label: "Опыт", kind: "number", width: 6 },
+        { key: "info.xp", label: "Опыт", kind: "number", width: 6, min: 0, max: 1000000 },
       ],
     },
     {
       kind: "fields",
       title: "Бой",
       fields: [
-        { key: "vitals.hp.current", label: "Хиты", kind: "number", width: 4 },
-        { key: "vitals.hp.max", label: "Макс. хиты", kind: "number", width: 4 },
-        { key: "vitals.hp.temp", label: "Временные", kind: "number", width: 4 },
-        { key: "vitals.ac", label: "КД", kind: "number", width: 4 },
+        { key: "vitals.hp.current", label: "Хиты", kind: "number", width: 4, min: -999, max: 9999 },
+        { key: "vitals.hp.max", label: "Макс. хиты", kind: "number", width: 4, min: 1, max: 9999 },
+        { key: "vitals.hp.temp", label: "Временные", kind: "number", width: 4, min: 0, max: 9999 },
+        { key: "vitals.ac", label: "КД", kind: "number", width: 4, min: 0, max: 40 },
         { key: "vitals.speed", label: "Скорость", kind: "text", width: 6 },
-        { key: "vitals.initiative", label: "Инициатива", kind: "number", width: 4 },
+        { key: "vitals.initiative", label: "Инициатива", kind: "number", width: 4, min: -10, max: 30 },
         { key: "vitals.hit_dice", label: "Кости хитов", kind: "text", width: 6 },
-        { key: "proficiency", label: "Бонус мастерства", kind: "number", width: 4 },
+        { key: "proficiency", label: "Бонус мастерства", kind: "number", width: 4, min: 0, max: 10 },
       ],
     },
     {
       kind: "abilities",
       title: "Характеристики",
       path: "abilities",
+      // 30 - потолок характеристики по самим правилам 5e.
+      min: 1,
+      max: 30,
       items: [
         { key: "str", label: "Сила" },
         { key: "dex", label: "Ловкость" },
@@ -54,7 +60,7 @@ export const dnd5e: SheetSchema = {
       path: "skills",
       fields: [
         { key: "prof", label: "влад.", kind: "checkbox" },
-        { key: "bonus", label: "бонус", kind: "number", width: 3 },
+        { key: "bonus", label: "бонус", kind: "number", width: 3, min: -10, max: 30 },
       ],
       items: [
         { key: "acrobatics", label: "Акробатика", hint: "Лов" },
@@ -96,8 +102,8 @@ export const dnd5e: SheetSchema = {
       addLabel: "Добавить ресурс",
       columns: [
         { key: "name", label: "Название", kind: "text" },
-        { key: "current", label: "Есть", kind: "number", width: 3 },
-        { key: "max", label: "Макс.", kind: "number", width: 3 },
+        { key: "current", label: "Есть", kind: "number", width: 3, min: 0, max: 999 },
+        { key: "max", label: "Макс.", kind: "number", width: 3, min: 0, max: 999 },
         {
           key: "rest",
           label: "Отдых",
@@ -117,7 +123,7 @@ export const dnd5e: SheetSchema = {
       addLabel: "Добавить заклинание",
       columns: [
         { key: "name", label: "Название", kind: "text" },
-        { key: "level", label: "Круг", kind: "number", width: 3 },
+        { key: "level", label: "Круг", kind: "number", width: 3, min: 0, max: 9 },
         { key: "link", label: "Ссылка (https)", kind: "link" },
         { key: "notes", label: "Заметка", kind: "text" },
       ],
@@ -129,7 +135,7 @@ export const dnd5e: SheetSchema = {
       addLabel: "Добавить предмет",
       columns: [
         { key: "name", label: "Название", kind: "text" },
-        { key: "qty", label: "Кол-во", kind: "number", width: 3 },
+        { key: "qty", label: "Кол-во", kind: "number", width: 3, min: 0, max: 99999 },
         { key: "link", label: "Ссылка (https)", kind: "link" },
         { key: "notes", label: "Заметка", kind: "text" },
       ],
@@ -138,11 +144,11 @@ export const dnd5e: SheetSchema = {
       kind: "fields",
       title: "Монеты",
       fields: [
-        { key: "coins.cp", label: "ММ", kind: "number", width: 5 },
-        { key: "coins.sp", label: "СМ", kind: "number", width: 5 },
-        { key: "coins.ep", label: "ЭМ", kind: "number", width: 5 },
-        { key: "coins.gp", label: "ЗМ", kind: "number", width: 5 },
-        { key: "coins.pp", label: "ПМ", kind: "number", width: 5 },
+        { key: "coins.cp", label: "ММ", kind: "number", width: 5, min: 0, max: 9999999 },
+        { key: "coins.sp", label: "СМ", kind: "number", width: 5, min: 0, max: 9999999 },
+        { key: "coins.ep", label: "ЭМ", kind: "number", width: 5, min: 0, max: 9999999 },
+        { key: "coins.gp", label: "ЗМ", kind: "number", width: 5, min: 0, max: 9999999 },
+        { key: "coins.pp", label: "ПМ", kind: "number", width: 5, min: 0, max: 9999999 },
       ],
     },
     {

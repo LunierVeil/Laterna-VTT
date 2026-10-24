@@ -95,12 +95,18 @@ function FieldInput({
     focused.current = false;
     if (draft === shown) return setBad(null);
     if (field.kind === "number") {
-      if (draft.trim() === "") return onCommit(null);
-      const n = Number(draft.replace(",", "."));
-      if (!Number.isFinite(n)) {
-        setDraft(shown);
-        return;
+      if (draft.trim() === "") {
+        setBad(null);
+        return onCommit(null);
       }
+      // Не сохраняем, а подсвечиваем: черновик остаётся, чтобы поправить.
+      const n = Number(draft.trim().replace(",", ".").replace(/^\+/, ""));
+      if (!Number.isInteger(n)) return setBad("целое число");
+      const { min, max } = field;
+      if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
+        return setBad(`от ${min ?? "…"} до ${max ?? "…"}`);
+      }
+      setBad(null);
       return onCommit(n);
     }
     if (field.kind === "link" && draft.trim() && !safeHttps(draft)) {
@@ -132,6 +138,7 @@ function FieldInput({
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
       />
       {field.kind === "link" && <SafeLink href={value}>↗</SafeLink>}
+      {bad && <span className="sheet-hint">{bad}</span>}
     </span>
   );
 }
@@ -173,7 +180,7 @@ function BlockView({
                 <div key={a.key} className="sheet-ability">
                   <span className="muted">{a.label}</span>
                   <FieldInput
-                    field={{ key: "score", label: a.label, kind: "number", width: 3 }}
+                    field={{ key: "score", label: a.label, kind: "number", width: 3, min: block.min, max: block.max }}
                     value={score}
                     onCommit={(v) => set(`${base}.score`, v)}
                   />
