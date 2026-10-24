@@ -98,6 +98,17 @@ export const dnd5e: SheetSchema = {
               ],
             },
           ],
+          counter: {
+            titleKey: "name",
+            current: "current",
+            max: "max",
+            rest: "rest",
+            // Что возвращается после короткого отдыха, возвращается и после долгого.
+            rests: [
+              { label: "Короткий отдых", restores: ["short"] },
+              { label: "Долгий отдых", restores: ["short", "long"] },
+            ],
+          },
         },
       ],
     },

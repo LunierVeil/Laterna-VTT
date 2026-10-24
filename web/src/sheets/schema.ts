@@ -39,6 +39,19 @@ export interface RollSpec {
   d20?: { normal: string; advantage: string; disadvantage: string };
 }
 
+/**
+ * Счётчик в строке таблицы: ресурсы. Кнопки отдыха поднимают current до max
+ * у строк, чей rest попал в restores. Какой отдых что восстанавливает -
+ * данные схемы, а не код: в другой системе отдыхи другие.
+ */
+export interface Counter {
+  titleKey: string;
+  current: string;
+  max: string;
+  rest: string;
+  rests: { label: string; restores: string[] }[];
+}
+
 export type Block =
   /** Обычные поля. */
   | { kind: "fields"; title: string; fields: Field[] }
@@ -72,6 +85,8 @@ export type Block =
       addLabel: string;
       /** Броски по строке (в режиме "игра"). Клик по названию - все сразу. */
       rolls?: { titleKey: string; items: RollSpec[] };
+      /** Строки-счётчики: −/+ и кнопки отдыха (в режиме "игра"). */
+      counter?: Counter;
     }
   /**
    * Карточки: умения, предметы, заклинания. data[path] = [{ id, [titleKey],

@@ -367,3 +367,9 @@ a.card-badge { color: var(--accent); }
 .roll-buttons { white-space: nowrap; text-align: right; }
 .roll-buttons .tool { padding: 2px 8px; margin-left: 4px; }
 .roll-label { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+
+/* ресурсы: счётчик и отдых */
+.counter-cell { white-space: nowrap; }
+.counter-cell .tool { padding: 1px 8px; }
+.counter-value { display: inline-block; min-width: 6ch; text-align: center; font-weight: 600; }
+.rest-buttons { display: flex; gap: 6px; margin-top: 6px; }

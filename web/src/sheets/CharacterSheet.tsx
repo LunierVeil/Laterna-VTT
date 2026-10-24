@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
 import type { Character } from "../types";
-import type { Block, Field, RollSpec, SheetSchema } from "./schema";
+import type { Block, Counter, Field, RollSpec, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 
@@ -278,10 +278,24 @@ export function rollFormula(spec: RollSpec, row: Record<string, unknown>, edge: 
   const v = row[spec.key];
   if (!spec.d20) return typeof v === "string" && v.trim() ? v.trim() : null;
   // Бонус - число в начале ячейки: "+10", "5", "-1 (магия)". Нет числа - просто d20.
-  const m = typeof v === "number" ? String(v) : String(v ?? "").trim().match(/^[+-]?\d+/)?.[0];
+  const m =
+    typeof v === "number"
+      ? String(v)
+      : String(v ?? "")
+          .trim()
+          .match(/^[+-]?\d+/)?.[0];
   const bonus = m ? Number(m) : 0;
   const dice = spec.d20[edge];
   return bonus ? `${dice}${bonus > 0 ? "+" : ""}${bonus}` : dice;
+}
+
+/** Строка - счётчик, если у неё есть максимум. */
+function isCounter(counter: Counter, row: Record<string, unknown>): boolean {
+  return typeof row[counter.max] === "number";
+}
+
+function rowIndex(raw: unknown, row: unknown): number {
+  return Array.isArray(raw) ? raw.indexOf(row) : -1;
 }
 
 const EDGE_LABEL: Record<Edge, string> = { normal: "", advantage: " (преим.)", disadvantage: " (помеха)" };
@@ -309,6 +323,8 @@ function ViewBlock({
   set,
   roll,
   startEdit,
+  say,
+  who,
 }: {
   block: Block;
   data: unknown;
@@ -317,7 +333,42 @@ function ViewBlock({
   roll: RollFn;
   /** Перейти в "Редактировать" - из пустой таблицы. */
   startEdit: () => void;
+  /** Сообщение в чат от имени игрока: "короткий отдых - восстановлено ...". */
+  say: (text: string) => void;
+  /** Имя персонажа - для сообщений об отдыхе. */
+  who: string;
 }) {
+  // Таблица уходит на сервер целиком, как и в "Редактировать".
+  const bump = (path: string, rows: Record<string, unknown>[], i: number, c: Counter, delta: number) => {
+    if (i < 0) return;
+    const row = rows[i];
+    const max = typeof row[c.max] === "number" ? (row[c.max] as number) : Infinity;
+    const cur = typeof row[c.current] === "number" ? (row[c.current] as number) : 0;
+    const next = Math.max(0, Math.min(max, cur + delta));
+    if (next !== cur)
+      set(
+        path,
+        rows.map((r, j) => (j === i ? { ...r, [c.current]: next } : r)),
+      );
+  };
+  const rest = (path: string, raw: unknown, c: Counter, r: Counter["rests"][number]) => {
+    const rows = (Array.isArray(raw) ? raw : []) as Record<string, unknown>[];
+    const restored: string[] = [];
+    const next = rows.map((row) => {
+      const hit = r.restores.includes(String(row[c.rest] ?? ""));
+      if (hit && typeof row[c.max] === "number" && row[c.current] !== row[c.max]) {
+        restored.push(String(row[c.titleKey] ?? "?"));
+        return { ...row, [c.current]: row[c.max] };
+      }
+      return row;
+    });
+    if (restored.length) set(path, next);
+    // В чат - чтобы мастер видел, что персонаж отдохнул и что вернулось.
+    say(
+      `${who}: ${r.label.toLowerCase()}${restored.length ? ` - восстановлено: ${restored.join(", ")}` : " - восстанавливать нечего"}`,
+    );
+  };
+
   switch (block.kind) {
     case "fields": {
       // То, что уже в шапке, второй раз не показываем.
@@ -423,9 +474,11 @@ function ViewBlock({
             <table className="sheet-table view-table">
               <thead>
                 <tr>
-                  {block.columns.map((c) => (
-                    <th key={c.key}>{c.label}</th>
-                  ))}
+                  {block.columns
+                    .filter((c) => !(block.counter && c.key === block.counter.max))
+                    .map((c) => (
+                      <th key={c.key}>{c.label}</th>
+                    ))}
                   {block.rolls && <th />}
                 </tr>
               </thead>
@@ -441,23 +494,65 @@ function ViewBlock({
                   };
                   const edgeOf = (e: React.MouseEvent): Edge =>
                     e.shiftKey ? "advantage" : e.altKey ? "disadvantage" : "normal";
+                  const counter = block.counter;
+                  if (counter && isCounter(counter, row)) {
+                    // Строка-счётчик: вместо "Есть" и "Макс." - −/+ и "3 / 4".
+                    return (
+                      <tr key={i}>
+                        {block.columns.map((c) =>
+                          c.key === counter.max ? null : c.key === counter.current ? (
+                            <td key={c.key} className="counter-cell">
+                              <button
+                                className="tool"
+                                title="потратить"
+                                aria-label={`${String(row[counter.titleKey] ?? "")}: потратить`}
+                                onClick={() =>
+                                  bump(block.path, raw as Record<string, unknown>[], rowIndex(raw, row), counter, -1)
+                                }
+                              >
+                                −
+                              </button>
+                              <span className="counter-value">
+                                {String(row[counter.current] ?? 0)}
+                                <span className="muted"> / {String(row[counter.max] ?? "—")}</span>
+                              </span>
+                              <button
+                                className="tool"
+                                title="вернуть"
+                                aria-label={`${String(row[counter.titleKey] ?? "")}: вернуть`}
+                                onClick={() =>
+                                  bump(block.path, raw as Record<string, unknown>[], rowIndex(raw, row), counter, 1)
+                                }
+                              >
+                                +
+                              </button>
+                            </td>
+                          ) : (
+                            <td key={c.key}>{show(c, row[c.key])}</td>
+                          ),
+                        )}
+                      </tr>
+                    );
+                  }
                   return (
                     <tr key={i}>
-                      {block.columns.map((c) =>
-                        spec && c.key === spec.titleKey ? (
-                          <td key={c.key}>
-                            <button
-                              className="roll-name"
-                              title="бросить всё сразу; Shift - с преимуществом, Alt - с помехой"
-                              onClick={(e) => fire(spec.items, edgeOf(e))}
-                            >
-                              🎲 {show(c, row[c.key])}
-                            </button>
-                          </td>
-                        ) : (
-                          <td key={c.key}>{show(c, row[c.key])}</td>
-                        ),
-                      )}
+                      {block.columns
+                        .filter((c) => !(counter && c.key === counter.max))
+                        .map((c) =>
+                          spec && c.key === spec.titleKey ? (
+                            <td key={c.key}>
+                              <button
+                                className="roll-name"
+                                title="бросить всё сразу; Shift - с преимуществом, Alt - с помехой"
+                                onClick={(e) => fire(spec.items, edgeOf(e))}
+                              >
+                                🎲 {show(c, row[c.key])}
+                              </button>
+                            </td>
+                          ) : (
+                            <td key={c.key}>{show(c, row[c.key])}</td>
+                          ),
+                        )}
                       {spec && (
                         <td className="roll-buttons">
                           {spec.items.map((it) =>
@@ -480,6 +575,15 @@ function ViewBlock({
               </tbody>
             </table>
           </div>
+          {block.counter && (
+            <div className="rest-buttons">
+              {block.counter.rests.map((r) => (
+                <button key={r.label} className="tool" onClick={() => rest(block.path, raw, block.counter!, r)}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       );
     }
@@ -673,7 +777,16 @@ export function CharacterSheet({ character, socket }: { character: Character; so
     b,
     view: editing
       ? null
-      : ViewBlock({ block: b, data: character.data, inSummary, set, roll, startEdit: () => setEditing(true) }),
+      : ViewBlock({
+          block: b,
+          data: character.data,
+          inSummary,
+          set,
+          roll,
+          startEdit: () => setEditing(true),
+          say: (text) => socket.send("chat.say", { text }),
+          who: character.name,
+        }),
   }));
   const nothingToShow = !editing && views?.every((v) => v.view === null);
 
