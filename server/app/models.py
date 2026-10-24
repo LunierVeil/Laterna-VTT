@@ -155,6 +155,10 @@ class Token(Base):
     character_id: Mapped[str | None] = mapped_column(
         ForeignKey("characters.id", ondelete="SET NULL"), nullable=True
     )
+    # Свои хиты экземпляра моба: лист моба - шаблон, пять гоблинов с одного
+    # листа ранены по-разному. null - хиты берутся из листа (персонаж игрока).
+    # Игрокам не уходят, кроме владельца токена (main.token_for).
+    hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Пока не используется. Понадобится на этапе освещения.
     vision_range: Mapped[float] = mapped_column(Float, default=0.0)
@@ -174,6 +178,7 @@ class Token(Base):
             "layer": self.layer,
             "owner_id": self.owner_id,
             "character_id": self.character_id,
+            "hp": self.hp,
             "vision_range": self.vision_range,
             "emits_light": self.emits_light,
         }
@@ -279,7 +284,7 @@ class Character(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(200), default="Персонаж")
-    # Какой схемой рисовать data. Сейчас одна - dnd5e.
+    # Какой схемой рисовать data: dnd5e - персонаж, mob - шаблон моба/NPC.
     system: Mapped[str] = mapped_column(String(40), default="dnd5e")
     data_json: Mapped[str] = mapped_column(Text, default="{}")
     # Исходный файл импорта целиком - чтобы переимпортировать, когда адаптер

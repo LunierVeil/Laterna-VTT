@@ -139,6 +139,11 @@ export interface TokenView {
 export interface SheetSchema {
   id: string;
   title: string;
+  /**
+   * Путь к портрету (URL загруженной картинки). Сервер о нём не знает -
+   * поэтому показываем только адрес вида /uploads/..., см. safeUpload.
+   */
+  portrait?: string;
   summary: Summary;
   token?: TokenView;
   /** Первая вкладка - та, что нужна в бою. */

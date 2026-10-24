@@ -76,11 +76,15 @@ export function TokenCard({
   if (!selected) return null;
 
   const mine = selected.owner_id === null || selected.owner_id === me?.id;
-  const ownerName = accounts.find((a) => a.id === selected.owner_id)?.name ?? "?";
+  const owner = accounts.find((a) => a.id === selected.owner_id);
+  const ownerName = owner?.name ?? "?";
   // ГМ правит любой токен, но видит, чей он.
   const editable = mine || isGm;
   const schema = character ? SHEETS[character.system] : undefined;
   const stats = character ? characterStats(character) : null;
+  // Экземпляр моба: хиты свои, на токене; максимум - из листа-шаблона.
+  const isMob = character?.system === "mob";
+  const hp = isMob ? selected.hp ?? undefined : stats?.hp;
   const subtitle = schema && character ? schema.summary.subtitle.map((p) => at(character.data, p)).filter((v) => v != null && v !== "").join(" ") : "";
   const tile = (label: string, value: unknown) => (
     <div className="card-stat">
@@ -95,17 +99,23 @@ export function TokenCard({
         <strong className="token-card-name" title={selected.name}>
           {selected.name}
         </strong>
-        <span className="muted token-card-sub">{subtitle || (!mine ? ownerName : "")}</span>
+        <span className="muted token-card-sub">{subtitle || (!mine && !owner?.is_gm ? ownerName : "")}</span>
       </div>
 
       {character && stats && (
         <>
           <div className="card-stats">
-            {tile("Хиты", stats.hp !== undefined ? `${stats.hp}${stats.max ? `/${stats.max}` : ""}` : undefined)}
+            {tile("Хиты", hp !== undefined ? `${hp}${stats.max ? `/${stats.max}` : ""}` : undefined)}
             {tile(SHEETS[character.system]?.token?.badge.label ?? "КД", stats.badge)}
             {tile("Скор.", stats.speed)}
           </div>
-          {schema && (
+          {isMob ? (
+            <TokenHp
+              current={hp}
+              max={stats.max}
+              onSet={(v) => socket.send("token.update", { id: selected.id, hp: v })}
+            />
+          ) : schema && (
             <HpWidget
               schema={schema}
               data={character.data}
@@ -115,7 +125,6 @@ export function TokenCard({
         </>
       )}
       {!character && editable && <p className="muted token-card-note">Без листа. Привязать - в настройках.</p>}
-      {!editable && <p className="muted token-card-note">Токен {ownerName}, менять нельзя.</p>}
 
       <div className="token-card-actions">
         {character && (
@@ -157,6 +166,41 @@ export function TokenCard({
           <TokenEditor key={selected.id} token={selected} socket={socket} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Хиты экземпляра моба: тот же вид, что у листа, но пишет в токен. */
+function TokenHp({ current, max, onSet }: { current?: number; max?: number; onSet: (v: number) => void }) {
+  const [amount, setAmount] = useState("");
+  const change = (delta: number) => {
+    const base = current ?? max ?? 0;
+    let next = base + delta;
+    if (max !== undefined) next = Math.min(next, max);
+    onSet(Math.max(-999, next));
+  };
+  return (
+    <div className="hp-widget">
+      <button className="tool" title="−1 хит" onClick={() => change(-1)}>
+        −
+      </button>
+      <button className="tool" title="+1 хит" onClick={() => change(1)}>
+        +
+      </button>
+      <input
+        className="hp-amount"
+        placeholder="±N"
+        aria-label="изменить хиты на"
+        title="−7 - урон, 5 - лечение; Enter"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          const n = Number(amount.trim());
+          if (Number.isInteger(n) && n !== 0) change(n);
+          setAmount("");
+        }}
+      />
     </div>
   );
 }

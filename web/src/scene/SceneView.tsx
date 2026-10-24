@@ -59,6 +59,7 @@ export function SceneView({
                   character_id: t.character_id,
                   image_url: t.image_url,
                   layer: t.layer,
+                  hp: t.hp,
                 }
               : null,
           ),

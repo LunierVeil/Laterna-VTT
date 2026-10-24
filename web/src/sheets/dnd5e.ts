@@ -1,4 +1,5 @@
 import type { SheetSchema } from "./schema";
+import { mob } from "./mob";
 
 /**
  * Лист D&D 5e. Только поля: никаких классов, расчётов и проверок правил.
@@ -10,6 +11,7 @@ import type { SheetSchema } from "./schema";
 export const dnd5e: SheetSchema = {
   id: "dnd5e",
   title: "D&D 5e",
+  portrait: "portrait",
   summary: {
     subtitle: ["info.class", "info.level"],
     hp: { current: "vitals.hp.current", max: "vitals.hp.max", temp: "vitals.hp.temp" },
@@ -242,4 +244,4 @@ export const dnd5e: SheetSchema = {
   ],
 };
 
-export const SHEETS: Record<string, SheetSchema> = { dnd5e };
+export const SHEETS: Record<string, SheetSchema> = { dnd5e, mob };

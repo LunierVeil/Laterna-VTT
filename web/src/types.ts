@@ -11,6 +11,8 @@ export interface Token {
   owner_id: string | null;
   /** Лист, которого изображает токен. Хиты и КД - из него. */
   character_id: string | null;
+  /** Свои хиты экземпляра моба. null - хиты из листа; игрокам приходит null. */
+  hp: number | null;
   vision_range: number;
   emits_light: number;
 }

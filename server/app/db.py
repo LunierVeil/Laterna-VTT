@@ -27,10 +27,17 @@ async def init_db() -> None:
 def _check_columns(conn) -> None:
     # create_all не добавляет колонки в существующие таблицы. Без этой
     # проверки старая база падает на первом запросе с "no such column".
+    # Новую колонку, которая может быть NULL, добавляем сами - это безопасно
+    # и не стоит пересоздания базы. Остальное - только пересоздать.
     insp = inspect(conn)
     for table in Base.metadata.sorted_tables:
         have = {c["name"] for c in insp.get_columns(table.name)}
-        missing = [c.name for c in table.columns if c.name not in have]
+        missing = [c for c in table.columns if c.name not in have]
+        for col in [c for c in missing if c.nullable and c.server_default is None and not c.foreign_keys]:
+            ddl = col.type.compile(dialect=conn.dialect)
+            conn.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}')
+            missing.remove(col)
+        missing = [c.name for c in missing]
         if missing:
             raise RuntimeError(
                 f"в таблице {table.name} нет колонок {missing}: схема новее базы. "

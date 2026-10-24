@@ -342,6 +342,60 @@ async def main() -> int:
         assert "Гоблин - урон" not in json.dumps(history, ensure_ascii=False)
     print("скрытый бросок мастера: игроку заглушка без цифр, вживую и в истории; игроку /gr нельзя")
 
+    # Мобы: лист-шаблон, хиты экземпляра на токене, игроку хиты не уходят.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        await gm.recv(), await pl.recv()  # снапшоты
+
+        async def run(ws, cid, name, payload):
+            await cmd(ws, cid, name, payload)
+            return await recv_until(ws, lambda m: m.get("cmd_id") == cid)
+
+        err = await run(pl, "m0", "character.create", {"name": "smoke: моб игрока", "system": "mob"})
+        assert err["type"] == "error", err
+        mob = (await run(gm, "m1", "character.create", {"name": "smoke-гоблин", "system": "mob"}))["payload"]["character"]
+        tokens = []
+        try:
+            assert mob["system"] == "mob", mob
+            # Правка и удаление листа подтверждаются рассылкой листа, не ответом.
+            await cmd(gm, "m2", "character.update", {"id": mob["id"], "set": {"hp.max": 7, "ac": 15}})
+            await recv_until(gm, lambda m: m.get("type") == "character")
+            for cid in ("m3", "m4"):
+                ev = await run(gm, cid, "token.add", {"x": 455, "y": 175, "character_id": mob["id"]})
+                tokens.append(ev["payload"]["token"])
+            assert [t["name"] for t in tokens] == ["smoke-гоблин 1", "smoke-гоблин 2"], tokens
+            assert all(t["hp"] == 7 for t in tokens), tokens
+            ev_pl = await recv_until(pl, lambda m: m.get("name") == "token.added")
+            assert ev_pl["payload"]["token"]["hp"] is None, "хиты моба ушли игроку"
+
+            await run(gm, "m5", "token.update", {"id": tokens[0]["id"], "hp": 3})
+            ev_pl = await recv_until(pl, lambda m: m.get("name") == "token.updated")
+            assert ev_pl["payload"]["token"]["hp"] is None, "хиты моба ушли игроку"
+            async with httpx.AsyncClient(headers=player_auth) as client:
+                snap = (await client.get(f"{BASE}/api/scenes/{scene_id}")).json()
+            assert all(t["hp"] is None for t in snap["tokens"]), "хиты моба в снапшоте игрока"
+            async with httpx.AsyncClient(headers=gm_auth) as client:
+                snap = (await client.get(f"{BASE}/api/scenes/{scene_id}")).json()
+            hps = {t["id"]: t["hp"] for t in snap["tokens"]}
+            assert hps[tokens[0]["id"]] == 3 and hps[tokens[1]["id"]] == 7, "хиты экземпляров не раздельны"
+
+            # hp в token.add не принимается - берётся из листа.
+            ev = await run(gm, "m6", "token.add", {"x": 35, "y": 35, "character_id": mob["id"], "hp": "x"})
+            tokens.append(ev["payload"]["token"])
+            assert ev["payload"]["token"]["hp"] == 7, ev
+            err = await run(gm, "m7", "token.update", {"id": tokens[0]["id"], "hp": 2.5})
+            assert err["type"] == "error", err
+            copy = (await run(gm, "m8", "character.copy", {"id": mob["id"]}))["payload"]["character"]
+            assert copy["system"] == "mob" and copy["data"].get("ac") == 15 and copy["id"] != mob["id"], copy
+            await cmd(gm, "m9", "character.delete", {"id": copy["id"]})
+            await recv_until(gm, lambda m: m.get("type") == "character_deleted")
+        finally:
+            for i, t in enumerate(tokens):
+                await run(gm, f"m10{i}", "token.remove", {"id": t["id"]})
+            await cmd(gm, "m11", "character.delete", {"id": mob["id"]})
+            await recv_until(gm, lambda m: m.get("type") == "character_deleted")
+    print("мобы: лист-шаблон, у экземпляров свои хиты и номера, игроку хиты не уходят; моба заводит только ГМ")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:

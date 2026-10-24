@@ -163,6 +163,14 @@ def combat_for(combat: dict | None, actor: Actor) -> dict | None:
     return {**combat, "entries": [e for e in combat["entries"] if not e.get("hidden")]}
 
 
+def token_for(token: dict, actor: Actor) -> dict:
+    """Токен глазами получателя: хиты моба видит ГМ и владелец токена.
+    Игроку они бы выдали, сколько осталось добить."""
+    if actor.is_gm or token.get("hp") is None or token.get("owner_id") == actor.id:
+        return token
+    return {**token, "hp": None}
+
+
 def event_for(actor: Actor, name: str, seq: int, payload: dict, hidden, cmd_id: str | None) -> dict:
     """Событие сцены глазами получателя.
 
@@ -173,6 +181,8 @@ def event_for(actor: Actor, name: str, seq: int, payload: dict, hidden, cmd_id: 
     """
     if name == "combat.updated":
         payload = {"combat": combat_for(payload["combat"], actor)}
+    if isinstance(payload.get("token"), dict):
+        payload = {**payload, "token": token_for(payload["token"], actor)}
     if actor.is_gm or hidden is None:
         return protocol.event(name, seq, payload, cmd_id)
     before, after = hidden
@@ -222,7 +232,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         "combat": combat_for(json.loads(scene.combat_json) if scene.combat_json else None, actor),
         # Токены слоя ГМ игроку не отдаём вовсе: прятать на клиенте
         # бесполезно, всё пришедшее видно в DevTools.
-        "tokens": [t.to_dict() for t in scene.tokens if actor.is_gm or t.layer != "gm"],
+        "tokens": [token_for(t.to_dict(), actor) for t in scene.tokens if actor.is_gm or t.layer != "gm"],
         "walls": [w.to_dict() for w in scene.walls],
         "messages": [message_for(m.to_dict(), actor) for m in reversed(messages)],
     }

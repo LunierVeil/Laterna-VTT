@@ -257,7 +257,7 @@ export default function App() {
           <ToolHint />
           <ZoomControl stageRef={stageRef} />
         </div>
-        <Sidebar socket={socket} sceneId={sceneId!} onOpenScene={openScene} />
+        <Sidebar socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
       </main>
       {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}

@@ -1,5 +1,6 @@
 import { useUi, type SideTab } from "../state/store";
 import type { SceneSocket } from "../net/socket";
+import type { SceneStage } from "../scene/stage";
 import { Chat } from "./Chat";
 import { ScenesPanel } from "./ScenesPanel";
 import { PlayersPanel } from "./PlayersPanel";
@@ -17,10 +18,12 @@ export function Sidebar({
   socket,
   sceneId,
   onOpenScene,
+  stageRef,
 }: {
   socket: SceneSocket;
   sceneId: string;
   onOpenScene: (id: string) => void;
+  stageRef: React.MutableRefObject<SceneStage | null>;
 }) {
   const tab = useUi((s) => s.sideTab);
   const isGm = useUi((s) => s.isGm);
@@ -42,7 +45,7 @@ export function Sidebar({
       </div>
       {/* Чат не размонтируем: иначе теряется недописанное сообщение и прокрутка. */}
       <Chat socket={socket} hidden={tab !== "chat"} />
-      {tab === "characters" && <CharactersPanel socket={socket} />}
+      {tab === "characters" && <CharactersPanel socket={socket} stageRef={stageRef} />}
       {tab === "scenes" && isGm && <ScenesPanel socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
       {tab === "players" && isGm && <PlayersPanel socket={socket} />}
     </aside>

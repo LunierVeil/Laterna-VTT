@@ -103,7 +103,7 @@ async def _campaign_user(db: AsyncSession, campaign_id: str, user_id: object) ->
     return user.id
 
 
-async def _visible_character(db: AsyncSession, campaign_id: str, actor: Actor, char_id: object) -> str | None:
+async def _linked_character(db: AsyncSession, campaign_id: str, actor: Actor, char_id: object) -> Character | None:
     """Привязать токен можно к своему персонажу, ГМ - к любому. None - отвязать."""
     if char_id is None:
         return None
@@ -113,7 +113,58 @@ async def _visible_character(db: AsyncSession, campaign_id: str, actor: Actor, c
         actor.is_gm or character.owner_id == actor.id
     ):
         raise CommandError("нет такого персонажа")
-    return character.id
+    return character
+
+
+# --- мобы -------------------------------------------------------------------
+#
+# Моб - лист с system="mob": шаблон. Хиты экземпляра живут на токене
+# (Token.hp), поэтому пять гоблинов с одного листа ранены по-разному. Другой
+# гоблин (с луком) - копия листа (character.copy), а не правка шаблона.
+
+MOB = "mob"
+SYSTEMS = {"dnd5e", MOB}
+HP_LIMIT = 99_999
+
+
+def _mob_data(character: Character) -> dict:
+    data = json.loads(character.data_json or "{}")
+    return data if isinstance(data, dict) else {}
+
+
+def _mob_max_hp(character: Character) -> int | None:
+    hp = _mob_data(character).get("hp")
+    value = hp.get("max") if isinstance(hp, dict) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _mob_portrait(character: Character) -> str | None:
+    # В листе - просто строка. На токен попадает только загруженная картинка.
+    try:
+        return _upload_url(_mob_data(character).get("portrait"), "портрет")
+    except CommandError:
+        return None
+
+
+async def _mob_instance_name(db: AsyncSession, scene_id: str, character: Character) -> str:
+    """Гоблин 1, Гоблин 2... - первый свободный номер на этой сцене."""
+    names = set(
+        (await db.execute(select(Token.name).where(Token.scene_id == scene_id, Token.character_id == character.id)))
+        .scalars()
+        .all()
+    )
+    n = 1
+    while f"{character.name} {n}"[:200] in names:
+        n += 1
+    return f"{character.name} {n}"[:200]
+
+
+def _hp_value(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != int(value):
+        raise CommandError("хиты - целое число")
+    return int(_clamp(int(value), -HP_LIMIT, HP_LIMIT))
 
 
 async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -122,14 +173,27 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
     owner_id = actor.id
     if actor.is_gm and "owner_id" in payload:
         owner_id = await _campaign_user(db, scene.campaign_id, payload["owner_id"])
+    character = await _linked_character(db, scene.campaign_id, actor, payload.get("character_id"))
+    name = str(payload.get("name") or "Токен")[:200]
+    image_url = _upload_url(payload.get("image_url"), "картинка токена")
+    hp = None
+    if character is not None and character.system == MOB:
+        # Экземпляр моба: свой номер, полные хиты, портрет из листа.
+        name = await _mob_instance_name(db, scene.id, character)
+        hp = _mob_max_hp(character)
+        image_url = image_url or _mob_portrait(character)
+    elif character is not None:
+        name = str(payload.get("name") or character.name)[:200]
     token = Token(
         scene_id=scene.id,
-        name=str(payload.get("name") or "Токен")[:200],
+        name=name,
         x=_clamp(_num(payload, "x", 0), 0, scene.width),
         y=_clamp(_num(payload, "y", 0), 0, scene.height),
         size=_clamp(float(payload.get("size") or 1), 0.25, 10),
         color=str(payload.get("color") or "#c75c5c")[:20],
-        image_url=_upload_url(payload.get("image_url"), "картинка токена"),
+        image_url=image_url,
+        character_id=character.id if character else None,
+        hp=hp,
         # Скрытый от игроков токен ставит только ГМ: иначе игрок прятал бы
         # свои токены от остальных.
         layer="gm" if payload.get("layer") == "gm" and actor.is_gm else "tokens",
@@ -187,7 +251,17 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         _require_gm(actor, "менять владельца может только ГМ")
         token.owner_id = await _campaign_user(db, scene.campaign_id, payload["owner_id"])
     if "character_id" in payload:
-        token.character_id = await _visible_character(db, scene.campaign_id, actor, payload["character_id"])
+        character = await _linked_character(db, scene.campaign_id, actor, payload["character_id"])
+        if character is None or character.system != MOB:
+            token.hp = None  # хиты персонажа - в его листе
+        elif token.character_id != character.id:
+            token.hp = _mob_max_hp(character)
+        token.character_id = character.id if character else None
+    if "hp" in payload:
+        linked = await db.get(Character, token.character_id) if token.character_id else None
+        if linked is None or linked.system != MOB:
+            raise CommandError("хиты этого токена - в листе персонажа")
+        token.hp = _hp_value(payload["hp"])
     if "size" in payload:
         size = _clamp(_num(payload, "size"), 0.25, 10)
         # Держим на месте левый верхний угол, а не центр: иначе токен 2x2
@@ -492,11 +566,16 @@ async def character_create(db: AsyncSession, campaign: Campaign, actor: Actor, p
     owner_id = actor.id
     if actor.is_gm and "owner_id" in payload:
         owner_id = await _campaign_user(db, campaign.id, payload["owner_id"])
+    system = str(payload.get("system") or "dnd5e")
+    if system not in SYSTEMS:
+        raise CommandError("нет такой системы листа")
+    if system == MOB:
+        _require_gm(actor, "мобов заводит ГМ")
     character = Character(
         campaign_id=campaign.id,
         owner_id=owner_id,
         name=_character_name(payload.get("name")),
-        system="dnd5e",
+        system=system,
         data_json="{}",
     )
     db.add(character)
@@ -523,6 +602,22 @@ async def character_update(db: AsyncSession, campaign: Campaign, actor: Actor, p
     character.updated_at = datetime.now(timezone.utc)
     await db.flush()
     return "character.saved", {"character": character.to_dict()}
+
+
+async def character_copy(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Копия листа - «гоблин, но с луком». Владелец тот же; исходник
+    импорта не копируем: копию правят руками."""
+    source = await _own_character(db, campaign, actor, payload.get("id"))
+    character = Character(
+        campaign_id=campaign.id,
+        owner_id=source.owner_id,
+        name=_character_name(f"{source.name} (копия)"),
+        system=source.system,
+        data_json=source.data_json,
+    )
+    db.add(character)
+    await db.flush()
+    return "character.created", {"character": character.to_dict()}
 
 
 def _parse_lss(raw: object) -> tuple[str, dict]:
@@ -576,7 +671,7 @@ async def character_delete(db: AsyncSession, campaign: Campaign, actor: Actor, p
     character = await _own_character(db, campaign, actor, payload.get("id"))
     owner_id = character.owner_id
     # Токены остаются, просто без листа. FK в SQLite не включены - явно.
-    await db.execute(update(Token).where(Token.character_id == character.id).values(character_id=None))
+    await db.execute(update(Token).where(Token.character_id == character.id).values(character_id=None, hp=None))
     await db.delete(character)
     await db.flush()
     return "character.deleted", {"id": character.id, "owner_id": owner_id}
@@ -747,6 +842,7 @@ CAMPAIGN_HANDLERS = {
     "player.delete": player_delete,
     "character.create": character_create,
     "character.update": character_update,
+    "character.copy": character_copy,
     "character.delete": character_delete,
     "character.import": character_import,
     "character.reimport": character_reimport,

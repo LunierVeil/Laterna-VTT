@@ -27,3 +27,12 @@ export async function uploadImage(
   if (!res.ok) throw new Error(body.detail || `загрузка не удалась (${res.status})`);
   return { url: body.url, width, height };
 }
+
+/**
+ * Адрес загруженной картинки или null. Портрет лежит в данных листа, а их
+ * сервер проверяет только по форме - произвольный URL там возможен. Чужой
+ * адрес в <img> заставил бы браузеры всех ходить на чужой сервер.
+ */
+export function safeUpload(value: unknown): string | null {
+  return typeof value === "string" && /^\/uploads\/[0-9a-f]{32}\.(png|jpg|webp)$/.test(value) ? value : null;
+}

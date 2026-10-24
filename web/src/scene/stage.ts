@@ -540,7 +540,9 @@ export class SceneStage {
     // Хиты и КД из листа - если лист этому клиенту виден.
     // Полоска хитов - поперёк нижнего края токена, с числом; КД - щит в
     // правом нижнем углу; имя - под токеном, ниже кольца хода.
-    const stats = view.data.character_id ? this.stats.get(view.data.character_id) : undefined;
+    const sheet = view.data.character_id ? this.stats.get(view.data.character_id) : undefined;
+    // У экземпляра моба хиты свои (token.hp), максимум и КД - из листа-шаблона.
+    const stats = sheet && view.data.hp != null ? { ...sheet, hp: view.data.hp } : sheet;
     const hasBar = stats?.hp !== undefined && !!stats.max;
     if (hasBar) {
       const w = Math.max(44, 1.6 * r);
@@ -991,6 +993,30 @@ export class SceneStage {
     const rect = this.app.canvas.getBoundingClientRect();
     this.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
   };
+
+  /**
+   * Свободная клетка у центра экрана - куда ставить токен из списка мобов.
+   * Пятерых гоблинов подряд не надо растаскивать из одной клетки.
+   */
+  freeCellNearCenter(): { x: number; y: number } {
+    const p = this.world.toLocal({ x: this.app.screen.width / 2, y: this.app.screen.height / 2 } as any);
+    const c = this.snapToken(p, 1); // в клетку, как и при постановке кликом
+    const g = this.gridSize;
+    const busy = (x: number, y: number) =>
+      [...this.tokens.values()].some((v) => Math.abs(v.data.x - x) < g / 2 && Math.abs(v.data.y - y) < g / 2);
+    // Кольцами вокруг центра: сначала соседние клетки, потом дальше.
+    for (let ring = 0; ring <= 6; ring++) {
+      for (let dy = -ring; dy <= ring; dy++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const x = c.x + dx * g;
+          const y = c.y + dy * g;
+          if (x > 0 && y > 0 && x < this.sceneWidth && y < this.sceneHeight && !busy(x, y)) return { x, y };
+        }
+      }
+    }
+    return c;
+  }
 
   /** Кнопки масштаба: относительно центра экрана. */
   zoomBy(factor: number) {

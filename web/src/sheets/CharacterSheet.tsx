@@ -5,6 +5,7 @@ import type { Character } from "../types";
 import type { Block, Counter, Field, RollSpec, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
+import { safeUpload, uploadImage } from "../net/upload";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -728,6 +729,60 @@ export function HpWidget({
   );
 }
 
+/** Портрет: в режиме правки - загрузить или убрать. */
+function Portrait({
+  url,
+  name,
+  editing,
+  onChange,
+}: {
+  url: string | null;
+  name: string;
+  editing: boolean;
+  onChange: (url: string | null) => void;
+}) {
+  const isGm = useUi((s) => s.isGm);
+  const file = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (f: File) => {
+    setBusy(true);
+    try {
+      // Лимиты - как у картинки токена (server/app/config.py).
+      const { url } = await uploadImage(f, { maxBytes: (isGm ? 25 : 5) * 1024 * 1024, maxSide: 2048, what: "портрет" });
+      onChange(url);
+    } catch (e) {
+      useUi.getState().flashError(e instanceof Error ? e.message : "загрузка не удалась");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const face = url ? <img src={url} alt="" /> : <span>{name.trim().charAt(0).toUpperCase() || "?"}</span>;
+  if (!editing) return <div className="portrait">{face}</div>;
+  return (
+    <div className="portrait-edit">
+      <button className="portrait" title="загрузить портрет" disabled={busy} onClick={() => file.current?.click()}>
+        {face}
+      </button>
+      <input
+        ref={file}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void pick(f);
+        }}
+      />
+      {url && (
+        <button className="tool" onClick={() => onChange(null)}>
+          Убрать
+        </button>
+      )}
+    </div>
+  );
+}
+
 const TAB_KEY = "lanterna.sheetTab";
 
 /** Лист персонажа поверх сцены. Сам ничего не хранит: правки - командами. */
@@ -797,6 +852,14 @@ export function CharacterSheet({ character, socket }: { character: Character; so
     <div className="sheet-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="sheet" role="dialog" aria-label={`Лист: ${character.name}`}>
         <header className="sheet-head">
+          {schema?.portrait && (
+            <Portrait
+              url={safeUpload(get(character.data, schema.portrait))}
+              name={character.name}
+              editing={editing}
+              onChange={(url) => set(schema.portrait!, url)}
+            />
+          )}
           <div className="sheet-title">
             {editing ? (
               <FieldInput
@@ -809,7 +872,8 @@ export function CharacterSheet({ character, socket }: { character: Character; so
             )}
             <span className="muted">
               {subtitle || schema?.title || character.system}
-              {isGm && owner ? ` · игрок ${owner}` : ""}
+              {/* Моб всегда мастерский - подпись "игрок" ему ни к чему. */}
+              {isGm && owner && character.system !== "mob" ? ` · игрок ${owner}` : ""}
             </span>
           </div>
           <span className="sheet-head-actions">
