@@ -59,8 +59,28 @@ export type Block =
    */
   | { kind: "texts"; title: string; path: string; resourcesPath: string };
 
-export interface SheetSchema {
+/**
+ * Шапка листа - то, что нужно видеть всегда, на любой вкладке: хиты,
+ * КД и подобное. Хиты - отдельно, у них кнопки −/+.
+ */
+export interface Summary {
+  /** Пути, значения которых через пробел образуют подзаголовок: "Воин 5". */
+  subtitle: string[];
+  hp?: { current: string; max: string; temp?: string };
+  /** Короткие значения рядом с хитами. */
+  stats: Field[];
+}
+
+export interface Tab {
   id: string;
   title: string;
   blocks: Block[];
+}
+
+export interface SheetSchema {
+  id: string;
+  title: string;
+  summary: Summary;
+  /** Первая вкладка - та, что нужна в бою. */
+  tabs: Tab[];
 }
