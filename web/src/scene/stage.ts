@@ -45,6 +45,8 @@ export interface StageCallbacks {
   onChainChange: (active: boolean) => void;
   /** Двойной клик по токену - открыть его лист. */
   onOpenToken: (token: Token) => void;
+  /** Масштаб поменялся - для индикатора "100%". Зовётся на шаг колеса, не на кадр. */
+  onZoom: (scale: number) => void;
 }
 
 /**
@@ -922,11 +924,18 @@ export class SceneStage {
   private onWheel = (e: WheelEvent) => {
     e.preventDefault();
     const rect = this.app.canvas.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
+    this.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
+  };
 
+  /** Кнопки масштаба: относительно центра экрана. */
+  zoomBy(factor: number) {
+    if (this.destroyed) return;
+    this.zoomAt(factor, this.app.screen.width / 2, this.app.screen.height / 2);
+  }
+
+  /** Масштаб с точкой (px, py) на экране, которая остаётся на месте. */
+  private zoomAt(factor: number, px: number, py: number) {
     const before = this.world.toLocal({ x: px, y: py } as any);
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
     const next = Math.max(0.15, Math.min(4, this.world.scale.x * factor));
     this.world.scale.set(next);
     const after = this.world.toLocal({ x: px, y: py } as any);
@@ -934,5 +943,6 @@ export class SceneStage {
     // Держим точку под курсором на месте.
     this.world.position.x += (after.x - before.x) * next;
     this.world.position.y += (after.y - before.y) * next;
-  };
+    this.cb.onZoom(next);
+  }
 }

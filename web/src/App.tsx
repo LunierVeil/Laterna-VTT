@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SceneSocket } from "./net/socket";
 import { SceneView } from "./scene/SceneView";
 import type { SceneStage } from "./scene/stage";
-import { Toolbar } from "./ui/Toolbar";
-import { Chat } from "./ui/Chat";
+import { TopBar } from "./ui/TopBar";
+import { ToolRail, ToolHint } from "./ui/ToolRail";
+import { Sidebar } from "./ui/Sidebar";
+import { ZoomControl } from "./ui/ZoomControl";
 import { TokenPanel } from "./ui/TokenPanel";
 import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
@@ -245,14 +247,17 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar socket={socket} sceneId={sceneId!} onOpenScene={openScene} />
+      <TopBar socket={socket} sceneId={sceneId!} />
       <main>
+        <ToolRail />
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
           <TokenPanel socket={socket} />
           <InitiativePanel socket={socket} />
+          <ToolHint />
+          <ZoomControl stageRef={stageRef} />
         </div>
-        <Chat socket={socket} />
+        <Sidebar socket={socket} sceneId={sceneId!} onOpenScene={openScene} />
       </main>
       {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}

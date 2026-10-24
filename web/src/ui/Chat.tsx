@@ -48,14 +48,14 @@ function RollLine({ m }: { m: Message }) {
   );
 }
 
-export function Chat({ socket }: { socket: SceneSocket }) {
+export function Chat({ socket, hidden }: { socket: SceneSocket; hidden: boolean }) {
   const { messages, me, isGm } = useUi();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    if (!hidden) bottom.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, hidden]);
 
   const send = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +66,7 @@ export function Chat({ socket }: { socket: SceneSocket }) {
   };
 
   return (
-    <aside className="chat">
+    <section className="chat" hidden={hidden}>
       <div className="chat-log">
         {messages.map((m) => (
           <div key={m.id} className={m.author_id && m.author_id === me?.id ? "msg msg-own" : "msg"}>
@@ -89,8 +89,10 @@ export function Chat({ socket }: { socket: SceneSocket }) {
           onChange={(e) => setText(e.target.value)}
           placeholder={isGm ? "сообщение, /r 2d6+3, /gr - скрыто" : "сообщение или /r 2d6+3"}
         />
-        <button type="submit">↵</button>
+        <button type="submit" aria-label="отправить">
+          →
+        </button>
       </form>
-    </aside>
+    </section>
   );
 }

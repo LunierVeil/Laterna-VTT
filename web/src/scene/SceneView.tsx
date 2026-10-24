@@ -101,6 +101,7 @@ export function SceneView({
         const ui = useUi.getState();
         if (t.character_id && ui.characters[t.character_id]) ui.openCharacter(t.character_id);
       },
+      onZoom: (scale) => useUi.getState().setZoom(scale),
     }, useUi.getState().me!.id);
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
@@ -117,6 +118,7 @@ export function SceneView({
         stage.setTool(useUi.getState().tool);
         stage.setGm(useUi.getState().isGm);
         stage.setCharacterStats(statsOf(useUi.getState().characters));
+        useUi.getState().setZoom(1);
         onReady(stage);
       })
       .catch((e) => console.error("не удалось поднять сцену", e));

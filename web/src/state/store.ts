@@ -24,7 +24,7 @@ interface UiState {
   openCharacterId: string | null;
   /** Бой текущей сцены (трекер инициативы). */
   combat: Combat | null;
-  /** Панель боя открыта вручную (когда боя ещё нет). */
+  /** Полный трекер боя открыт (очередь хода и так видна в шапке). */
   combatOpen: boolean;
   /** ГМ ставит новые токены сразу скрытыми от игроков (засада). */
   placeHidden: boolean;
@@ -32,6 +32,10 @@ interface UiState {
   wallKind: "wall" | "door";
   /** ГМ бросает скрыто: панель кубов и броски из листа. */
   hiddenRolls: boolean;
+  /** Вкладка правой колонки. */
+  sideTab: SideTab;
+  /** Масштаб сцены - только для индикатора, сам масштаб живёт в стейдже. */
+  zoom: number;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -74,7 +78,11 @@ interface UiState {
   setPlaceHidden: (v: boolean) => void;
   setWallKind: (v: "wall" | "door") => void;
   setHiddenRolls: (v: boolean) => void;
+  setSideTab: (t: SideTab) => void;
+  setZoom: (z: number) => void;
 }
+
+export type SideTab = "chat" | "scenes" | "players" | "characters";
 
 /**
  * Здесь живёт ТОЛЬКО состояние интерфейса: чат, присутствие, активный
@@ -98,6 +106,8 @@ export const useUi = create<UiState>((set) => ({
   placeHidden: false,
   wallKind: "wall",
   hiddenRolls: false,
+  sideTab: "chat",
+  zoom: 1,
   tool: "select",
   messages: [],
   users: [],
@@ -115,7 +125,12 @@ export const useUi = create<UiState>((set) => ({
   setMe: (me) =>
     set((s) => {
       const isGm = me?.is_gm ?? false;
-      return { me, isGm, tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool };
+      return {
+        me,
+        isGm,
+        tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool,
+        sideTab: !isGm && (s.sideTab === "scenes" || s.sideTab === "players") ? "chat" : s.sideTab,
+      };
     }),
   setTool: (tool) => set({ tool }),
   setMessages: (messages) => set({ messages }),
@@ -149,4 +164,6 @@ export const useUi = create<UiState>((set) => ({
   setPlaceHidden: (placeHidden) => set({ placeHidden }),
   setWallKind: (wallKind) => set({ wallKind }),
   setHiddenRolls: (hiddenRolls) => set({ hiddenRolls }),
+  setSideTab: (sideTab) => set({ sideTab }),
+  setZoom: (zoom) => set({ zoom }),
 }));

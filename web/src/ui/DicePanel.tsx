@@ -62,18 +62,19 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
         ))}
       </div>
 
-      <div className="dice-row">
-        <div className="dice-mod">
-          <button type="button" className="die-btn die-btn-sq" onClick={() => setMod((m) => m - 1)}>
-            −
-          </button>
-          <span className="dice-mod-value">{modText || "±0"}</span>
-          <button type="button" className="die-btn die-btn-sq" onClick={() => setMod((m) => m + 1)}>
-            +
-          </button>
-        </div>
-        <span className="dice-formula">{formula || <span className="muted">набери кубы</span>}</span>
-        {(formula || mod !== 0) && (
+      {/* Набор и модификатор - только когда что-то набрано, иначе панель шумит. */}
+      {(formula || mod !== 0) && (
+        <div className="dice-row">
+          <div className="dice-mod">
+            <button type="button" className="die-btn die-btn-sq" onClick={() => setMod((m) => m - 1)}>
+              −
+            </button>
+            <span className="dice-mod-value">{modText || "±0"}</span>
+            <button type="button" className="die-btn die-btn-sq" onClick={() => setMod((m) => m + 1)}>
+              +
+            </button>
+          </div>
+          <span className="dice-formula">{formula || <span className="muted">набери кубы</span>}</span>
           <button
             type="button"
             className="die-btn die-btn-sq"
@@ -85,25 +86,30 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
           >
             ×
           </button>
-        )}
-      </div>
+          <button type="button" className="dice-roll" disabled={!formula} onClick={() => roll(formula)}>
+            Бросить
+          </button>
+        </div>
+      )}
 
       <div className="dice-row">
-        <button type="button" className="die-btn" title={`2d20kh1${modText}`} onClick={() => roll(`2d20kh1${modText}`)}>
-          d20 преим.
+        <button type="button" className="btn grow" title={`2d20kh1${modText}`} onClick={() => roll(`2d20kh1${modText}`)}>
+          Преимущество
         </button>
-        <button type="button" className="die-btn" title={`2d20kl1${modText}`} onClick={() => roll(`2d20kl1${modText}`)}>
-          d20 помеха
+        <button type="button" className="btn grow" title={`2d20kl1${modText}`} onClick={() => roll(`2d20kl1${modText}`)}>
+          Помеха
         </button>
         {isGm && (
-          <label className="dice-hidden" title="результат увидишь только ты; игроки - «бросил скрыто»">
-            <input type="checkbox" checked={hidden} onChange={(e) => useUi.getState().setHiddenRolls(e.target.checked)} />
-            скрыто
-          </label>
+          <button
+            type="button"
+            className={hidden ? "btn grow btn-on" : "btn grow"}
+            title="результат увидишь только ты; игроки - «бросил скрыто»"
+            aria-pressed={hidden}
+            onClick={() => useUi.getState().setHiddenRolls(!hidden)}
+          >
+            Скрытно ГМ
+          </button>
         )}
-        <button type="button" className="dice-roll" disabled={!formula} onClick={() => roll(formula)}>
-          Бросить
-        </button>
       </div>
     </div>
   );

@@ -51,7 +51,8 @@ export function InitiativePanel({ socket }: { socket: SceneSocket }) {
   const selected = useUi((s) => s.selected);
   const [confirmEnd, setConfirmEnd] = useState(false);
 
-  if (!combat && !open) return null;
+  // Очередь видна в шапке; полный трекер - по кнопке или клику по очереди.
+  if (!open) return null;
   const entries = combat?.entries ?? [];
   const mine = (e: CombatEntry) => isGm || (!!me && e.owner_id === me.id);
   const current = entries.find((e) => e.id === combat?.current);
