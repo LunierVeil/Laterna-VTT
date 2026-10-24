@@ -98,7 +98,9 @@ export const useUi = create<UiState>((set) => ({
     document.cookie = `${GM_COOKIE}=; path=/; max-age=0`;
     set({ gmKey: null, isGm: false });
   },
-  setIsGm: (isGm) => set({ isGm }),
+  // Перестал быть ГМ (ключ не подошёл) - инструменты мастера недоступны.
+  setIsGm: (isGm) =>
+    set((s) => ({ isGm, tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool })),
   setTool: (tool) => set({ tool }),
   setMessages: (messages) => set({ messages }),
   pushMessage: (m) => set((s) => ({ messages: [...s.messages, m].slice(-200) })),

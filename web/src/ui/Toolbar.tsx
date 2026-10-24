@@ -4,11 +4,13 @@ import type { Tool } from "../types";
 import { SceneMenu } from "./SceneMenu";
 import { ScenesMenu } from "./ScenesMenu";
 
-const TOOLS: { id: Tool; label: string; hint: string }[] = [
+// gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
+// показывать игроку кнопки, которые всё равно ответят отказом.
+const TOOLS: { id: Tool; label: string; hint: string; gm?: boolean }[] = [
   { id: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, по пустому месту - панорама, Delete - удалить свой токен" },
   { id: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
-  { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену" },
-  { id: "erase", label: "Стереть", hint: "Клик по стене - удалить. Красная - твоя, серая - чужая, её не удалить" },
+  { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену", gm: true },
+  { id: "erase", label: "Стереть", hint: "Клик по стене - удалить", gm: true },
 ];
 
 export function Toolbar({
@@ -39,7 +41,7 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-tools">
-        {TOOLS.map((t) => (
+        {TOOLS.filter((t) => isGm || !t.gm).map((t) => (
           <button
             key={t.id}
             className={t.id === tool ? "tool tool-active" : "tool"}

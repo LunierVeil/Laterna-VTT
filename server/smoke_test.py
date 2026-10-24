@@ -49,7 +49,9 @@ async def main() -> int:
     scene_id = scenes[0]["id"]
     print(f"сцена {scene_id}")
 
-    async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm") as gm, \
+    # Стены ставит только ГМ, поэтому первый клиент - с ключом.
+    cookie = {"Cookie": gm_cookie()}
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm", additional_headers=cookie) as gm, \
             websockets.connect(f"{WS}/ws/scene/{scene_id}?user=player") as player:
 
         snap = json.loads(await gm.recv())
@@ -83,6 +85,15 @@ async def main() -> int:
         await recv_until(gm, lambda m: m.get("name") == "wall.added")
         await recv_until(player, lambda m: m.get("name") == "wall.added")
         print("wall.added ok")
+
+        # 2б. Игрок стену не ставит
+        await player.send(json.dumps({
+            "type": "cmd", "id": "c2b", "name": "wall.add",
+            "payload": {"x1": 0, "y1": 500, "x2": 100, "y2": 500},
+        }))
+        err = await recv_until(player, lambda m: m.get("type") == "error")
+        assert err["cmd_id"] == "c2b", err
+        print(f"игрок стену не ставит: {err['message']}")
 
         # 3. Движение сквозь стену должно быть отклонено (двигает владелец)
         await gm.send(json.dumps({
@@ -134,7 +145,6 @@ async def main() -> int:
     # 7. Скрытая сцена: ГМ создаёт, игрок не может до неё добраться.
     # Активацию не проверяем: тест гоняют на живом сервере, она бы
     # перекинула настоящих игроков.
-    cookie = {"Cookie": gm_cookie()}
     async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm", additional_headers=cookie) as gm:
         snap = json.loads(await gm.recv())
         assert snap["you"]["is_gm"], "ключ ГМ не принят"

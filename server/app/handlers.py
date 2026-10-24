@@ -162,6 +162,9 @@ async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: di
 
 
 async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    # Стены - разметка карты, её делает мастер. Игрок со стенами мог бы
+    # запереть других или отгородиться от монстров.
+    _require_gm(actor, "стены ставит только ГМ")
     wall = Wall(
         scene_id=scene.id,
         x1=_num(payload, "x1"),
