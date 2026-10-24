@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import asynccontextmanager
 
 import uuid
@@ -17,12 +18,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import auth, protocol
-from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, PUBLIC_URL, UPLOAD_DIR, WEB_DIST
+from .config import (
+    FRONTEND_URL,
+    FRONTEND_URLS,
+    LOGIN_MAX_FAILURES,
+    LOGIN_MAX_FAILURES_PER_IP,
+    LOGIN_WINDOW,
+    MAX_PLAYER_UPLOAD_BYTES,
+    MAX_UPLOAD_BYTES,
+    PUBLIC_URL,
+    TRUST_PROXY,
+    UPLOAD_DIR,
+    WEB_DIST,
+)
+from .ratelimit import LoginLimiter
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, HIDDEN, CommandError
 from .hub import hub
 from .models import Campaign, Character, Invite, Message, Scene, User
 from .roles import Actor, gm_key_notice, is_gm_key
+
+
+log = logging.getLogger("laterna")
 
 
 @asynccontextmanager
@@ -322,28 +339,74 @@ async def me(request: Request, db: AsyncSession = Depends(get_session)) -> dict 
     return {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm} if actor else None
 
 
+# Неудачные входы: по паре адрес+имя (подбор пароля к одному игроку) и
+# по адресу (перебор разных имён). Ключ ГМ - как имя "ключ ГМ".
+login_limiter = LoginLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW)
+ip_limiter = LoginLimiter(LOGIN_MAX_FAILURES_PER_IP, LOGIN_WINDOW)
+
+
+def client_ip(request: Request) -> str:
+    """Адрес клиента. За туннелем все приходят с 127.0.0.1, настоящий адрес -
+    в X-Forwarded-For; верим ему, только если это включено (TRUST_PROXY) и
+    запрос пришёл с этой же машины. Берём последний адрес: его дописал наш
+    прокси, всё левее мог прислать сам клиент."""
+    host = request.client.host if request.client else "?"
+    if TRUST_PROXY and host in ("127.0.0.1", "::1"):
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+        if forwarded:
+            return forwarded
+    return host
+
+
+def _check_login_limit(ip: str, who: str) -> None:
+    wait = max(login_limiter.retry_after(f"{ip}|{who}") or 0, ip_limiter.retry_after(ip) or 0)
+    if wait:
+        minutes = max(1, round(wait / 60))
+        raise HTTPException(
+            429, f"слишком много неудачных попыток - подожди {minutes} мин", headers={"Retry-After": str(wait)}
+        )
+
+
+def _login_failed(ip: str, who: str) -> None:
+    login_limiter.fail(f"{ip}|{who}")
+    ip_limiter.fail(ip)
+
+
 @app.post("/api/login")
-async def login(body: LoginBody, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+async def login(
+    body: LoginBody, request: Request, response: Response, db: AsyncSession = Depends(get_session)
+) -> dict:
+    ip, who = client_ip(request), body.name.strip().casefold()
+    # До проверки пароля: argon2 дорогой, перебор не должен его гонять.
+    _check_login_limit(ip, who)
     campaign = await get_campaign(db)
     user = await auth.find_user(db, campaign, body.name.strip())
     # Один ответ на "нет такого" и "неверный пароль": иначе вход
     # подсказывал бы, какие имена существуют.
     if not await auth.verify_password(user.password_hash if user else None, body.password):
+        _login_failed(ip, who)
         raise HTTPException(401, "неверное имя или пароль")
+    login_limiter.reset(f"{ip}|{who}")
     _set_session(response, await auth.create_session(db, user))
     await db.commit()
     return user.to_dict()
 
 
 @app.post("/api/gm/login")
-async def gm_login(body: GmLoginBody, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+async def gm_login(
+    body: GmLoginBody, request: Request, response: Response, db: AsyncSession = Depends(get_session)
+) -> dict:
     """Вход мастера по ключу. Первый раз - заодно создать его аккаунт.
 
     Потом ключ - запасной вход, если пароль забыт: кто знает ключ, тот и
     так владеет сервером.
     """
+    ip = client_ip(request)
+    _check_login_limit(ip, "ключ ГМ")
     if not is_gm_key(body.key):
+        _login_failed(ip, "ключ ГМ")
         raise HTTPException(403, "ключ ГМ не подошёл")
+    login_limiter.reset(f"{ip}|ключ ГМ")
     async with hub.lock("campaign"):
         campaign = await get_campaign(db)
         gm = (
@@ -555,18 +618,20 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 return
             try:
                 name, payload = await handler(db, scene, actor, command.payload)
+                scene.seq += 1
+                seq = scene.seq
+                await db.commit()
             except CommandError as exc:
                 await db.rollback()
                 await hub.send(websocket, protocol.error(str(exc), command.id))
                 return
             except Exception:
+                # Ошибка в одной команде не должна рвать сокет: raise вывел бы
+                # из цикла приёма, и игрок потерял бы соединение. В лог - и дальше.
                 await db.rollback()
+                log.exception("команда %s упала", command.name)
                 await hub.send(websocket, protocol.error("внутренняя ошибка", command.id))
-                raise
-
-            scene.seq += 1
-            seq = scene.seq
-            await db.commit()
+                return
 
         hidden = payload.pop(HIDDEN, None)
         await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
@@ -580,15 +645,17 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
             campaign = await get_campaign(db)
             try:
                 name, payload = await handler(db, campaign, actor, command.payload)
+                await db.commit()
             except CommandError as exc:
                 await db.rollback()
                 await hub.send(websocket, protocol.error(str(exc), command.id))
                 return
             except Exception:
+                # Как и в командах сцены: в лог, сокет живёт дальше.
                 await db.rollback()
+                log.exception("команда %s упала", command.name)
                 await hub.send(websocket, protocol.error("внутренняя ошибка", command.id))
-                raise
-            await db.commit()
+                return
 
             if name == "chat.said":
                 message = payload["message"]

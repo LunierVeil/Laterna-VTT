@@ -94,6 +94,10 @@ docker compose up --build
 
 Фронт: http://localhost:5173, API: http://localhost:8000
 
+После `git pull` с новыми зависимостями фронта (например, шрифты
+`@fontsource`) `./dev.sh` и `./laterna.sh` сами запускают `npm ci`. Вручную:
+`cd web && npm ci`.
+
 ### Разработка
 
 ```
@@ -125,7 +129,7 @@ npm run dev
 ### Проверка
 
 ```
-server/.venv/bin/python -m unittest discover -s tests -t .   # без сервера
+server/.venv/bin/python -m pytest tests                         # без сервера
 cd server && python smoke_test.py                             # при живом сервере
 ```
 
@@ -168,3 +172,9 @@ web/src/
 
 Перед тем как трогать код, прочитайте ARCHITECTURE.md - там решения,
 а не описание.
+
+## Лицензия
+
+AGPL-3.0 - текст в [LICENSE](LICENSE). Можно поднимать, менять и
+раздавать; если запускаешь изменённую версию для других людей по сети -
+открой им её исходники.

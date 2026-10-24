@@ -14,6 +14,7 @@ seq и рассылка - снаружи, в main.py, под локом сцен
 from __future__ import annotations
 
 import json
+import math
 import re
 import secrets
 
@@ -34,14 +35,31 @@ class CommandError(Exception):
     pass
 
 
+def _as_num(value: object, key: str) -> float:
+    """Число из команды. NaN и бесконечность - ошибка команды, а не
+    исключение: json.loads принимает Infinity и NaN, а 1e400 даёт inf.
+    Такое число в координатах ломает снапшот сцены для всех."""
+    if isinstance(value, bool):
+        raise CommandError(f"поле {key} должно быть числом")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise CommandError(f"поле {key} должно быть числом")
+    if not math.isfinite(number):
+        raise CommandError(f"поле {key} должно быть конечным числом")
+    return number
+
+
 def _num(payload: dict, key: str, default=None) -> float:
     value = payload.get(key, default)
     if value is None:
         raise CommandError(f"не хватает поля {key}")
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        raise CommandError(f"поле {key} должно быть числом")
+    return _as_num(value, key)
+
+
+def _int(payload: dict, key: str, lo: float, hi: float, default=None) -> int:
+    """Целое в пределах: дробное отбрасывается, лишнее зажимается."""
+    return int(_clamp(_num(payload, key, default), lo, hi))
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -162,7 +180,11 @@ async def _mob_instance_name(db: AsyncSession, scene_id: str, character: Charact
 def _hp_value(value: object) -> int | None:
     if value is None:
         return None
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != int(value):
+    # Конечность - до int(): int(inf) и int(nan) бросают исключение, а не
+    # ошибку команды.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CommandError("хиты - целое число")
+    if isinstance(value, float) and not (math.isfinite(value) and value.is_integer()):
         raise CommandError("хиты - целое число")
     return int(_clamp(int(value), -HP_LIMIT, HP_LIMIT))
 
@@ -189,7 +211,7 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         name=name,
         x=_clamp(_num(payload, "x", 0), 0, scene.width),
         y=_clamp(_num(payload, "y", 0), 0, scene.height),
-        size=_clamp(float(payload.get("size") or 1), 0.25, 10),
+        size=_clamp(_as_num(payload.get("size") or 1, "size"), 0.25, 10),
         color=str(payload.get("color") or "#c75c5c")[:20],
         image_url=image_url,
         character_id=character.id if character else None,
@@ -315,6 +337,8 @@ async def wall_door(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
     """Открыть, закрыть, запереть дверь.
 
     Открыть и закрыть может любой - в игре персонажи открывают двери сами.
+    И с любого расстояния: пока нет видимости и освещения, серверу не по чему
+    проверить, что персонаж рядом. Появится видимость - тогда и дистанция.
     Запереть и отпереть - только мастер: иначе игрок отпирал бы двери,
     которые мастер запер, просто кликом.
     """
@@ -333,12 +357,14 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     # Стены - разметка карты, её делает мастер. Игрок со стенами мог бы
     # запереть других или отгородиться от монстров.
     _require_gm(actor, "стены ставит только ГМ")
+    # В границы сцены, как токены: стена за краем карты никому не нужна,
+    # а огромные координаты ломают геометрию движения.
     wall = Wall(
         scene_id=scene.id,
-        x1=_num(payload, "x1"),
-        y1=_num(payload, "y1"),
-        x2=_num(payload, "x2"),
-        y2=_num(payload, "y2"),
+        x1=_clamp(_num(payload, "x1"), 0, scene.width),
+        y1=_clamp(_num(payload, "y1"), 0, scene.height),
+        x2=_clamp(_num(payload, "x2"), 0, scene.width),
+        y2=_clamp(_num(payload, "y2"), 0, scene.height),
         kind=_wall_kind(payload.get("kind")),
         door_state=_door_state(payload.get("door_state")),
         blocks_movement=bool(payload.get("blocks_movement", True)),
@@ -367,15 +393,15 @@ async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     if not actor.is_gm:
         raise CommandError("сцену меняет только ГМ")
     if "grid_size" in payload:
-        scene.grid_size = int(_clamp(_num(payload, "grid_size"), 10, 400))
+        scene.grid_size = _int(payload, "grid_size", 10, 400)
     if "name" in payload:
         scene.name = str(payload["name"])[:200]
     if "background_url" in payload:
         scene.background_url = _upload_url(payload["background_url"], "фон")
     if "width" in payload:
-        scene.width = int(_clamp(_num(payload, "width"), 100, MAX_SCENE_SIDE))
+        scene.width = _int(payload, "width", 100, MAX_SCENE_SIDE)
     if "height" in payload:
-        scene.height = int(_clamp(_num(payload, "height"), 100, MAX_SCENE_SIDE))
+        scene.height = _int(payload, "height", 100, MAX_SCENE_SIDE)
     await db.flush()
     return "scene.updated", {
         "grid_size": scene.grid_size,
@@ -760,7 +786,7 @@ async def combat_set(db: AsyncSession, scene: Scene, actor: Actor, payload: dict
     entry = _entry(combat, payload.get("entry_id"))
     await _require_entry_rights(db, actor, entry)
     value = payload.get("init")
-    entry["init"] = None if value is None else int(_clamp(_num(payload, "init"), -50, 100))
+    entry["init"] = None if value is None else _int(payload, "init", -50, 100)
     entry.pop("roll", None)
     await _refresh_entries(db, combat)
     return _save_combat(scene, combat)
@@ -771,7 +797,7 @@ async def combat_roll(db: AsyncSession, scene: Scene, actor: Actor, payload: dic
     combat = _combat(scene)
     entry = _entry(combat, payload.get("entry_id"))
     await _require_entry_rights(db, actor, entry)
-    bonus = int(_clamp(_num(payload, "bonus", 0), -20, 30))
+    bonus = _int(payload, "bonus", -20, 30, default=0)
     formula = f"1d20{bonus:+d}" if bonus else "1d20"
     result = dice.roll(formula)
     entry["init"] = result.total

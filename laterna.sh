@@ -53,11 +53,16 @@ fi
 
 # Собираем, если сборки нет или исходники новее её. Node нужен только
 # для сборки - готовый dist сервер отдаёт сам.
-if [ ! -f "$DIST/index.html" ] || [ -n "$(find "$ROOT/web/src" "$ROOT/web/index.html" "$ROOT/web/package.json" -newer "$DIST/index.html" -print -quit)" ]; then
+if [ ! -f "$DIST/index.html" ] || [ -n "$(find "$ROOT/web/src" "$ROOT/web/index.html" "$ROOT/web/package.json" "$ROOT/web/package-lock.json" -newer "$DIST/index.html" -print -quit)" ]; then
   command -v npm >/dev/null || { echo "нужен Node.js (npm), чтобы собрать фронт"; exit 1; }
-  if [ ! -d "$ROOT/web/node_modules" ]; then
-    echo "> npm install"
-    (cd "$ROOT/web" && npm install --silent)
+  # npm ci и тогда, когда после git pull поменялись зависимости: иначе
+  # сборка падает на новом пакете (так было со шрифтами @fontsource).
+  # Сверяем хеш package-lock.json с тем, при котором ставили.
+  LOCK_HASH="$( (sha256sum "$ROOT/web/package-lock.json" 2>/dev/null || shasum -a 256 "$ROOT/web/package-lock.json") | cut -d' ' -f1)"
+  if [ "$(cat "$ROOT/web/node_modules/.laterna-lock" 2>/dev/null)" != "$LOCK_HASH" ]; then
+    echo "> npm ci"
+    (cd "$ROOT/web" && npm ci --silent)
+    echo "$LOCK_HASH" > "$ROOT/web/node_modules/.laterna-lock"
   fi
   echo "> собираю фронт"
   (cd "$ROOT/web" && npm run build --silent)
@@ -151,6 +156,11 @@ cd "$ROOT/server"
 # же порту), адрес туннеля - в разрешённые Origin сокета: не все сервисы
 # туннелей передают серверу исходный Host.
 ORIGINS="http://localhost:$PORT${PUBLIC:+,$PUBLIC}"
+# За туннелем все клиенты приходят с 127.0.0.1, и ограничение попыток
+# входа считало бы их одним адресом. В режиме tunnel сервер берёт адрес из
+# X-Forwarded-For, который дописывает туннель (и только для запросов с
+# этой машины - снаружи заголовок не подделать).
+[ -n "$PUBLIC" ] && export LANTERNA_TRUST_PROXY="${LANTERNA_TRUST_PROXY:-1}"
 # Без exec: после сервера trap гасит туннель.
 FRONTEND_URL="${FRONTEND_URL:-$ORIGINS}" WEB_DIST="$DIST" PUBLIC_URL="$PUBLIC" \
   "$VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port "$PORT"

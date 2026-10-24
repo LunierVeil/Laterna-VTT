@@ -39,3 +39,14 @@ WEB_DIST = Path(os.getenv("WEB_DIST", Path(__file__).resolve().parent.parent.par
 
 # Больше этого WebGL на части видеокарт текстуру не примет.
 MAX_SCENE_SIDE = 8192
+
+# Попытки входа: столько неудач за окно (секунды) - и 429. По паре
+# "адрес + имя" и, мягче, по одному адресу (перебор разных имён).
+LOGIN_MAX_FAILURES = 5
+LOGIN_MAX_FAILURES_PER_IP = 20
+LOGIN_WINDOW = 600
+
+# Адрес клиента из X-Forwarded-For - только если включено. Заголовок
+# подделывает кто угодно; верить ему можно, лишь когда перед сервером
+# свой прокси (туннель), и только для запросов с этой же машины.
+TRUST_PROXY = os.getenv("LANTERNA_TRUST_PROXY", "").lower() in ("1", "true", "yes")

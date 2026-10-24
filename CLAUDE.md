@@ -10,6 +10,7 @@ cd server && uvicorn app.main:app --reload --port 8000   # SQLite, без нас
 cd web && npm run dev                                     # http://localhost:5173
 ```
 
+Тесты без сервера: `server/.venv/bin/python -m pytest tests` (временная база).
 Проверка бэкенда при живом сервере: `cd server && python smoke_test.py`.
 
 ## Правила, которые нельзя нарушать

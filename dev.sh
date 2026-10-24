@@ -3,7 +3,7 @@
 #
 #   ./dev.sh          поднять сервер (:8000) и фронт (:5173), Ctrl+C - погасить оба
 #   ./dev.sh reset    то же, но сначала стереть базу и загруженные карты
-#   ./dev.sh check    тайпчек фронта, unit-тесты и smoke_test (сервер должен быть запущен)
+#   ./dev.sh check    тайпчек фронта, pytest и smoke_test (сервер должен быть запущен)
 #   ./dev.sh gm       напечатать ссылку ГМ (ключ из server/gm_key.txt)
 set -euo pipefail
 
@@ -17,9 +17,14 @@ need_deps() {
     python3 -m venv "$VENV"
     "$PY" -m pip install -q -r "$ROOT/server/requirements.txt"
   fi
-  if [ ! -d "$ROOT/web/node_modules" ]; then
-    echo "> npm install"
-    (cd "$ROOT/web" && npm install --silent)
+  # npm ci и тогда, когда после git pull поменялись зависимости: иначе
+  # сборка падает на новом пакете (так было со шрифтами @fontsource).
+  # Сверяем хеш package-lock.json с тем, при котором ставили.
+  LOCK_HASH="$( (sha256sum "$ROOT/web/package-lock.json" 2>/dev/null || shasum -a 256 "$ROOT/web/package-lock.json") | cut -d' ' -f1)"
+  if [ "$(cat "$ROOT/web/node_modules/.laterna-lock" 2>/dev/null)" != "$LOCK_HASH" ]; then
+    echo "> npm ci"
+    (cd "$ROOT/web" && npm ci --silent)
+    echo "$LOCK_HASH" > "$ROOT/web/node_modules/.laterna-lock"
   fi
 }
 
@@ -44,8 +49,8 @@ case "${1:-}" in
     need_deps
     echo "> tsc"
     (cd "$ROOT/web" && npx --no-install tsc --noEmit -p .)
-    echo "> unit-тесты"
-    (cd "$ROOT" && "$PY" -m unittest discover -s tests -t . -q)
+    echo "> тесты (pytest: сервер на временной базе, без живого процесса)"
+    (cd "$ROOT" && "$PY" -m pytest tests -q -p no:warnings)
     echo "> smoke_test"
     # Не "порт открыт", а "сервер отвечает": uvicorn --reload держит порт
     # и тогда, когда рабочий процесс упал или ещё поднимается.

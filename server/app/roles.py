@@ -60,6 +60,13 @@ def gm_key_notice(frontend_url: str) -> str:
             f"  Не показывай её игрокам. Позже её выведет ./laterna.sh gm (или ./dev.sh gm)."
         )
     if GM_KEY_SOURCE == "env":
+        if len(GM_KEY) < 16:
+            # Ключ - полный доступ к серверу. Короткий подбирается.
+            return (
+                "Ключ ГМ - из LANTERNA_GM_KEY.\n"
+                f"  ВНИМАНИЕ: ключ короче 16 символов ({len(GM_KEY)}) - его можно подобрать. "
+                "Не открывай такой стол в интернет."
+            )
         return "Ключ ГМ - из LANTERNA_GM_KEY."
     return f"Ключ ГМ - в {GM_KEY_FILE}. Ссылка: ./laterna.sh gm (или ./dev.sh gm)"
 
