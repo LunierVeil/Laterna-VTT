@@ -23,6 +23,7 @@ export const dnd5e: SheetSchema = {
   token: {
     bar: { current: "vitals.hp.current", max: "vitals.hp.max" },
     badge: { key: "vitals.ac", label: "КД" },
+    speed: "vitals.speed",
   },
   tabs: [
     {

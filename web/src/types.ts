@@ -116,4 +116,4 @@ export interface SceneInfo {
   name: string;
 }
 
-export type Tool = "select" | "wall" | "token" | "erase";
+export type Tool = "select" | "wall" | "token" | "erase" | "ruler";

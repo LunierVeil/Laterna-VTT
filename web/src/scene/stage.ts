@@ -51,7 +51,15 @@ export interface CharacterStats {
   hp?: number;
   max?: number;
   badge?: string;
+  /** Скорость в футах - подпись при перетаскивании: "25 / 30 фт". */
+  speed?: number;
 }
+
+/**
+ * Футов в клетке. Пока константа - стандарт 5e; настройкой сцены станет,
+ * когда понадобится другой масштаб (карты мира, гексы).
+ */
+const FEET_PER_CELL = 5;
 
 interface TokenView {
   data: Token;
@@ -80,6 +88,19 @@ export class SceneStage {
   private wallLayer = new Graphics();
   private ghostLayer = new Graphics();
   private tokenLayer = new Container();
+  // Линейка и путь перетаскиваемого токена - поверх токенов.
+  private measureLayer = new Graphics();
+  private measureLabel = new Text({
+    text: "",
+    style: {
+      fill: 0xffffff,
+      fontSize: 14,
+      fontWeight: "700",
+      fontFamily: "system-ui, sans-serif",
+      stroke: { color: 0x000000, width: 4 },
+    },
+  });
+  private measuring: { x: number; y: number } | null = null;
 
   private tokens = new Map<string, TokenView>();
   private walls = new Map<string, Wall>();
@@ -159,7 +180,18 @@ export class SceneStage {
 
     this.map.visible = false;
 
-    this.world.addChild(this.bg, this.map, this.gridLayer, this.wallLayer, this.ghostLayer, this.tokenLayer);
+    this.world.addChild(
+      this.bg,
+      this.map,
+      this.gridLayer,
+      this.wallLayer,
+      this.ghostLayer,
+      this.tokenLayer,
+      this.measureLayer,
+      this.measureLabel,
+    );
+    this.measureLabel.anchor.set(0, 1);
+    this.measureLabel.visible = false;
     this.app.stage.addChild(this.world);
 
     this.app.stage.eventMode = "static";
@@ -210,6 +242,7 @@ export class SceneStage {
     if (this.destroyed) return;
     this.tool = tool;
     this.endChain();
+    this.clearMeasure();
     this.setCursor("default");
     if (tool === "erase") this.updateEraseHover();
   }
@@ -583,6 +616,13 @@ export class SceneStage {
       return;
     }
 
+    if (this.tool === "ruler" && e.button === 0) {
+      // От центра клетки: меряют "отсюда туда", а не от пикселя.
+      this.measuring = this.snapToken(p, 1);
+      this.drawMeasure(this.measuring, this.measuring);
+      return;
+    }
+
     if (this.tool === "erase" && e.button === 0) {
       const wall = this.wallAt(p);
       if (wall) {
@@ -676,6 +716,15 @@ export class SceneStage {
         view.data.size,
       );
       view.node.position.set(c.x, c.y);
+      // Сколько прошёл и сколько можно по листу. Не запрещаем - решает стол
+      // (рывок, хоумбрю); сервер проверяет только стены.
+      const speed = view.data.character_id ? this.stats.get(view.data.character_id)?.speed : undefined;
+      this.drawMeasure(this.dragging.from, c, speed, (view.data.size * this.gridSize) / 2);
+      return;
+    }
+
+    if (this.measuring) {
+      this.drawMeasure(this.measuring, this.snapToken(this.pointerScene, 1));
       return;
     }
 
@@ -685,6 +734,8 @@ export class SceneStage {
 
   private onPointerUp = () => {
     this.panning = null;
+    this.measuring = null;
+    this.clearMeasure();
 
     if (this.dragging) {
       const { view, from } = this.dragging;
@@ -694,6 +745,48 @@ export class SceneStage {
       this.cb.onMoveToken(view.data.id, to.x, to.y, from);
     }
   };
+
+  // --- расстояния -----------------------------------------------------
+
+  /**
+   * Клеток между точками. Как в 5e по умолчанию: диагональ - тоже одна
+   * клетка (наибольшая из разниц по осям).
+   */
+  private cellsBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
+    const g = this.gridSize;
+    return Math.round(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) / g);
+  }
+
+  /** radius - у перетаскиваемого токена: подпись над ним, а не на значке КД. */
+  private drawMeasure(a: { x: number; y: number }, b: { x: number; y: number }, speed?: number, radius?: number) {
+    const ft = this.cellsBetween(a, b) * FEET_PER_CELL;
+    const over = speed !== undefined && ft > speed;
+    const color = over ? 0xe0605a : COLORS.selection;
+    const g = this.measureLayer;
+    g.clear();
+    if (ft === 0) {
+      this.measureLabel.visible = false;
+      return;
+    }
+    g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 3, color, alpha: 0.9 });
+    g.circle(a.x, a.y, 5).fill({ color });
+    g.circle(b.x, b.y, 5).fill({ color });
+    this.measureLabel.text = speed !== undefined ? `${ft} / ${speed} фт` : `${ft} фт`;
+    this.measureLabel.style.fill = over ? 0xffb0a8 : 0xffffff;
+    if (radius) {
+      this.measureLabel.anchor.set(0.5, 1);
+      this.measureLabel.position.set(b.x, b.y - radius - 14);
+    } else {
+      this.measureLabel.anchor.set(0, 1);
+      this.measureLabel.position.set(b.x + 12, b.y - 12);
+    }
+    this.measureLabel.visible = true;
+  }
+
+  private clearMeasure() {
+    this.measureLayer.clear();
+    this.measureLabel.visible = false;
+  }
 
   /** Откат оптимистичного перемещения, когда сервер отказал. */
   revertToken(id: string, x: number, y: number) {

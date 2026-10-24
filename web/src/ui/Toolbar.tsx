@@ -11,6 +11,7 @@ import { CharactersMenu } from "./CharactersMenu";
 const TOOLS: { id: Tool; label: string; hint: string; gm?: boolean }[] = [
   { id: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, по пустому месту - панорама, Delete - удалить свой токен" },
   { id: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
+  { id: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },
   { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену", gm: true },
   { id: "erase", label: "Стереть", hint: "Клик по стене - удалить", gm: true },
 ];

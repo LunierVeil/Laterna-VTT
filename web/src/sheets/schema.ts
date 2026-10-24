@@ -130,6 +130,8 @@ export interface Tab {
 export interface TokenView {
   bar: { current: string; max: string };
   badge: { key: string; label: string };
+  /** Скорость в футах - подсказка при перетаскивании токена. */
+  speed?: string;
 }
 
 export interface SheetSchema {

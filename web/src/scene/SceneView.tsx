@@ -25,10 +25,13 @@ function statsOf(characters: Record<string, Character>): Map<string, CharacterSt
     if (!view) continue;
     const num = (p: string) => (typeof at(c.data, p) === "number" ? (at(c.data, p) as number) : undefined);
     const badge = at(c.data, view.badge.key);
+    // Скорость в листе - текст ("30", "30 фт"): берём число в начале.
+    const speedRaw = view.speed ? String(at(c.data, view.speed) ?? "").match(/^\s*(\d+)/)?.[1] : undefined;
     out.set(c.id, {
       hp: num(view.bar.current),
       max: num(view.bar.max),
       badge: badge == null || badge === "" ? undefined : String(badge),
+      speed: speedRaw ? Number(speedRaw) : undefined,
     });
   }
   return out;
