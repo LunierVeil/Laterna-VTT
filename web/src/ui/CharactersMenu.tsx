@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import { usePopover } from "./usePopover";
@@ -8,7 +9,16 @@ export function CharactersMenu({ socket }: { socket: SceneSocket }) {
   const accounts = useUi((s) => s.accounts);
   const isGm = useUi((s) => s.isGm);
   const { open, setOpen, root } = usePopover();
+  const file = useRef<HTMLInputElement>(null);
   const list = Object.values(characters);
+
+  // Файл читаем и отправляем как есть: разбирает его адаптер на сервере.
+  // Размер проверяем и здесь, чтобы не гонять заведомо лишнее.
+  const importFile = async (f: File) => {
+    if (f.size > 512 * 1024) return useUi.getState().flashError("файл больше 512 КБ");
+    socket.send("character.import", { source: await f.text() });
+    setOpen(false);
+  };
 
   return (
     <div className="scene-menu" ref={root}>
@@ -50,6 +60,23 @@ export function CharactersMenu({ socket }: { socket: SceneSocket }) {
           >
             Новый персонаж
           </button>
+          <input
+            ref={file}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void importFile(f);
+            }}
+          />
+          <button className="tool" onClick={() => file.current?.click()}>
+            Импорт из Long Story Short
+          </button>
+          <p className="muted scene-menu-note">
+            JSON из кнопки «скачать» на mycharacterbuilder.com или из самого LSS.
+          </p>
         </div>
       )}
     </div>

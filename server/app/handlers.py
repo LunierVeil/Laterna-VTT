@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from . import auth, dice, sheet_data
+from .importers import lss
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
 from .models import AuthSession, Campaign, Character, Invite, Message, Scene, Token, User, Wall
@@ -405,6 +406,53 @@ async def character_update(db: AsyncSession, campaign: Campaign, actor: Actor, p
     return "character.saved", {"character": character.to_dict()}
 
 
+def _parse_lss(raw: object) -> tuple[str, dict]:
+    try:
+        name, data = lss.parse(raw)
+        sheet_data.check_value(data)
+    except (lss.LssError, sheet_data.SheetError) as exc:
+        raise CommandError(f"импорт LSS: {exc}")
+    return name, data
+
+
+async def character_import(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Новый лист из файла Long Story Short. Файл хранится целиком."""
+    raw = payload.get("source")
+    name, data = _parse_lss(raw)
+    owner_id = actor.id
+    if actor.is_gm and "owner_id" in payload:
+        owner_id = await _campaign_user(db, campaign.id, payload["owner_id"])
+    character = Character(
+        campaign_id=campaign.id,
+        owner_id=owner_id,
+        name=_character_name(name),
+        system="dnd5e",
+        data_json=sheet_data.dump(data),
+        source_format=lss.FORMAT,
+        source_json=raw,
+    )
+    db.add(character)
+    await db.flush()
+    return "character.created", {"character": character.to_dict()}
+
+
+async def character_reimport(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Заново прогнать сохранённый исходник через текущий адаптер.
+
+    Нужно, когда адаптер поменялся. Данные листа заменяются целиком - ручные
+    правки пропадут, клиент об этом предупреждает. Имя не трогаем: его могли
+    сменить уже после импорта.
+    """
+    character = await _own_character(db, campaign, actor, payload.get("id"))
+    if character.source_format != lss.FORMAT or not character.source_json:
+        raise CommandError("этот лист не импортирован из LSS")
+    _, data = _parse_lss(character.source_json)
+    character.data_json = sheet_data.dump(data)
+    character.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return "character.saved", {"character": character.to_dict()}
+
+
 async def character_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     character = await _own_character(db, campaign, actor, payload.get("id"))
     owner_id = character.owner_id
@@ -434,4 +482,6 @@ CAMPAIGN_HANDLERS = {
     "character.create": character_create,
     "character.update": character_update,
     "character.delete": character_delete,
+    "character.import": character_import,
+    "character.reimport": character_reimport,
 }

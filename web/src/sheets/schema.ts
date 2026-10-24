@@ -51,7 +51,13 @@ export type Block =
       fields: Field[];
     }
   /** Таблица, строки добавляет игрок: оружие, заклинания. data[path] = [{...}, ...]. */
-  | { kind: "table"; title: string; path: string; columns: Field[]; addLabel: string };
+  | { kind: "table"; title: string; path: string; columns: Field[]; addLabel: string }
+  /**
+   * Тексты из импорта (документы TipTap), только чтение:
+   * data[path][key] = { label, doc }. resourcesPath - откуда брать счётчики
+   * для узлов resource. Пусто - блок не показывается.
+   */
+  | { kind: "texts"; title: string; path: string; resourcesPath: string };
 
 export interface SheetSchema {
   id: string;

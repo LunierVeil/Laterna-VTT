@@ -4,6 +4,7 @@ import { useUi } from "../state/store";
 import type { Character } from "../types";
 import type { Block, Field } from "./schema";
 import { SHEETS } from "./dnd5e";
+import { RichText, type ResourceInfo } from "./RichText";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -223,6 +224,27 @@ function BlockView({
         </section>
       );
 
+    case "texts": {
+      const texts = get(data, block.path);
+      if (!texts || typeof texts !== "object") return null;
+      const entries = Object.entries(texts as Record<string, { label?: unknown; doc?: unknown }>);
+      if (!entries.length) return null;
+      const res = get(data, block.resourcesPath);
+      const resources: ResourceInfo[] = Array.isArray(res) ? res : [];
+      return (
+        <section className="sheet-block sheet-block-wide">
+          <h3>{block.title}</h3>
+          {entries.map(([key, entry]) => (
+            // Свёрнуты: текстов бывает на несколько экранов.
+            <details key={key} className="sheet-text">
+              <summary>{typeof entry?.label === "string" ? entry.label : key}</summary>
+              <RichText doc={entry?.doc} resources={resources} />
+            </details>
+          ))}
+        </section>
+      );
+    }
+
     case "table": {
       const raw = get(data, block.path);
       const rows: Record<string, unknown>[] = Array.isArray(raw) ? raw : [];
@@ -278,6 +300,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   const isGm = useUi((s) => s.isGm);
   const schema = SHEETS[character.system];
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmReimport, setConfirmReimport] = useState(false);
   const close = () => useUi.getState().openCharacter(null);
 
   useEffect(() => {
@@ -308,6 +331,27 @@ export function CharacterSheet({ character, socket }: { character: Character; so
             {isGm && owner ? ` · игрок ${owner}` : ""}
           </span>
           <span className="sheet-head-actions">
+            {character.source_format &&
+              (confirmReimport ? (
+                <button
+                  className="tool tool-danger"
+                  title="лист заполнится заново из сохранённого файла - ручные правки пропадут"
+                  onClick={() => {
+                    socket.send("character.reimport", { id: character.id });
+                    setConfirmReimport(false);
+                  }}
+                >
+                  Правки пропадут - точно?
+                </button>
+              ) : (
+                <button
+                  className="tool"
+                  title="заново прочитать сохранённый файл импорта"
+                  onClick={() => setConfirmReimport(true)}
+                >
+                  Переимпортировать
+                </button>
+              ))}
             {confirmDelete ? (
               <button className="tool tool-danger" onClick={() => socket.send("character.delete", { id: character.id })}>
                 Удалить лист?

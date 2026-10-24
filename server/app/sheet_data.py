@@ -13,7 +13,9 @@ import re
 
 MAX_DATA_BYTES = 256 * 1024
 MAX_STRING = 20_000
-MAX_DEPTH = 8
+# Тексты способностей - документы TipTap (doc > list > paragraph > text >
+# marks ...), они глубже обычных полей.
+MAX_DEPTH = 24
 MAX_PATH_DEPTH = 6
 
 _SEGMENT = re.compile(r"[A-Za-z0-9_-]{1,64}")

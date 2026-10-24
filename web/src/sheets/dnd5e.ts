@@ -156,6 +156,7 @@ export const dnd5e: SheetSchema = {
       title: "Заметки",
       fields: [{ key: "notes", label: "Заметки", kind: "longtext" }],
     },
+    { kind: "texts", title: "Тексты из импорта", path: "texts", resourcesPath: "resources" },
   ],
 };
 

@@ -265,3 +265,15 @@ select {
   background: #22252e; color: var(--text);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
 }
+
+/* imported texts */
+.sheet-text { margin-bottom: 6px; }
+.sheet-text summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.rich-text { font-size: 13px; line-height: 1.5; padding: 2px 0 4px 12px; }
+.rich-text p { margin: 0 0 6px; }
+.rich-text h4 { margin: 6px 0 4px; font-size: 13px; }
+.rich-text ul, .rich-text ol { margin: 0 0 6px; padding-left: 20px; }
+.res-chip {
+  display: inline-block; margin: 0 2px; padding: 0 6px; border-radius: 10px;
+  background: #2d313d; border: 1px solid var(--line); font-size: 12px;
+}
