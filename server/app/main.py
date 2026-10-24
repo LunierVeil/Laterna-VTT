@@ -168,6 +168,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str) -> dict | None:
         "grid_size": scene.grid_size,
         "grid_type": scene.grid_type,
         "background_url": scene.background_url,
+        "combat": json.loads(scene.combat_json) if scene.combat_json else None,
         "tokens": [t.to_dict() for t in scene.tokens],
         "walls": [w.to_dict() for w in scene.walls],
         "messages": [m.to_dict() for m in reversed(messages)],

@@ -132,6 +132,8 @@ export interface TokenView {
   badge: { key: string; label: string };
   /** Скорость в футах - подсказка при перетаскивании токена. */
   speed?: string;
+  /** Бонус инициативы - для броска из трекера боя. */
+  initiative?: string;
 }
 
 export interface SheetSchema {

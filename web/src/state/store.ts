@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Character, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
+import type { Character, Combat, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
@@ -22,6 +22,10 @@ interface UiState {
   characters: Record<string, Character>;
   /** Открытый лист. */
   openCharacterId: string | null;
+  /** Бой текущей сцены (трекер инициативы). */
+  combat: Combat | null;
+  /** Панель боя открыта вручную (когда боя ещё нет). */
+  combatOpen: boolean;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -59,6 +63,8 @@ interface UiState {
   putCharacter: (c: Character) => void;
   dropCharacter: (id: string) => void;
   openCharacter: (id: string | null) => void;
+  setCombat: (c: Combat | null) => void;
+  setCombatOpen: (v: boolean) => void;
 }
 
 /**
@@ -78,6 +84,8 @@ export const useUi = create<UiState>((set) => ({
   lastInvite: null,
   characters: {},
   openCharacterId: null,
+  combat: null,
+  combatOpen: false,
   tool: "select",
   messages: [],
   users: [],
@@ -124,4 +132,6 @@ export const useUi = create<UiState>((set) => ({
       return { characters: rest, openCharacterId: s.openCharacterId === id ? null : s.openCharacterId };
     }),
   openCharacter: (openCharacterId) => set({ openCharacterId }),
+  setCombat: (combat) => set({ combat }),
+  setCombatOpen: (combatOpen) => set({ combatOpen }),
 }));

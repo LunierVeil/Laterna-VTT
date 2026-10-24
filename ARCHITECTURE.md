@@ -25,7 +25,7 @@
 Campaign           active_scene_id
   User             имя, argon2-хеш пароля, is_gm
     AuthSession    sha256 токена сессии
-  Scene            грид, фон, размеры
+  Scene            грид, фон, размеры, бой (трекер инициативы)
     Layer          background | tokens | walls | gm
       Token        x, y, размер в клетках, картинка, owner_id, character_id, vision_range
       Wall         x1,y1,x2,y2 + флаги, owner_id
@@ -111,6 +111,10 @@ Campaign           active_scene_id
 | `wall.add` | `wall.added` | ГМ |
 | `wall.remove` | `wall.removed` | владелец или ГМ |
 | `scene.update` | `scene.updated` | ГМ |
+| `combat.add` | `combat.updated` | свой токен; ГМ - любой |
+| `combat.set`, `combat.roll`, `combat.remove` | `combat.updated` | своя строка; ГМ - любая |
+| `combat.next` | `combat.updated` | ГМ; игрок - только закончить свой ход |
+| `combat.end` | `combat.updated` | ГМ |
 
 Кампании (без seq, `handle_campaign` в main.py):
 
@@ -127,6 +131,23 @@ Campaign           active_scene_id
 | `character.create` | `reply` + `character` владельцу и ГМ | все (себе), ГМ - кому угодно |
 | `character.update` | `character` владельцу и ГМ | владелец или ГМ |
 | `character.delete` | `character_deleted` владельцу и ГМ | владелец или ГМ |
+
+### Бой (трекер инициативы)
+
+Состояние боя - в сцене (`combat_json`): участники, чей ход, раунд.
+Меняется только командами `combat.*`, рассылается всем в сцене событием
+`combat.updated` с полным состоянием - оно маленькое.
+
+- **Чей ход - id участника, а не номер в списке.** Добавили участника или
+  поменяли инициативу посреди раунда - ход не перескакивает на другого.
+  Порядок - по убыванию инициативы, считает сервер.
+- **Бросок инициативы - на сервере** (`1d20` + бонус). Клиент шлёт только
+  бонус, взятый из листа (путь - в схеме, `token.initiative`); в строке
+  видно, что выпало на d20, - бросок честный, а не вписанный.
+- Имя, владелец и лист участника сервер освежает с токена при каждом
+  изменении: панели нужно знать, кому показывать кнопки, а токены в React
+  не живут. Это id, не данные листа.
+- Чей ход - видно и на карте: кольцо вокруг токена.
 
 ### Сцены и что видят игроки
 

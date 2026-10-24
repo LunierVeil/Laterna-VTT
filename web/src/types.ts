@@ -57,6 +57,25 @@ export interface Message {
   created_at: string | null;
 }
 
+/** Участник боя. Имя, владелец и лист сервер берёт с токена. */
+export interface CombatEntry {
+  id: string;
+  token_id: string;
+  name: string;
+  init: number | null;
+  owner_id?: string | null;
+  character_id?: string | null;
+  /** Последний бросок инициативы: что выпало на d20. */
+  roll?: { formula: string; die: number };
+}
+
+/** Бой в сцене. current - id участника, чей ход; null - бой ещё не начат. */
+export interface Combat {
+  round: number;
+  current: string | null;
+  entries: CombatEntry[];
+}
+
 export interface Scene {
   id: string;
   seq: number;
@@ -66,6 +85,7 @@ export interface Scene {
   grid_size: number;
   grid_type: string;
   background_url: string | null;
+  combat: Combat | null;
   tokens: Token[];
   walls: Wall[];
   messages: Message[];

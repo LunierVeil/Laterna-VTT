@@ -5,6 +5,7 @@ import type { SceneStage } from "./scene/stage";
 import { Toolbar } from "./ui/Toolbar";
 import { Chat } from "./ui/Chat";
 import { TokenPanel } from "./ui/TokenPanel";
+import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
 import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
 import { CharacterSheet } from "./sheets/CharacterSheet";
@@ -135,6 +136,7 @@ export default function App() {
         if (msg.you) ui.setMe(msg.you);
         ui.setMessages(msg.scene.messages);
         ui.setScene(msg.scene.name, msg.scene.grid_size, msg.scene.background_url);
+        ui.setCombat(msg.scene.combat);
         buffered.current.scene = msg.scene;
         buffered.current.events = [];
         stageRef.current?.setSnapshot(msg.scene);
@@ -193,6 +195,10 @@ export default function App() {
         if (msg.name === "invite.created") ui.setLastInvite(msg.payload);
         return;
       }
+      if (msg.name === "combat.updated") {
+        // Панели - в React; подсветку хода на карте стейдж берёт из того же события.
+        ui.setCombat(msg.payload.combat);
+      }
       if (msg.name === "scene.updated") {
         // Имя и клетка нужны интерфейсу; сама сцена - дальше, в стейдж.
         ui.setScene(msg.payload.name, msg.payload.grid_size, msg.payload.background_url);
@@ -244,6 +250,7 @@ export default function App() {
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
           <TokenPanel socket={socket} />
+          <InitiativePanel socket={socket} />
         </div>
         <Chat socket={socket} />
       </main>

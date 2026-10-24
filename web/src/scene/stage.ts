@@ -1,5 +1,5 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
-import type { Scene, Token, Wall, Tool } from "../types";
+import type { Combat, Scene, Token, Wall, Tool } from "../types";
 
 const COLORS = {
   background: 0x15161a,
@@ -10,6 +10,7 @@ const COLORS = {
   door: 0x6fa8dc,
   wallGhost: 0xffb562,
   selection: 0xffd166,
+  turn: 0xff8c42,
   label: 0xe8e8ec,
   eraseOwn: 0xe0605a,
   eraseForeign: 0x8b90a0,
@@ -140,6 +141,7 @@ export class SceneStage {
   // ГМ может стирать любые стены. Решает сервер, это только для подсветки.
   private gm = false;
   private stats = new Map<string, CharacterStats>();
+  private currentTurnToken: string | null = null;
 
   /** me - id пользователя этого клиента: по нему видно, что своё. */
   constructor(
@@ -150,6 +152,18 @@ export class SceneStage {
   /** То же правило, что _require_owner на сервере: своё, общее или ГМ. */
   private canEdit(ownerId: string | null) {
     return this.gm || ownerId === null || ownerId === this.me;
+  }
+
+  private setCurrentTurn(combat: Combat | null | undefined) {
+    const entry = combat?.entries.find((e) => e.id === combat.current);
+    const next = entry?.token_id ?? null;
+    if (next === this.currentTurnToken) return;
+    const prev = this.currentTurnToken;
+    this.currentTurnToken = next;
+    for (const id of [prev, next]) {
+      const v = id ? this.tokens.get(id) : undefined;
+      if (v) this.redrawToken(v);
+    }
   }
 
   /** Хиты и КД из листов: characterId -> что показать. */
@@ -295,6 +309,7 @@ export class SceneStage {
     for (const w of scene.walls) this.walls.set(w.id, w);
     this.drawWalls();
     for (const t of scene.tokens) this.addToken(t);
+    this.setCurrentTurn(scene.combat);
 
     // После переподключения выбранный токен мог исчезнуть или измениться.
     const sel = this.selectedId;
@@ -328,6 +343,9 @@ export class SceneStage {
         this.walls.delete(payload.id);
         this.myWalls = this.myWalls.filter((id) => id !== payload.id);
         this.drawWalls();
+        break;
+      case "combat.updated":
+        this.setCurrentTurn(payload.combat);
         break;
       case "scene.updated":
         this.gridSize = payload.grid_size;
@@ -450,6 +468,10 @@ export class SceneStage {
     view.body.circle(0, 0, r).stroke({ width: 2, color: 0x000000, alpha: 0.4 });
     if (this.selectedId === view.data.id) {
       view.body.circle(0, 0, r + 4).stroke({ width: 2.5, color: COLORS.selection });
+    }
+    // Чей ход в бою - видно на карте, не только в трекере.
+    if (this.currentTurnToken === view.data.id) {
+      view.body.circle(0, 0, r + 8).stroke({ width: 3, color: COLORS.turn });
     }
 
     // Хиты и КД из листа - если лист этому клиенту виден.

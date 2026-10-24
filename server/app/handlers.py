@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -502,6 +503,141 @@ async def character_delete(db: AsyncSession, campaign: Campaign, actor: Actor, p
     return "character.deleted", {"id": character.id, "owner_id": owner_id}
 
 
+# --- бой: трекер инициативы -------------------------------------------------
+#
+# Чей ход - id участника, а не номер в списке: добавили участника или
+# поменяли инициативу посреди раунда - ход не перескакивает на другого.
+
+def _combat(scene: Scene) -> dict:
+    if scene.combat_json:
+        return json.loads(scene.combat_json)
+    return {"round": 0, "current": None, "entries": []}
+
+
+async def _refresh_entries(db: AsyncSession, combat: dict) -> None:
+    """Имя, владелец и лист - с токена, как сейчас. Панели нужны владелец
+    (кому показывать кнопки) и лист (бонус инициативы), а токены в React не
+    живут. Это id, не данные листа - утечки нет."""
+    for e in combat["entries"]:
+        token = await db.get(Token, e["token_id"]) if e.get("token_id") else None
+        if token is not None:
+            e["name"], e["owner_id"], e["character_id"] = token.name, token.owner_id, token.character_id
+
+
+def _save_combat(scene: Scene, combat: dict | None) -> tuple[str, dict]:
+    if combat is not None:
+        # Порядок - по убыванию инициативы; у кого её нет - в конце, в
+        # порядке добавления (sort стабильный).
+        combat["entries"].sort(key=lambda e: -(e["init"]) if e.get("init") is not None else float("inf"))
+    scene.combat_json = json.dumps(combat, ensure_ascii=False) if combat else None
+    return "combat.updated", {"combat": combat}
+
+
+def _entry(combat: dict, entry_id: object) -> dict:
+    for e in combat["entries"]:
+        if e["id"] == entry_id:
+            return e
+    raise CommandError("нет такого участника боя")
+
+
+async def _entry_token_owner(db: AsyncSession, entry: dict) -> str | None:
+    token = await db.get(Token, entry["token_id"]) if entry.get("token_id") else None
+    return token.owner_id if token else None
+
+
+async def _require_entry_rights(db: AsyncSession, actor: Actor, entry: dict) -> None:
+    # Свою строку правит владелец токена, любую - ГМ.
+    if actor.is_gm:
+        return
+    if await _entry_token_owner(db, entry) != actor.id:
+        raise CommandError("это не твой участник боя")
+
+
+async def combat_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    token = await db.get(Token, payload.get("token_id")) if payload.get("token_id") else None
+    if token is None or token.scene_id != scene.id:
+        raise CommandError("токен не найден")
+    _require_owner(token, actor, "в бой можно добавить только свой токен")
+    combat = _combat(scene)
+    if any(e["token_id"] == token.id for e in combat["entries"]):
+        raise CommandError("этот токен уже в бою")
+    if len(combat["entries"]) >= 50:
+        raise CommandError("слишком много участников")
+    combat["entries"].append(
+        {"id": f"e-{secrets.token_hex(6)}", "token_id": token.id, "name": token.name, "init": None}
+    )
+    await _refresh_entries(db, combat)
+    return _save_combat(scene, combat)
+
+
+async def combat_set(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    combat = _combat(scene)
+    entry = _entry(combat, payload.get("entry_id"))
+    await _require_entry_rights(db, actor, entry)
+    value = payload.get("init")
+    entry["init"] = None if value is None else int(_clamp(_num(payload, "init"), -50, 100))
+    entry.pop("roll", None)
+    await _refresh_entries(db, combat)
+    return _save_combat(scene, combat)
+
+
+async def combat_roll(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    """Бросок инициативы: 1d20 + бонус. Бросает сервер, клиент шлёт бонус."""
+    combat = _combat(scene)
+    entry = _entry(combat, payload.get("entry_id"))
+    await _require_entry_rights(db, actor, entry)
+    bonus = int(_clamp(_num(payload, "bonus", 0), -20, 30))
+    formula = f"1d20{bonus:+d}" if bonus else "1d20"
+    result = dice.roll(formula)
+    entry["init"] = result.total
+    # Что выпало - чтобы было видно, что бросок честный, а не вписанный.
+    entry["roll"] = {"formula": formula, "die": result.terms[0].rolls[0]}
+    await _refresh_entries(db, combat)
+    return _save_combat(scene, combat)
+
+
+async def combat_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    combat = _combat(scene)
+    entry = _entry(combat, payload.get("entry_id"))
+    await _require_entry_rights(db, actor, entry)
+    if combat["current"] == entry["id"]:
+        # Убрали того, чей ход, - ход у следующего.
+        ids = [e["id"] for e in combat["entries"]]
+        i = ids.index(entry["id"])
+        rest = ids[:i] + ids[i + 1:]
+        combat["current"] = rest[i % len(rest)] if rest else None
+    combat["entries"] = [e for e in combat["entries"] if e["id"] != entry["id"]]
+    await _refresh_entries(db, combat)
+    return _save_combat(scene, combat if combat["entries"] else None)
+
+
+async def combat_next(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    """Следующий ход. ГМ - всегда; игрок - только закончить свой ход."""
+    combat = _combat(scene)
+    if not combat["entries"]:
+        raise CommandError("в бою никого нет")
+    if not actor.is_gm:
+        if combat["current"] is None:
+            raise CommandError("бой начинает ГМ")
+        await _require_entry_rights(db, actor, _entry(combat, combat["current"]))
+    _save_combat(scene, combat)  # отсортировать перед поиском следующего
+    ids = [e["id"] for e in combat["entries"]]
+    if combat["current"] not in ids:
+        combat["current"], combat["round"] = ids[0], max(1, combat["round"])
+    else:
+        i = ids.index(combat["current"]) + 1
+        if i >= len(ids):
+            i, combat["round"] = 0, combat["round"] + 1
+        combat["current"] = ids[i]
+    await _refresh_entries(db, combat)
+    return _save_combat(scene, combat)
+
+
+async def combat_end(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "закончить бой может только ГМ")
+    return _save_combat(scene, None)
+
+
 HANDLERS = {
     "token.add": token_add,
     "token.move": token_move,
@@ -510,6 +646,12 @@ HANDLERS = {
     "wall.add": wall_add,
     "wall.remove": wall_remove,
     "scene.update": scene_update,
+    "combat.add": combat_add,
+    "combat.set": combat_set,
+    "combat.roll": combat_roll,
+    "combat.remove": combat_remove,
+    "combat.next": combat_next,
+    "combat.end": combat_end,
 }
 
 CAMPAIGN_HANDLERS = {

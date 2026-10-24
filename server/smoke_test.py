@@ -208,6 +208,41 @@ async def main() -> int:
             await recv_until(gm, lambda m: m.get("type") == "character_deleted")
     print("чужой лист игрок не видит, не правит и не привязывает к токену; ГМ - может")
 
+    # Бой: игрок заканчивает только свой ход и правит только свою строку.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        async def combat(ws, cmd_id, name, payload):
+            await cmd(ws, cmd_id, name, payload)
+            return await recv_until(ws, lambda m: m.get("cmd_id") == cmd_id)
+
+        tokens = []
+        for ws, cid in ((gm, "b1"), (pl, "b2")):
+            ev = await combat(ws, cid, "token.add", {"x": 35, "y": 105})
+            tokens.append(ev["payload"]["token"]["id"])
+        try:
+            await combat(gm, "b3", "combat.add", {"token_id": tokens[0]})
+            err = await combat(pl, "b4", "combat.add", {"token_id": tokens[0]})
+            assert err["type"] == "error", err  # чужой токен в бой не добавить
+            ev = await combat(pl, "b5", "combat.add", {"token_id": tokens[1]})
+            entries = {e["token_id"]: e["id"] for e in ev["payload"]["combat"]["entries"]}
+            await combat(gm, "b6", "combat.set", {"entry_id": entries[tokens[0]], "init": 20})
+            await combat(pl, "b7", "combat.roll", {"entry_id": entries[tokens[1]], "bonus": -15})
+            err = await combat(pl, "b8", "combat.set", {"entry_id": entries[tokens[0]], "init": 1})
+            assert err["type"] == "error", err  # чужую инициативу не поправить
+            ev = await combat(gm, "b9", "combat.next", {})
+            assert ev["payload"]["combat"]["current"] == entries[tokens[0]], ev  # первым - инициатива 20
+            err = await combat(pl, "b10", "combat.next", {})
+            assert err["type"] == "error", err  # чужой ход не закончить
+            ev = await combat(gm, "b11", "combat.next", {})
+            assert ev["payload"]["combat"]["current"] == entries[tokens[1]], ev
+            ev = await combat(pl, "b12", "combat.next", {})
+            assert ev["type"] == "event" and ev["payload"]["combat"]["round"] == 2, ev  # свой ход - можно
+        finally:
+            await combat(gm, "b13", "combat.end", {})
+            for i, t in enumerate(tokens):
+                await combat(gm, f"b14{i}", "token.remove", {"id": t})
+    print("бой: чужой токен, чужую инициативу и чужой ход игрок не трогает; свой ход заканчивает")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:

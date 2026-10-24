@@ -25,7 +25,7 @@ export function Toolbar({
   sceneId: string;
   onOpenScene: (id: string) => void;
 }) {
-  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me } = useUi();
+  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me, combat, combatOpen } = useUi();
   const hidden = isGm && activeSceneId !== null && sceneId !== activeSceneId;
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
@@ -43,6 +43,13 @@ export function Toolbar({
         {isGm && <SceneMenu socket={socket} />}
         {isGm && <PlayersMenu socket={socket} />}
         <CharactersMenu socket={socket} />
+        <button
+          className={combat || combatOpen ? "tool tool-active" : "tool"}
+          title="трекер инициативы"
+          onClick={() => useUi.getState().setCombatOpen(!combatOpen)}
+        >
+          Бой
+        </button>
       </div>
 
       <div className="toolbar-tools">

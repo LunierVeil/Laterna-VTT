@@ -376,3 +376,23 @@ a.card-badge { color: var(--accent); }
 
 .token-link { display: flex; gap: 6px; }
 .token-link select { flex: 1; min-width: 0; }
+
+/* трекер инициативы - справа сверху над сценой */
+.initiative {
+  position: absolute; top: 12px; right: 12px; width: 280px; z-index: 5;
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+.initiative-head { display: flex; align-items: center; gap: 8px; }
+.initiative-close { margin-left: auto; padding: 0 8px; }
+.initiative-hint { margin: 0; font-size: 12px; }
+.initiative-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.init-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; font-size: 13px; }
+.init-row-current { background: #3a2b1d; outline: 1px solid #ff8c42; }
+.init-marker { width: 1ch; color: #ff8c42; }
+.init-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.init-input { width: 4ch; padding: 2px 4px; text-align: center; }
+.init-value { width: 4ch; text-align: center; font-weight: 600; }
+.init-roll { font-size: 11px; }
+.init-row .tool { padding: 1px 6px; }
+.initiative-actions { display: flex; flex-wrap: wrap; gap: 4px; }
