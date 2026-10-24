@@ -1,4 +1,4 @@
-# Lanterna
+# Laterna-VTT
 
 Открытый self-hosted VTT. Рабочее название, переименовать не проблема.
 
