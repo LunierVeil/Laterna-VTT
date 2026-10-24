@@ -608,10 +608,19 @@ async def character_copy(db: AsyncSession, campaign: Campaign, actor: Actor, pay
     """Копия листа - «гоблин, но с луком». Владелец тот же; исходник
     импорта не копируем: копию правят руками."""
     source = await _own_character(db, campaign, actor, payload.get("id"))
+    # Имя - первый свободный номер: копия "Гоблина" - "Гоблин 2", копия
+    # "Гоблина 2" - "Гоблин 3", а не "Гоблин 2 2".
+    base = re.sub(r"\s+\d+$", "", source.name) or source.name
+    names = set(
+        (await db.execute(select(Character.name).where(Character.campaign_id == campaign.id))).scalars().all()
+    )
+    n = 2
+    while _character_name(f"{base} {n}") in names:
+        n += 1
     character = Character(
         campaign_id=campaign.id,
         owner_id=source.owner_id,
-        name=_character_name(f"{source.name} (копия)"),
+        name=_character_name(f"{base} {n}"),
         system=source.system,
         data_json=source.data_json,
     )

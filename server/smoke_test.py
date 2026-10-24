@@ -387,6 +387,7 @@ async def main() -> int:
             assert err["type"] == "error", err
             copy = (await run(gm, "m8", "character.copy", {"id": mob["id"]}))["payload"]["character"]
             assert copy["system"] == "mob" and copy["data"].get("ac") == 15 and copy["id"] != mob["id"], copy
+            assert copy["name"] == "smoke-гоблин 2", copy["name"]
             await cmd(gm, "m9", "character.delete", {"id": copy["id"]})
             await recv_until(gm, lambda m: m.get("type") == "character_deleted")
         finally:
