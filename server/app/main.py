@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import auth, protocol
-from .config import FRONTEND_URL, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from .config import FRONTEND_URL, FRONTEND_URLS, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
@@ -70,8 +70,9 @@ def can_see(actor: Actor, campaign: Campaign, scene_id: str) -> bool:
 
 async def session_actor(db: AsyncSession, cookies) -> Actor | None:
     """Кто это - только по сессии. Ничему, что клиент пишет о себе, не верим."""
-    user = await auth.session_user(db, cookies.get(auth.SESSION_COOKIE))
-    return auth.actor_of(user) if user else None
+    token = cookies.get(auth.SESSION_COOKIE)
+    user = await auth.session_user(db, token)
+    return auth.actor_of(user, token) if user else None
 
 
 async def require_actor(request: Request, db: AsyncSession) -> Actor:
@@ -327,9 +328,14 @@ async def invite_accept(
 
 @app.post("/api/logout")
 async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
-    await auth.drop_session(db, request.cookies.get(auth.SESSION_COOKIE))
+    token = request.cookies.get(auth.SESSION_COOKIE)
+    await auth.drop_session(db, token)
     await db.commit()
     response.delete_cookie(auth.SESSION_COOKIE, path="/")
+    # Вкладки с этой же сессией (тот же браузер) - на экран входа. Другие
+    # входы игрока (телефон, второй компьютер) не трогаем.
+    if token:
+        await kick(lambda actor: actor.session == auth.session_id(token))
     return {"ok": True}
 
 
@@ -362,10 +368,35 @@ async def get_scene(scene_id: str, request: Request, db: AsyncSession = Depends(
     return data or {"error": "scene not found"}
 
 
+def origin_allowed(websocket: WebSocket) -> bool:
+    """Websocket открыт со своей страницы, а не с чужого сайта.
+
+    Браузер шлёт cookie сессии на websocket с любой страницы, поэтому без
+    этой проверки чужой сайт мог бы открыть сокет от имени игрока
+    (SameSite=Lax от этого тоже защищает, это второй слой).
+
+    Пускаем адреса из FRONTEND_URL и страницу с того же адреса, куда идёт
+    сокет (Origin совпадает с Host): иначе отвалились бы 127.0.0.1 и
+    адрес в локальной сети, по которому заходят игроки. Без Origin - не
+    браузер (smoke_test, скрипты); подделать запрос от имени игрока может
+    только браузер на чужом сайте, а он Origin шлёт всегда.
+    """
+    origin = websocket.headers.get("origin")
+    if origin is None:
+        return True
+    origin = origin.rstrip("/")
+    host = websocket.headers.get("host", "")
+    return origin in FRONTEND_URLS or origin in (f"http://{host}", f"https://{host}")
+
+
 @app.websocket("/ws/scene/{scene_id}")
 async def scene_socket(websocket: WebSocket, scene_id: str):
     # Кто подключился - только из сессии. Имени в адресе больше нет: его
     # мог подставить любой.
+    if not origin_allowed(websocket):
+        # До accept: сервер отвечает на рукопожатие отказом (403).
+        await websocket.close(code=4403)
+        return
     await websocket.accept()
 
     async with SessionLocal() as db:
@@ -471,8 +502,13 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
 
 async def kick_user(user_id: str) -> None:
     """Закрыть все сокеты пользователя: его сессии больше не действуют."""
+    await kick(lambda actor: actor.id == user_id)
+
+
+async def kick(match) -> None:
+    """Закрыть сокеты, чья сессия больше не действует, и отправить на вход."""
     for scene_id, ws, actor in hub.connections():
-        if actor.id == user_id:
+        if match(actor):
             hub.leave(scene_id, ws)
             await hub.send(ws, {"type": "auth_required"})
             try:

@@ -14,9 +14,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -37,6 +39,15 @@ def gm_key() -> str:
 
 def session_header(response: httpx.Response) -> dict:
     return {"Cookie": f"{SESSION}={response.cookies[SESSION]}"}
+
+
+def sqlite_path() -> Path | None:
+    """База сервера, если это SQLite (как у сервера: DATABASE_URL или ./lanterna.db)."""
+    url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./lanterna.db")
+    if not url.startswith("sqlite"):
+        return None
+    path = Path(url.split("///", 1)[1])
+    return path if path.is_absolute() else Path(__file__).parent / path
 
 
 async def cmd(ws, cmd_id: str, name: str, payload: dict) -> None:
@@ -113,6 +124,56 @@ async def main() -> int:
         assert (await client.get(f"{BASE}/api/me", headers=old_auth)).json() is None, "старая сессия жива"
         player_auth = session_header(r)
     print("сброс пароля по ссылке: старая сессия закрыта, новый пароль подходит")
+
+    # Просроченная сессия. Месяц ждать тест не может, поэтому старит свою
+    # же свежую сессию прямо в базе. Не SQLite (Postgres в docker) - пропуск.
+    db_path = sqlite_path()
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
+        token = r.cookies[SESSION]
+        if db_path and db_path.is_file():
+            digest = hashlib.sha256(token.encode()).hexdigest()
+            with sqlite3.connect(db_path) as db:
+                db.execute(
+                    "UPDATE sessions SET created_at = '2000-01-01 00:00:00.000000' WHERE token_hash = ?",
+                    (digest,),
+                )
+            assert (await client.get(f"{BASE}/api/me", headers=session_header(r))).json() is None
+            with sqlite3.connect(db_path) as db:
+                left = db.execute("SELECT count(*) FROM sessions WHERE token_hash = ?", (digest,)).fetchone()[0]
+            assert left == 0, "просроченная сессия не удалена"
+            print("просроченная сессия не пускает и удаляется")
+        else:
+            print("просроченная сессия: пропущено (база не SQLite или не найдена)")
+
+    # Websocket с чужого сайта - отказ; со своего адреса - пускает.
+    try:
+        async with websockets.connect(
+            f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth, origin="http://evil.example"
+        ):
+            raise AssertionError("сокет с чужим Origin пустили")
+    except websockets.exceptions.InvalidStatus as exc:
+        assert exc.response.status_code == 403, exc.response.status_code
+    async with websockets.connect(
+        f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth, origin=BASE
+    ) as ws:
+        assert json.loads(await ws.recv())["type"] == "snapshot"
+    print("чужой Origin - отказ, свой - пускает")
+
+    # Выход закрывает сокеты этой сессии, но не другие входы игрока.
+    async with httpx.AsyncClient() as client:
+        a = session_header(await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password}))
+        b = session_header(await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password}))
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=a) as wa, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=b) as wb:
+        await wa.recv()
+        await wb.recv()
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{BASE}/api/logout", headers=a)
+        await recv_until(wa, lambda m: m.get("type") == "auth_required")
+        async with httpx.AsyncClient() as client:
+            assert (await client.get(f"{BASE}/api/me", headers=b)).json() is not None, "задело другой вход"
+    print("выход закрыл сокет своей сессии, другой вход жив")
 
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)

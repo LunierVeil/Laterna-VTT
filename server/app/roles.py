@@ -24,6 +24,9 @@ class Actor:
     id: str
     name: str
     is_gm: bool = False
+    # sha256 токена сессии - чтобы при выходе закрыть сокеты именно этой
+    # сессии, а не все входы игрока. Хендлерам не нужен.
+    session: str = ""
 
 
 def _load_gm_key() -> tuple[str, str]:

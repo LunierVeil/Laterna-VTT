@@ -103,11 +103,29 @@ async def create_session(db: AsyncSession, user: User) -> str:
     return token
 
 
+def _aware(moment: datetime) -> datetime:
+    # SQLite отдаёт время без пояса, хотя писали UTC.
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def session_id(token: str) -> str:
+    """Под каким ключом сессия лежит в базе (и в Actor.session)."""
+    return _digest(token)
+
+
 async def session_user(db: AsyncSession, token: str | None) -> User | None:
     if not token:
         return None
     session = await db.get(AuthSession, _digest(token))
-    return await db.get(User, session.user_id) if session else None
+    if session is None:
+        return None
+    # Срок cookie - это просьба к браузеру, а не гарантия: украденный токен
+    # можно слать и дальше. Поэтому срок проверяет и сервер.
+    if datetime.now(timezone.utc) - _aware(session.created_at) > timedelta(seconds=SESSION_MAX_AGE):
+        await db.delete(session)
+        await db.commit()
+        return None
+    return await db.get(User, session.user_id)
 
 
 async def drop_session(db: AsyncSession, token: str | None) -> None:
@@ -137,11 +155,7 @@ async def find_invite(db: AsyncSession, token: str | None) -> Invite | None:
     invite = await db.get(Invite, _digest(token))
     if invite is None:
         return None
-    expires = invite.expires_at
-    # SQLite отдаёт время без пояса, хотя писали UTC.
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires < datetime.now(timezone.utc):
+    if _aware(invite.expires_at) < datetime.now(timezone.utc):
         await db.delete(invite)
         return None
     return invite
@@ -166,5 +180,7 @@ async def accept_invite(
     return user
 
 
-def actor_of(user: User) -> Actor:
-    return Actor(id=user.id, name=user.name, is_gm=user.is_gm)
+def actor_of(user: User, token: str | None = None) -> Actor:
+    return Actor(
+        id=user.id, name=user.name, is_gm=user.is_gm, session=_digest(token) if token else ""
+    )
