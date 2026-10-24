@@ -7,6 +7,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnected
@@ -33,6 +34,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Laterna VTT", lifespan=lifespan)
+
+# Сжатие: через туннель скорость бывает 15-30 КБ/с, а скрипт приложения -
+# полмегабайта. Сжатый он втрое меньше. На websocket не действует.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.add_middleware(
     CORSMiddleware,
