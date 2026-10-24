@@ -5,22 +5,22 @@ from contextlib import asynccontextmanager
 
 import uuid
 
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnected
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from . import protocol
+from . import auth, protocol
 from .config import FRONTEND_URL, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
-from .models import Campaign, Message, Scene
-from .roles import GM_COOKIE, Actor, gm_key_notice, is_gm_key
+from .models import Campaign, Message, Scene, User
+from .roles import Actor, gm_key_notice, is_gm_key
 
 
 @asynccontextmanager
@@ -68,20 +68,39 @@ def can_see(actor: Actor, campaign: Campaign, scene_id: str) -> bool:
     return actor.is_gm or scene_id == campaign.active_scene_id
 
 
-def request_actor(request: Request) -> Actor:
-    return Actor(name="", is_gm=is_gm_key(request.cookies.get(GM_COOKIE)))
+async def session_actor(db: AsyncSession, cookies) -> Actor | None:
+    """Кто это - только по сессии. Ничему, что клиент пишет о себе, не верим."""
+    user = await auth.session_user(db, cookies.get(auth.SESSION_COOKIE))
+    return auth.actor_of(user) if user else None
+
+
+async def require_actor(request: Request, db: AsyncSession) -> Actor:
+    actor = await session_actor(db, request.cookies)
+    if actor is None:
+        raise HTTPException(401, "нужно войти")
+    return actor
+
+
+async def campaign_users(db: AsyncSession, campaign: Campaign) -> list[dict]:
+    users = await db.execute(
+        select(User).where(User.campaign_id == campaign.id).order_by(User.created_at)
+    )
+    return [u.to_dict() for u in users.scalars()]
 
 
 async def campaign_view(db: AsyncSession, campaign: Campaign, actor: Actor) -> dict:
+    # Список игроков видят все: имена и так видны в чате и присутствии, а
+    # клиенту он нужен, чтобы показать, чей это токен.
+    users = await campaign_users(db, campaign)
     if not actor.is_gm:
-        return protocol.campaign(campaign.active_scene_id, None)
+        return protocol.campaign(campaign.active_scene_id, None, users)
     scenes = (
         await db.execute(
             select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.created_at)
         )
     ).scalars()
     return protocol.campaign(
-        campaign.active_scene_id, [{"id": s.id, "name": s.name} for s in scenes]
+        campaign.active_scene_id, [{"id": s.id, "name": s.name} for s in scenes], users
     )
 
 
@@ -93,12 +112,15 @@ async def publish_campaign(db: AsyncSession, campaign: Campaign) -> None:
     что клиент уйдёт сам, нельзя - иначе модифицированный клиент остался
     бы смотреть, как ГМ готовит следующую сцену.
     """
-    gm_view = await campaign_view(db, campaign, Actor(name="", is_gm=True))
-    player_view = protocol.campaign(campaign.active_scene_id, None)
+    gm_view = await campaign_view(db, campaign, Actor(id="", name="", is_gm=True))
+    player_view = protocol.campaign(campaign.active_scene_id, None, gm_view["users"])
     existing = {s["id"] for s in gm_view["scenes"]}
+    alive = {u["id"] for u in gm_view["users"]}
     for scene_id, ws, actor in hub.connections():
         await hub.send(ws, gm_view if actor.is_gm else player_view)
-        if scene_id not in existing or not can_see(actor, campaign, scene_id):
+        # Удалённого игрока выгоняем сразу, а не когда он сам отключится.
+        gone = actor.id not in alive
+        if gone or scene_id not in existing or not can_see(actor, campaign, scene_id):
             hub.leave(scene_id, ws)
             try:
                 await ws.close(code=4000)
@@ -157,9 +179,9 @@ def _image_ext(data: bytes) -> str | None:
 
 
 @app.post("/api/uploads")
-async def upload(request: Request) -> dict:
+async def upload(request: Request, db: AsyncSession = Depends(get_session)) -> dict:
     # Карты загружает только ГМ - он же их и ставит на сцену.
-    if not is_gm_key(request.cookies.get(GM_COOKIE)):
+    if not (await require_actor(request, db)).is_gm:
         raise HTTPException(403, "загружать карты может только ГМ")
     # Тело запроса - сама картинка, без multipart: не нужна лишняя зависимость.
     data = bytearray()
@@ -186,16 +208,93 @@ async def health() -> dict:
     return {"ok": True}
 
 
+def _set_session(response: Response, token: str) -> None:
+    # httpOnly - скрипт страницы не прочтёт токен, даже если в чат когда-то
+    # пролезет XSS. SameSite=Lax - чужой сайт не отправит от имени игрока
+    # ни POST, ни websocket. Secure не ставим: локально всё по http.
+    response.set_cookie(
+        auth.SESSION_COOKIE, token, httponly=True, samesite="lax",
+        max_age=auth.SESSION_MAX_AGE, path="/",
+    )
+
+
+class LoginBody(BaseModel):
+    name: str = ""
+    password: str = ""
+
+
+class GmLoginBody(BaseModel):
+    key: str
+    name: str | None = None
+    password: str | None = None
+
+
+@app.get("/api/me")
+async def me(request: Request, db: AsyncSession = Depends(get_session)) -> dict | None:
+    # Без сессии - 200 и null, а не 401: это обычный ответ "не вошёл",
+    # и каждый заход на экран входа не должен краснеть ошибкой в консоли.
+    actor = await session_actor(db, request.cookies)
+    return {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm} if actor else None
+
+
+@app.post("/api/login")
+async def login(body: LoginBody, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+    campaign = await get_campaign(db)
+    user = await auth.find_user(db, campaign, body.name.strip())
+    # Один ответ на "нет такого" и "неверный пароль": иначе вход
+    # подсказывал бы, какие имена существуют.
+    if not await auth.verify_password(user.password_hash if user else None, body.password):
+        raise HTTPException(401, "неверное имя или пароль")
+    _set_session(response, await auth.create_session(db, user))
+    await db.commit()
+    return user.to_dict()
+
+
+@app.post("/api/gm/login")
+async def gm_login(body: GmLoginBody, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+    """Вход мастера по ключу. Первый раз - заодно создать его аккаунт.
+
+    Потом ключ - запасной вход, если пароль забыт: кто знает ключ, тот и
+    так владеет сервером.
+    """
+    if not is_gm_key(body.key):
+        raise HTTPException(403, "ключ ГМ не подошёл")
+    async with hub.lock("campaign"):
+        campaign = await get_campaign(db)
+        gm = (
+            await db.execute(select(User).where(User.campaign_id == campaign.id, User.is_gm).limit(1))
+        ).scalar_one_or_none()
+        if gm is None:
+            if body.name is None or body.password is None:
+                return {"needs_setup": True}
+            try:
+                gm = await auth.create_user(db, campaign, body.name, body.password, is_gm=True)
+            except auth.AuthError as exc:
+                raise HTTPException(400, str(exc))
+        _set_session(response, await auth.create_session(db, gm))
+        await db.commit()
+    return gm.to_dict()
+
+
+@app.post("/api/logout")
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+    await auth.drop_session(db, request.cookies.get(auth.SESSION_COOKIE))
+    await db.commit()
+    response.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return {"ok": True}
+
+
 @app.get("/api/campaign")
 async def get_campaign_view(request: Request, db: AsyncSession = Depends(get_session)) -> dict:
-    return await campaign_view(db, await get_campaign(db), request_actor(request))
+    actor = await require_actor(request, db)
+    return await campaign_view(db, await get_campaign(db), actor)
 
 
 @app.get("/api/scenes")
 async def list_scenes(request: Request, db: AsyncSession = Depends(get_session)) -> list[dict]:
     # Игроку - только активная сцена: названия заготовок ГМ ему знать незачем.
     campaign = await get_campaign(db)
-    actor = request_actor(request)
+    actor = await require_actor(request, db)
     scenes = (
         await db.execute(
             select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.created_at)
@@ -208,22 +307,24 @@ async def list_scenes(request: Request, db: AsyncSession = Depends(get_session))
 async def get_scene(scene_id: str, request: Request, db: AsyncSession = Depends(get_session)):
     # Через этот адрес клиент перезапрашивает снапшот. Без проверки игрок
     # вытащил бы им скрытую сцену целиком.
-    if not can_see(request_actor(request), await get_campaign(db), scene_id):
+    if not can_see(await require_actor(request, db), await get_campaign(db), scene_id):
         raise HTTPException(404, "scene not found")
     data = await scene_snapshot(db, scene_id)
     return data or {"error": "scene not found"}
 
 
 @app.websocket("/ws/scene/{scene_id}")
-async def scene_socket(websocket: WebSocket, scene_id: str, user: str = "anon"):
-    # TODO: это не аутентификация. Имя приходит query-параметром и никак
-    # не проверяется. Перед любым публичным хостингом - заменить.
-    # ГМ определяется ключом, а не именем: см. roles.py.
-    actor = Actor(name=(user or "anon")[:100], is_gm=is_gm_key(websocket.cookies.get(GM_COOKIE)))
-
+async def scene_socket(websocket: WebSocket, scene_id: str):
+    # Кто подключился - только из сессии. Имени в адресе больше нет: его
+    # мог подставить любой.
     await websocket.accept()
 
     async with SessionLocal() as db:
+        actor = await session_actor(db, websocket.cookies)
+        if actor is None:
+            await websocket.send_json({"type": "auth_required"})
+            await websocket.close(code=4401)
+            return
         campaign = await get_campaign(db)
         snap = await scene_snapshot(db, scene_id) if can_see(actor, campaign, scene_id) else None
         if snap is None:
@@ -232,7 +333,7 @@ async def scene_socket(websocket: WebSocket, scene_id: str, user: str = "anon"):
             await websocket.send_json(await campaign_view(db, campaign, actor))
             await websocket.close(code=4000)
             return
-        you = {"name": actor.name, "is_gm": actor.is_gm}
+        you = {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm}
         await websocket.send_json(protocol.snapshot(snap["seq"], snap, you))
         await websocket.send_json(await campaign_view(db, campaign, actor))
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .config import DEFAULT_GRID_SIZE
@@ -37,6 +37,37 @@ class Campaign(Base):
     messages: Mapped[list["Message"]] = relationship(
         back_populates="campaign", cascade="all, delete-orphan"
     )
+
+
+class User(Base):
+    """Аккаунт внутри кампании. Публичной регистрации нет: игроков
+    создаёт ГМ, как в Foundry. Самого ГМ создаёт вход по ключу."""
+
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("campaign_id", "name"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    # Только argon2-хеш. Открытый пароль не хранится и не логируется.
+    password_hash: Mapped[str] = mapped_column(String(200))
+    is_gm: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    def to_dict(self) -> dict:
+        # Без хеша: этот словарь уходит клиентам.
+        return {"id": self.id, "name": self.name, "is_gm": self.is_gm}
+
+
+class AuthSession(Base):
+    """Сессия входа. В cookie лежит случайный токен, здесь - только его
+    sha256: утёкшая база не даёт войти чужими сессиями."""
+
+    __tablename__ = "sessions"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Scene(Base):
@@ -83,7 +114,11 @@ class Token(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     layer: Mapped[str] = mapped_column(String(20), default="tokens")  # tokens | gm
 
-    owner: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # id пользователя, а не имя: имя можно сменить, и совпадения имён
+    # больше ничего не значат. null - общий токен.
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Пока не используется. Понадобится на этапе освещения.
     vision_range: Mapped[float] = mapped_column(Float, default=0.0)
@@ -101,7 +136,7 @@ class Token(Base):
             "color": self.color,
             "image_url": self.image_url,
             "layer": self.layer,
-            "owner": self.owner,
+            "owner_id": self.owner_id,
             "vision_range": self.vision_range,
             "emits_light": self.emits_light,
         }
@@ -134,8 +169,10 @@ class Wall(Base):
     blocks_sight: Mapped[bool] = mapped_column(Boolean, default=True)
     blocks_sound: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Кто поставил. Удалять можно только свою стену; без владельца - общая.
-    owner: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Кто поставил (id пользователя). Удалить может он или ГМ; null - общая.
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     scene: Mapped[Scene] = relationship(back_populates="walls")
 
@@ -151,7 +188,7 @@ class Wall(Base):
             "blocks_movement": self.blocks_movement,
             "blocks_sight": self.blocks_sight,
             "blocks_sound": self.blocks_sound,
-            "owner": self.owner,
+            "owner_id": self.owner_id,
         }
 
 
@@ -163,7 +200,12 @@ class Message(Base):
         ForeignKey("campaigns.id", ondelete="CASCADE"), index=True
     )
 
+    # Имя на момент сообщения - чтобы история читалась и после удаления
+    # игрока; author_id - чтобы отличать свои сообщения.
     author: Mapped[str] = mapped_column(String(100))
+    author_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     text: Mapped[str] = mapped_column(Text, default="")
     kind: Mapped[str] = mapped_column(String(20), default="text")  # text | roll
     roll_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -177,6 +219,7 @@ class Message(Base):
         return {
             "id": self.id,
             "author": self.author,
+            "author_id": self.author_id,
             "text": self.text,
             "kind": self.kind,
             "roll": json.loads(self.roll_json) if self.roll_json else None,

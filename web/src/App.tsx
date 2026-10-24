@@ -6,33 +6,33 @@ import { Toolbar } from "./ui/Toolbar";
 import { Chat } from "./ui/Chat";
 import { TokenPanel } from "./ui/TokenPanel";
 import { useUi } from "./state/store";
-import type { Scene, SceneInfo } from "./types";
+import { GmSetupScreen, LoginScreen } from "./ui/Login";
+import type { Scene, SceneInfo, UserInfo } from "./types";
 
 const GM_SCENE = "lanterna.gmScene";
 
-function NamePrompt() {
-  const setUser = useUi((s) => s.setUser);
-  const [value, setValue] = useState("");
-  return (
-    <div className="gate">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (value.trim()) setUser(value.trim());
-        }}
-      >
-        <h1>Lanterna</h1>
-        <p className="muted">Представьтесь. Аутентификации пока нет - это просто имя.</p>
-        <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="Имя" />
-        <button type="submit">Войти</button>
-      </form>
-    </div>
-  );
-}
+/**
+ * Ключ ГМ приходит один раз в ссылке ?gm=... Забираем его при загрузке
+ * модуля (а не в эффекте: StrictMode запускает эффекты дважды, и второй
+ * запуск уже не нашёл бы ключ в адресе) и сразу убираем из адресной
+ * строки - чтобы не светить при показе экрана. Дальше нужна только сессия.
+ */
+const GM_KEY_FROM_URL = (() => {
+  const url = new URL(location.href);
+  const key = url.searchParams.get("gm");
+  if (key) {
+    url.searchParams.delete("gm");
+    history.replaceState(null, "", url);
+  }
+  return key;
+})();
 
 export default function App() {
-  const user = useUi((s) => s.user);
-  const gmKey = useUi((s) => s.gmKey);
+  const me = useUi((s) => s.me);
+  // Экран до игры: проверяем сессию, затем вход или первый вход мастера.
+  const [checking, setChecking] = useState(true);
+  const [setupKey, setSetupKey] = useState<string | null>(null);
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
 
@@ -45,8 +45,39 @@ export default function App() {
     events: { name: string; payload: any; cmdId: string | null }[];
   }>({ scene: null, events: [] });
 
-  // Игрок всегда в активной сцене. ГМ возвращается туда, где был.
   useEffect(() => {
+    const ui = useUi.getState();
+    void (async () => {
+      try {
+        if (GM_KEY_FROM_URL) {
+          const res = await fetch("/api/gm/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: GM_KEY_FROM_URL }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.needs_setup) return setSetupKey(GM_KEY_FROM_URL);
+          if (res.ok) return ui.setMe(data as UserInfo);
+          setLoginNotice(data.detail || "ключ ГМ не подошёл");
+        }
+        const res = await fetch("/api/me");
+        if (res.ok) ui.setMe(await res.json()); // null, если сессии нет
+      } catch (e) {
+        console.error("не проверил сессию", e);
+      } finally {
+        setChecking(false);
+      }
+    })();
+  }, []);
+
+  // Игрок всегда в активной сцене. ГМ возвращается туда, где был.
+  // Вышел - сцены больше нет, сокет закроется вместе с ней.
+  useEffect(() => {
+    if (!me) {
+      setSceneId(null);
+      return;
+    }
+    setLoginNotice(null);
     void fetch("/api/campaign")
       .then((r) => r.json())
       .then((c: { active_scene_id: string; scenes?: SceneInfo[] }) => {
@@ -55,7 +86,7 @@ export default function App() {
         setSceneId(ok ? saved : c.active_scene_id);
       })
       .catch((e) => console.error("не получил кампанию", e));
-  }, []);
+  }, [me?.id]);
 
   const openScene = useCallback((id: string) => {
     localStorage.setItem(GM_SCENE, id);
@@ -63,9 +94,9 @@ export default function App() {
   }, []);
 
   const socket = useMemo(
-    // gmKey в зависимостях: ключ сброшен -> переподключаемся уже игроком.
-    () => (sceneId && user ? new SceneSocket(sceneId, user) : null),
-    [sceneId, user, gmKey],
+    // me?.id в зависимостях: вошёл другим - это другое подключение.
+    () => (sceneId && me ? new SceneSocket(sceneId) : null),
+    [sceneId, me?.id],
   );
 
   const handleReady = useCallback((stage: SceneStage) => {
@@ -88,19 +119,17 @@ export default function App() {
     const off = socket.on((msg) => {
       if (msg.type === "snapshot") {
         ui.setConnected(true);
-        if (msg.you) {
-          ui.setIsGm(msg.you.is_gm);
-          // Ключ устарел (сервер выдал новый) - не держим его и не шлём дальше.
-          if (gmKey && !msg.you.is_gm) {
-            ui.dropGmKey();
-            ui.flashError("ключ ГМ не подошёл - вошёл как игрок");
-          }
-        }
+        if (msg.you) ui.setMe(msg.you);
         ui.setMessages(msg.scene.messages);
         ui.setScene(msg.scene.name, msg.scene.grid_size, msg.scene.background_url);
         buffered.current.scene = msg.scene;
         buffered.current.events = [];
         stageRef.current?.setSnapshot(msg.scene);
+        return;
+      }
+      if (msg.type === "auth_required") {
+        setLoginNotice("сессия кончилась - войди снова");
+        ui.setMe(null);
         return;
       }
       if (msg.type === "presence") {
@@ -116,7 +145,16 @@ export default function App() {
         return;
       }
       if (msg.type === "campaign") {
-        ui.setCampaign(msg.active_scene_id, msg.scenes);
+        ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users);
+        // Аккаунт удалили - сессии больше нет, на экран входа.
+        const myId = useUi.getState().me?.id;
+        if (myId && !msg.users.some((u) => u.id === myId)) {
+          // Сначала пояснение, потом выход: setMe перерисовывает App сразу
+          // (zustand), и экран входа иначе появился бы без пояснения.
+          setLoginNotice("аккаунт удалён мастером");
+          ui.setMe(null);
+          return;
+        }
         // Игрока ведёт ГМ: он всегда там, где активная сцена. ГМ остаётся,
         // где был, пока его сцену не удалили.
         const stay = msg.scenes
@@ -151,11 +189,13 @@ export default function App() {
       socket.close();
       useUi.getState().setConnected(false);
     };
-  }, [socket, gmKey, sceneId, openScene]);
+  }, [socket, sceneId, openScene]);
 
   const error = useUi((s) => s.error);
 
-  if (!user) return <NamePrompt />;
+  if (checking) return <div className="gate">Загрузка...</div>;
+  if (!me && setupKey) return <GmSetupScreen gmKey={setupKey} onDone={(u) => useUi.getState().setMe(u)} />;
+  if (!me) return <LoginScreen notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} />;
   if (!socket) return <div className="gate">Загрузка сцены...</div>;
 
   return (

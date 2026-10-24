@@ -50,10 +50,10 @@ def chat(message: dict) -> dict:
     return {"type": "chat", "message": message}
 
 
-def campaign(active_scene_id: str | None, scenes: list[dict] | None) -> dict:
+def campaign(active_scene_id: str | None, scenes: list[dict] | None, users: list[dict]) -> dict:
     # scenes - только для ГМ. Игрок узнаёт лишь, какая сцена активна:
     # названия заготовок ему знать незачем.
-    msg: dict = {"type": "campaign", "active_scene_id": active_scene_id}
+    msg: dict = {"type": "campaign", "active_scene_id": active_scene_id, "users": users}
     if scenes is not None:
         msg["scenes"] = scenes
     return msg

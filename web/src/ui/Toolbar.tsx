@@ -22,7 +22,7 @@ export function Toolbar({
   sceneId: string;
   onOpenScene: (id: string) => void;
 }) {
-  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId } = useUi();
+  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me } = useUi();
   const hidden = isGm && activeSceneId !== null && sceneId !== activeSceneId;
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
@@ -55,6 +55,16 @@ export function Toolbar({
       <div className="toolbar-right">
         <span className={chaining ? "hint hint-active" : "muted"}>{hint}</span>
         <span className="users">{users.join(", ")}</span>
+        <span className="me">{me?.name}</span>
+        <button
+          className="tool"
+          onClick={async () => {
+            await fetch("/api/logout", { method: "POST" }).catch(() => {});
+            useUi.getState().setMe(null);
+          }}
+        >
+          Выйти
+        </button>
       </div>
     </header>
   );

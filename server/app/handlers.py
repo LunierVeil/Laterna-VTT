@@ -16,13 +16,13 @@ from __future__ import annotations
 import json
 import re
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import dice
+from . import auth, dice
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
-from .models import Campaign, Message, Scene, Token, Wall
+from .models import AuthSession, Campaign, Message, Scene, Token, User, Wall
 from .roles import Actor
 
 
@@ -71,11 +71,26 @@ def _require_owner(obj: Token | Wall, actor: Actor, message: str) -> None:
     # убирает за всеми. Объект без владельца - общий.
     if actor.is_gm:
         return
-    if obj.owner is not None and obj.owner != actor.name:
+    if obj.owner_id is not None and obj.owner_id != actor.id:
         raise CommandError(message)
 
 
+async def _campaign_user(db: AsyncSession, campaign_id: str, user_id: object) -> str | None:
+    """id существующего пользователя этой кампании или None (общий)."""
+    if user_id is None:
+        return None
+    user = await db.get(User, str(user_id))
+    if user is None or user.campaign_id != campaign_id:
+        raise CommandError("нет такого игрока")
+    return user.id
+
+
 async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    # Владельцем другого может поставить только ГМ: иначе игрок создавал
+    # бы токены от чужого имени. Остальным - всегда они сами.
+    owner_id = actor.id
+    if actor.is_gm and "owner_id" in payload:
+        owner_id = await _campaign_user(db, scene.campaign_id, payload["owner_id"])
     token = Token(
         scene_id=scene.id,
         name=str(payload.get("name") or "Токен")[:200],
@@ -85,9 +100,7 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         color=str(payload.get("color") or "#c75c5c")[:20],
         image_url=_upload_url(payload.get("image_url"), "картинка токена"),
         layer="gm" if payload.get("layer") == "gm" else "tokens",
-        # Чужое имя владельцем может поставить только ГМ: иначе игрок
-        # создавал бы токены от имени другого.
-        owner=(payload.get("owner") if actor.is_gm else None) or actor.name,
+        owner_id=owner_id,
     )
     db.add(token)
     await db.flush()
@@ -118,7 +131,7 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     token = await db.get(Token, payload.get("id"))
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
-    # Без этой проверки чужой игрок переписал бы owner на себя и удалил токен.
+    # Без этой проверки чужой игрок переписал бы владельца на себя и удалил токен.
     _require_owner(token, actor, "нельзя менять чужой токен")
     if "name" in payload:
         name = str(payload["name"] or "").strip()
@@ -132,13 +145,12 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         token.color = color.lower()
     if "image_url" in payload:
         token.image_url = _upload_url(payload["image_url"], "картинка токена")
-    if "owner" in payload:
+    if "owner_id" in payload:
         # Отдать токен другому - решение мастера. Иначе игрок "подарил" бы
-        # свой токен кому-то или сделал его общим (owner = null), и его
+        # свой токен кому-то или сделал его общим (owner_id = null), и его
         # смог бы двигать и удалять любой.
         _require_gm(actor, "менять владельца может только ГМ")
-        owner = payload["owner"]
-        token.owner = None if owner is None else str(owner).strip()[:100] or None
+        token.owner_id = await _campaign_user(db, scene.campaign_id, payload["owner_id"])
     if "size" in payload:
         size = _clamp(_num(payload, "size"), 0.25, 10)
         # Держим на месте левый верхний угол, а не центр: иначе токен 2x2
@@ -176,7 +188,7 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
         blocks_movement=bool(payload.get("blocks_movement", True)),
         blocks_sight=bool(payload.get("blocks_sight", True)),
         blocks_sound=bool(payload.get("blocks_sound", False)),
-        owner=actor.name,
+        owner_id=actor.id,
     )
     if (wall.x1, wall.y1) == (wall.x2, wall.y2):
         raise CommandError("стена нулевой длины")
@@ -234,12 +246,15 @@ async def chat_say(db: AsyncSession, campaign: Campaign, actor: Actor, payload: 
         message = Message(
             campaign_id=campaign.id,
             author=actor.name,
+            author_id=actor.id,
             text=formula,
             kind="roll",
             roll_json=json.dumps(result.to_dict(), ensure_ascii=False),
         )
     else:
-        message = Message(campaign_id=campaign.id, author=actor.name, text=text, kind="text")
+        message = Message(
+            campaign_id=campaign.id, author=actor.name, author_id=actor.id, text=text, kind="text"
+        )
 
     db.add(message)
     await db.flush()
@@ -282,6 +297,35 @@ async def scene_delete(db: AsyncSession, campaign: Campaign, actor: Actor, paylo
     return "scene.deleted", {"id": scene.id}
 
 
+async def player_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    # Публичной регистрации нет: игроков заводит мастер, как в Foundry.
+    _require_gm(actor)
+    try:
+        user = await auth.create_user(
+            db, campaign, payload.get("name"), payload.get("password"), is_gm=False
+        )
+    except auth.AuthError as exc:
+        raise CommandError(str(exc))
+    return "player.created", {"user": user.to_dict()}
+
+
+async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    user = await db.get(User, payload.get("id")) if payload.get("id") else None
+    if user is None or user.campaign_id != campaign.id:
+        raise CommandError("нет такого игрока")
+    if user.is_gm:
+        raise CommandError("аккаунт мастера удалить нельзя")
+    # Токены и стены ушедшего игрока переходят мастеру, а не становятся
+    # общими: общий токен может двигать и удалять кто угодно.
+    for model in (Token, Wall):
+        await db.execute(update(model).where(model.owner_id == user.id).values(owner_id=actor.id))
+    await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+    await db.delete(user)
+    await db.flush()
+    return "player.deleted", {"id": user.id}
+
+
 HANDLERS = {
     "token.add": token_add,
     "token.move": token_move,
@@ -297,4 +341,6 @@ CAMPAIGN_HANDLERS = {
     "scene.create": scene_create,
     "scene.activate": scene_activate,
     "scene.delete": scene_delete,
+    "player.create": player_create,
+    "player.delete": player_delete,
 }

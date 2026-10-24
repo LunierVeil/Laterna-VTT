@@ -7,7 +7,8 @@ export interface Token {
   color: string;
   image_url: string | null;
   layer: string;
-  owner: string | null;
+  /** id пользователя; null - общий. */
+  owner_id: string | null;
   vision_range: number;
   emits_light: number;
 }
@@ -23,7 +24,7 @@ export interface Wall {
   blocks_movement: boolean;
   blocks_sight: boolean;
   blocks_sound: boolean;
-  owner: string | null;
+  owner_id: string | null;
 }
 
 export interface RollTerm {
@@ -43,7 +44,9 @@ export interface Roll {
 
 export interface Message {
   id: string;
+  /** Имя на момент сообщения. */
   author: string;
+  author_id: string | null;
   text: string;
   kind: "text" | "roll";
   roll: Roll | null;
@@ -66,14 +69,22 @@ export interface Scene {
 
 export type ServerMessage =
   // you есть только в снапшоте из сокета; при resync через REST его нет.
-  | { type: "snapshot"; seq: number; scene: Scene; you?: { name: string; is_gm: boolean } }
+  | { type: "snapshot"; seq: number; scene: Scene; you?: UserInfo }
   | { type: "event"; seq: number; name: string; payload: any; cmd_id: string | null }
   | { type: "error"; message: string; cmd_id: string | null }
   | { type: "presence"; users: string[] }
   | { type: "chat"; message: Message }
   // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
-  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[] }
+  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[] }
+  // Сессии нет или она кончилась - на экран входа.
+  | { type: "auth_required" }
   | { type: "reply"; name: string; payload: any; cmd_id: string | null };
+
+export interface UserInfo {
+  id: string;
+  name: string;
+  is_gm: boolean;
+}
 
 export interface SceneInfo {
   id: string;

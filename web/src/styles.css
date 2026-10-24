@@ -197,6 +197,8 @@ button[type="submit"] {
 .gate form { display: flex; flex-direction: column; gap: 10px; width: 280px; }
 .gate h1 { margin: 0; }
 .gate p { margin: 0; font-size: 13px; }
+.gate-error { color: #f0a3a3; }
+.me { font-weight: 600; white-space: nowrap; }
 
 /* toast */
 .toast {

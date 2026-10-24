@@ -1,38 +1,16 @@
 import { create } from "zustand";
-import type { Message, SceneInfo, Token, Tool } from "../types";
+import type { Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
-export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner" | "size">;
-
-const GM_COOKIE = "lanterna_gm";
-
-function readGmCookie(): string | null {
-  const raw = document.cookie.split("; ").find((c) => c.startsWith(`${GM_COOKIE}=`));
-  return raw ? decodeURIComponent(raw.slice(GM_COOKIE.length + 1)) : null;
-}
-
-/**
- * Ключ ГМ приходит один раз в ссылке ?gm=... Кладём его в cookie (её браузер
- * сам шлёт при подключении сокета и загрузке файлов, а в логи сервера она
- * не попадает) и сразу убираем из адресной строки - чтобы не светить при
- * показе экрана.
- */
-function takeGmKey(): string | null {
-  const url = new URL(location.href);
-  const fromUrl = url.searchParams.get("gm");
-  if (fromUrl) {
-    document.cookie = `${GM_COOKIE}=${encodeURIComponent(fromUrl)}; path=/; max-age=31536000; samesite=strict`;
-    url.searchParams.delete("gm");
-    history.replaceState(null, "", url);
-  }
-  return readGmCookie();
-}
+export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner_id" | "size">;
 
 interface UiState {
-  user: string;
-  gmKey: string | null;
-  /** Решает сервер (по ключу), здесь - только чтобы показать инструменты ГМ. */
+  /** Кто вошёл - по ответу сервера. null - экран входа. */
+  me: UserInfo | null;
+  /** Решает сервер (по сессии), здесь - только чтобы показать инструменты ГМ. */
   isGm: boolean;
+  /** Аккаунты кампании: показать, чей токен, и список игроков у ГМ. */
+  accounts: UserInfo[];
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -47,9 +25,7 @@ interface UiState {
   /** Все сцены кампании - знает только ГМ. */
   scenes: SceneInfo[];
 
-  setUser: (u: string) => void;
-  dropGmKey: () => void;
-  setIsGm: (v: boolean) => void;
+  setMe: (me: UserInfo | null) => void;
   setTool: (t: Tool) => void;
   setMessages: (m: Message[]) => void;
   pushMessage: (m: Message) => void;
@@ -61,7 +37,7 @@ interface UiState {
   setScene: (name: string, gridSize: number, background: string | null) => void;
   setChaining: (c: boolean) => void;
   setSelected: (t: SelectedToken | null) => void;
-  setCampaign: (activeSceneId: string, scenes: SceneInfo[] | undefined) => void;
+  setCampaign: (activeSceneId: string, scenes: SceneInfo[] | undefined, accounts: UserInfo[]) => void;
 }
 
 /**
@@ -74,9 +50,9 @@ interface UiState {
  * панели свойств. Обновляется только при выборе и token.updated.
  */
 export const useUi = create<UiState>((set) => ({
-  user: localStorage.getItem("lanterna.user") || "",
-  gmKey: takeGmKey(),
+  me: null,
   isGm: false,
+  accounts: [],
   tool: "select",
   messages: [],
   users: [],
@@ -90,17 +66,12 @@ export const useUi = create<UiState>((set) => ({
   activeSceneId: null,
   scenes: [],
 
-  setUser: (user) => {
-    localStorage.setItem("lanterna.user", user);
-    set({ user });
-  },
-  dropGmKey: () => {
-    document.cookie = `${GM_COOKIE}=; path=/; max-age=0`;
-    set({ gmKey: null, isGm: false });
-  },
-  // Перестал быть ГМ (ключ не подошёл) - инструменты мастера недоступны.
-  setIsGm: (isGm) =>
-    set((s) => ({ isGm, tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool })),
+  // Не ГМ (вышел, вошёл игроком) - инструменты мастера недоступны.
+  setMe: (me) =>
+    set((s) => {
+      const isGm = me?.is_gm ?? false;
+      return { me, isGm, tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool };
+    }),
   setTool: (tool) => set({ tool }),
   setMessages: (messages) => set({ messages }),
   pushMessage: (m) => set((s) => ({ messages: [...s.messages, m].slice(-200) })),
@@ -117,5 +88,6 @@ export const useUi = create<UiState>((set) => ({
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),
   setSelected: (selected) => set({ selected }),
-  setCampaign: (activeSceneId, scenes) => set(scenes ? { activeSceneId, scenes } : { activeSceneId }),
+  setCampaign: (activeSceneId, scenes, accounts) =>
+    set(scenes ? { activeSceneId, scenes, accounts } : { activeSceneId, accounts }),
 }));

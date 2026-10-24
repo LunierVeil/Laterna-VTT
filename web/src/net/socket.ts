@@ -23,16 +23,14 @@ export class SceneSocket {
   private retry = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(
-    private sceneId: string,
-    private user: string,
-  ) {}
+  constructor(private sceneId: string) {}
 
   connect() {
     this.closedByUs = false;
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    // Ключ ГМ сюда не добавляем: он едет в cookie, адрес сокета попадает в логи.
-    const url = `${proto}://${location.host}/ws/scene/${this.sceneId}?user=${encodeURIComponent(this.user)}`;
+    // Кто подключается, сервер узнаёт по cookie сессии. В адресе ничего
+    // про пользователя нет: адрес попадает в логи, и его легко подделать.
+    const url = `${proto}://${location.host}/ws/scene/${this.sceneId}`;
     const ws = new WebSocket(url);
     this.ws = ws;
 
@@ -92,6 +90,13 @@ export class SceneSocket {
     }
 
     // Чат и список сцен общие на кампанию и идут мимо seq сцены.
+    if (msg.type === "auth_required") {
+      // Без сессии переподключаться бессмысленно - сервер ответит тем же.
+      this.closedByUs = true;
+      this.emit(msg);
+      return;
+    }
+
     if (msg.type === "presence" || msg.type === "chat" || msg.type === "campaign" || msg.type === "reply") {
       this.emit(msg);
       return;

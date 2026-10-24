@@ -95,15 +95,15 @@ export class SceneStage {
   // ГМ может стирать любые стены. Решает сервер, это только для подсветки.
   private gm = false;
 
-  /** me - имя этого клиента: подсветка в режиме стирания различает свои и чужие стены. */
+  /** me - id пользователя этого клиента: по нему видно, что своё. */
   constructor(
     private cb: StageCallbacks,
     private me: string,
   ) {}
 
   /** То же правило, что _require_owner на сервере: своё, общее или ГМ. */
-  private canEdit(owner: string | null) {
-    return this.gm || owner === null || owner === this.me;
+  private canEdit(ownerId: string | null) {
+    return this.gm || ownerId === null || ownerId === this.me;
   }
 
   setGm(gm: boolean) {
@@ -448,7 +448,7 @@ export class SceneStage {
       return;
     }
     // Чужую тоже подсвечиваем, но блёклым ореолом: клик по ней сервер отклонит.
-    const mine = this.canEdit(w.owner);
+    const mine = this.canEdit(w.owner_id);
     g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
     if (mine) g.stroke({ width: 8, color: COLORS.eraseOwn, alpha: 0.9 });
     else g.stroke({ width: 14, color: COLORS.eraseForeign, alpha: 0.35 });
@@ -507,7 +507,7 @@ export class SceneStage {
     // Чужой токен выбрать можно (посмотреть), тащить - нет: сервер всё
     // равно откажет, и токен отскочил бы назад. Решает сервер, это - чтобы
     // не дёргать картинку зря.
-    if (!this.canEdit(view.data.owner)) return;
+    if (!this.canEdit(view.data.owner_id)) return;
     const p = this.toScene(e);
     this.dragging = {
       view,

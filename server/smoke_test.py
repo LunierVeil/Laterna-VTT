@@ -2,11 +2,13 @@
 
     python server/smoke_test.py
 
-Проверяет то, что сломать проще всего: порядок seq, подтверждение
-команды по cmd_id, блокировку движения стеной, серверный бросок и то,
-что скрытая сцена не утекает игроку.
+Проверяет то, что сломать проще всего: вход и сессии, порядок seq,
+подтверждение команды по cmd_id, блокировку движения стеной, серверный
+бросок и то, что скрытая сцена не утекает игроку.
 
-Ключ ГМ берётся из LANTERNA_GM_KEY или из server/gm_key.txt.
+ГМ входит по ключу (LANTERNA_GM_KEY или server/gm_key.txt). Аккаунт
+мастера тест не создаёт - иначе на свежем сервере пароль мастера стал бы
+паролем из теста. Игрока тест заводит временного и в конце удаляет.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -25,9 +28,19 @@ BASE = "http://127.0.0.1:8000"
 WS = "ws://127.0.0.1:8000"
 
 
-def gm_cookie() -> str:
-    key = os.getenv("LANTERNA_GM_KEY") or (Path(__file__).parent / "gm_key.txt").read_text().strip()
-    return f"lanterna_gm={key}"
+SESSION = "lanterna_session"
+
+
+def gm_key() -> str:
+    return os.getenv("LANTERNA_GM_KEY") or (Path(__file__).parent / "gm_key.txt").read_text().strip()
+
+
+def session_header(response: httpx.Response) -> dict:
+    return {"Cookie": f"{SESSION}={response.cookies[SESSION]}"}
+
+
+async def cmd(ws, cmd_id: str, name: str, payload: dict) -> None:
+    await ws.send(json.dumps({"type": "cmd", "id": cmd_id, "name": name, "payload": payload}))
 
 
 async def recv_until(ws, predicate, timeout=5.0):
@@ -42,17 +55,48 @@ async def recv_until(ws, predicate, timeout=5.0):
 
 async def main() -> int:
     async with httpx.AsyncClient() as client:
-        scenes = (await client.get(f"{BASE}/api/scenes")).json()
-    if not scenes:
-        print("нет сцен")
-        return 1
-    scene_id = scenes[0]["id"]
-    print(f"сцена {scene_id}")
+        # 0. Без входа - ни REST, ни сокет
+        assert (await client.get(f"{BASE}/api/campaign")).status_code == 401
+        r = await client.post(f"{BASE}/api/gm/login", json={"key": gm_key()})
+        if r.status_code == 403:
+            print("ключ ГМ не подошёл")
+            return 1
+        if r.json().get("needs_setup"):
+            print("на сервере ещё нет аккаунта мастера - создай его по ссылке из ./dev.sh gm")
+            return 1
+        gm_auth = session_header(r)
+        scene_id = (await client.get(f"{BASE}/api/campaign", headers=gm_auth)).json()["active_scene_id"]
+    print(f"сцена {scene_id}, ГМ вошёл по ключу")
 
-    # Стены ставит только ГМ, поэтому первый клиент - с ключом.
-    cookie = {"Cookie": gm_cookie()}
-    async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm", additional_headers=cookie) as gm, \
-            websockets.connect(f"{WS}/ws/scene/{scene_id}?user=player") as player:
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}") as anon:
+        assert json.loads(await anon.recv())["type"] == "auth_required"
+    print("без входа сокет не пускает")
+
+    # Временный игрок: ГМ заводит, игрок входит по паролю.
+    player_name = f"smoke-{secrets.token_hex(3)}"
+    password = secrets.token_urlsafe(12)
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
+        await cmd(gm, "p1", "player.create", {"name": player_name, "password": password})
+        player_id = (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["user"]["id"]
+    async with httpx.AsyncClient() as client:
+        bad = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": "wrong-pass"})
+        assert bad.status_code == 401, bad.status_code
+        r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
+        assert r.status_code == 200, r.text
+        player_auth = session_header(r)
+    print(f"игрок {player_name} создан, неверный пароль отклонён, вход ok")
+
+    try:
+        return await scene_checks(scene_id, gm_auth, player_auth)
+    finally:
+        async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
+            await cmd(gm, "p2", "player.delete", {"id": player_id})
+            await recv_until(gm, lambda m: m.get("type") == "reply")
+
+
+async def scene_checks(scene_id: str, gm_auth: dict, player_auth: dict) -> int:
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as player:
 
         snap = json.loads(await gm.recv())
         assert snap["type"] == "snapshot", snap
@@ -145,19 +189,19 @@ async def main() -> int:
     # 7. Скрытая сцена: ГМ создаёт, игрок не может до неё добраться.
     # Активацию не проверяем: тест гоняют на живом сервере, она бы
     # перекинула настоящих игроков.
-    async with websockets.connect(f"{WS}/ws/scene/{scene_id}?user=gm", additional_headers=cookie) as gm:
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
         snap = json.loads(await gm.recv())
-        assert snap["you"]["is_gm"], "ключ ГМ не принят"
+        assert snap["you"]["is_gm"], "сессия ГМ не принята"
         await gm.send(json.dumps({
             "type": "cmd", "id": "c7", "name": "scene.create", "payload": {"name": "smoke: скрытая"},
         }))
         hidden_id = (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["id"]
         try:
-            async with websockets.connect(f"{WS}/ws/scene/{hidden_id}?user=player") as player:
+            async with websockets.connect(f"{WS}/ws/scene/{hidden_id}", additional_headers=player_auth) as player:
                 first = json.loads(await player.recv())
                 assert first["type"] == "campaign" and "scenes" not in first, first
                 assert first["active_scene_id"] != hidden_id
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(headers=player_auth) as client:
                 r = await client.get(f"{BASE}/api/scenes/{hidden_id}")
                 assert r.status_code == 404, r.status_code
                 names = [s["id"] for s in (await client.get(f"{BASE}/api/scenes")).json()]

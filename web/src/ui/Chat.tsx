@@ -43,7 +43,7 @@ function RollLine({ m }: { m: Message }) {
 }
 
 export function Chat({ socket }: { socket: SceneSocket }) {
-  const { messages, user } = useUi();
+  const { messages, me } = useUi();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -63,7 +63,7 @@ export function Chat({ socket }: { socket: SceneSocket }) {
     <aside className="chat">
       <div className="chat-log">
         {messages.map((m) => (
-          <div key={m.id} className={m.author === user ? "msg msg-own" : "msg"}>
+          <div key={m.id} className={m.author_id && m.author_id === me?.id ? "msg msg-own" : "msg"}>
             <div className="msg-author">{m.author}</div>
             {m.kind === "roll" ? <RollLine m={m} /> : <div className="msg-text">{m.text}</div>}
           </div>
