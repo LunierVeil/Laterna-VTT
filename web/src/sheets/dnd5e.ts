@@ -130,15 +130,15 @@ export const dnd5e: SheetSchema = {
       title: "Снаряжение",
       blocks: [
         {
-          kind: "table",
+          kind: "cards",
           title: "Снаряжение",
           path: "equipment",
-          addLabel: "Добавить предмет",
-          columns: [
-            { key: "name", label: "Название", kind: "text" },
-            { key: "qty", label: "Кол-во", kind: "number", width: 3, min: 0, max: 99999 },
+          titleKey: "name",
+          addLabel: "+ Предмет",
+          resourcesPath: "resources",
+          fields: [
+            { key: "qty", label: "Кол-во", kind: "number", width: 4, min: 0, max: 99999 },
             { key: "link", label: "Ссылка (https)", kind: "link" },
-            { key: "notes", label: "Заметка", kind: "text" },
           ],
         },
         {
@@ -159,15 +159,15 @@ export const dnd5e: SheetSchema = {
       title: "Заклинания",
       blocks: [
         {
-          kind: "table",
+          kind: "cards",
           title: "Заклинания",
           path: "spells",
-          addLabel: "Добавить заклинание",
-          columns: [
-            { key: "name", label: "Название", kind: "text" },
+          titleKey: "name",
+          addLabel: "+ Заклинание",
+          resourcesPath: "resources",
+          fields: [
             { key: "level", label: "Круг", kind: "number", width: 3, min: 0, max: 9 },
             { key: "link", label: "Ссылка (https)", kind: "link" },
-            { key: "notes", label: "Заметка", kind: "text" },
           ],
         },
       ],
@@ -176,7 +176,15 @@ export const dnd5e: SheetSchema = {
       id: "features",
       title: "Умения",
       blocks: [
-        { kind: "texts", title: "Тексты из импорта", path: "texts", resourcesPath: "resources" },
+        {
+          kind: "cards",
+          title: "Умения и черты",
+          path: "features",
+          titleKey: "title",
+          addLabel: "+ Умение",
+          resourcesPath: "resources",
+          fields: [],
+        },
       ],
     },
     {

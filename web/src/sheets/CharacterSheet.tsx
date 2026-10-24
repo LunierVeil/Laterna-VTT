@@ -4,7 +4,7 @@ import { useUi } from "../state/store";
 import type { Character } from "../types";
 import type { Block, Field, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
-import { RichText, type ResourceInfo } from "./RichText";
+import { Cards, cardMatches } from "./Cards";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -52,15 +52,7 @@ const modText = (score: unknown) => {
  * нет - показывает то, что прислал сервер (правку ГМ или вторую вкладку).
  * Сохраняет по уходу с поля и по Enter, флажки и списки - сразу.
  */
-function FieldInput({
-  field,
-  value,
-  onCommit,
-}: {
-  field: Field;
-  value: unknown;
-  onCommit: (v: unknown) => void;
-}) {
+function FieldInput({ field, value, onCommit }: { field: Field; value: unknown; onCommit: (v: unknown) => void }) {
   const shown = value == null ? "" : String(value);
   const [draft, setDraft] = useState(shown);
   const [bad, setBad] = useState<string | null>(null);
@@ -145,15 +137,7 @@ function FieldInput({
 }
 
 /** Блок в режиме редактирования: всё - поля ввода. */
-function EditBlock({
-  block,
-  data,
-  set,
-}: {
-  block: Block;
-  data: unknown;
-  set: (path: string, value: unknown) => void;
-}) {
+function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (path: string, value: unknown) => void }) {
   switch (block.kind) {
     case "fields":
       return (
@@ -225,26 +209,8 @@ function EditBlock({
         </section>
       );
 
-    case "texts": {
-      const texts = get(data, block.path);
-      if (!texts || typeof texts !== "object") return null;
-      const entries = Object.entries(texts as Record<string, { label?: unknown; doc?: unknown }>);
-      if (!entries.length) return null;
-      const res = get(data, block.resourcesPath);
-      const resources: ResourceInfo[] = Array.isArray(res) ? res : [];
-      return (
-        <section className="sheet-block sheet-block-wide">
-          <h3>{block.title}</h3>
-          {entries.map(([key, entry]) => (
-            // Свёрнуты: текстов бывает на несколько экранов.
-            <details key={key} className="sheet-text">
-              <summary>{typeof entry?.label === "string" ? entry.label : key}</summary>
-              <RichText doc={entry?.doc} resources={resources} />
-            </details>
-          ))}
-        </section>
-      );
-    }
+    case "cards":
+      return <Cards block={block} data={data} set={set} />;
 
     case "table": {
       const raw = get(data, block.path);
@@ -277,7 +243,11 @@ function EditBlock({
                       </td>
                     ))}
                     <td>
-                      <button className="tool" title="удалить строку" onClick={() => write(rows.filter((_, j) => j !== i))}>
+                      <button
+                        className="tool"
+                        title="удалить строку"
+                        onClick={() => write(rows.filter((_, j) => j !== i))}
+                      >
                         ×
                       </button>
                     </td>
@@ -313,7 +283,17 @@ const signed = (v: unknown) => (typeof v === "number" ? (v >= 0 ? `+${v}` : `${v
  * показываем - иначе лист превращается в стену прочерков.
  * Возвращает null, если показать нечего.
  */
-function ViewBlock({ block, data, inSummary }: { block: Block; data: unknown; inSummary: Set<string> }) {
+function ViewBlock({
+  block,
+  data,
+  inSummary,
+  set,
+}: {
+  block: Block;
+  data: unknown;
+  inSummary: Set<string>;
+  set: (path: string, value: unknown) => void;
+}) {
   switch (block.kind) {
     case "fields": {
       // То, что уже в шапке, второй раз не показываем.
@@ -364,7 +344,10 @@ function ViewBlock({ block, data, inSummary }: { block: Block; data: unknown; in
       );
 
     case "checklist": {
-      const [flag, num] = [block.fields.find((f) => f.kind === "checkbox"), block.fields.find((f) => f.kind === "number")];
+      const [flag, num] = [
+        block.fields.find((f) => f.kind === "checkbox"),
+        block.fields.find((f) => f.kind === "number"),
+      ];
       return (
         <section className="sheet-block sheet-block-wide">
           <h3>{block.title}</h3>
@@ -417,14 +400,91 @@ function ViewBlock({ block, data, inSummary }: { block: Block; data: unknown; in
       );
     }
 
-    case "texts": {
-      // Тексты и так только для чтения - вид один. Но пустоту проверяем
-      // здесь: элемент <EditBlock/> никогда не null.
-      const texts = get(data, block.path);
-      if (!texts || typeof texts !== "object" || !Object.keys(texts).length) return null;
-      return <EditBlock block={block} data={data} set={() => {}} />;
-    }
+    case "cards":
+      // Карточки одинаковы в обоих режимах: добавить предмет посреди сессии
+      // можно без "Редактировать". И они никогда не "пусто" - есть кнопка "+".
+      return <Cards block={block} data={data} set={set} />;
   }
+}
+
+/**
+ * Поиск по всему листу сразу: карточки (название, поля, описание), строки
+ * таблиц, навыки, поля. Результаты - по вкладкам, чтобы было видно, где это.
+ */
+function SearchResults({
+  schema,
+  data,
+  q,
+  set,
+}: {
+  schema: SheetSchema;
+  data: unknown;
+  q: string;
+  set: (path: string, value: unknown) => void;
+}) {
+  const has = (v: unknown) => v != null && String(v).toLowerCase().includes(q);
+  const groups = schema.tabs
+    .map((tab) => {
+      const found: React.ReactNode[] = [];
+      for (const b of tab.blocks) {
+        if (b.kind === "cards") {
+          const raw = get(data, b.path);
+          const cards = (Array.isArray(raw) ? raw : []) as { id: string; [k: string]: unknown }[];
+          if (cards.some((c) => c && cardMatches(c, b, q))) {
+            found.push(<Cards key={b.title} block={b} data={data} set={set} query={q} />);
+          }
+        } else if (b.kind === "table") {
+          const raw = get(data, b.path);
+          const rows = (Array.isArray(raw) ? raw : []).filter((r) => r && b.columns.some((c) => has(r[c.key])));
+          for (const [i, r] of rows.entries()) {
+            found.push(
+              <div key={`${b.title}-${i}`} className="search-hit">
+                <span className="muted">{b.title}:</span>{" "}
+                {b.columns
+                  .map((c) => show(c, r[c.key]))
+                  .filter((x) => x !== "—")
+                  .map((x, j) => (
+                    <span key={j}>{x} </span>
+                  ))}
+              </div>,
+            );
+          }
+        } else if (b.kind === "checklist") {
+          for (const item of b.items.filter((it) => has(it.label))) {
+            const on = get(data, `${b.path}.${item.key}.prof`) === true;
+            const bonus = get(data, `${b.path}.${item.key}.bonus`);
+            found.push(
+              <div key={item.key} className="search-hit">
+                <span className="muted">{b.title}:</span> {on ? "● " : "○ "}
+                {item.label} {signed(bonus)}
+              </div>,
+            );
+          }
+        } else if (b.kind === "fields") {
+          for (const f of b.fields.filter((f) => has(f.label) || has(get(data, f.key)))) {
+            found.push(
+              <div key={f.key} className="search-hit">
+                <span className="muted">{f.label}:</span> {show(f, get(data, f.key))}
+              </div>,
+            );
+          }
+        }
+      }
+      return { tab, found };
+    })
+    .filter((g) => g.found.length);
+
+  if (!groups.length) return <p className="muted sheet-empty">Ничего не нашлось.</p>;
+  return (
+    <div className="search-results">
+      {groups.map(({ tab, found }) => (
+        <section key={tab.id}>
+          <h4 className="search-tab">{tab.title}</h4>
+          {found}
+        </section>
+      ))}
+    </div>
+  );
 }
 
 /** Хиты: всегда на виду, с кнопками. Лечение не выше максимума. */
@@ -491,12 +551,14 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   const [tab, setTab] = useState(() => localStorage.getItem(TAB_KEY) || "main");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReimport, setConfirmReimport] = useState(false);
+  const [query, setQuery] = useState("");
   const close = () => useUi.getState().openCharacter(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (e.key === "Escape" && !(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) close();
+      // В полях и в редакторе описаний Esc - их дело, а не закрыть лист.
+      if (e.key === "Escape" && !(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable))) close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -515,11 +577,15 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   // Функцией, а не <ViewBlock/>: нужно знать, вернул ли блок null (пусто),
   // чтобы показать подсказку. Хуков в ViewBlock нет, так можно.
   const inSummary = new Set(
-    schema ? [...schema.summary.stats.map((f) => f.key), schema.summary.hp?.current, schema.summary.hp?.max].filter(Boolean) as string[] : [],
+    schema
+      ? ([...schema.summary.stats.map((f) => f.key), schema.summary.hp?.current, schema.summary.hp?.max].filter(
+          Boolean,
+        ) as string[])
+      : [],
   );
   const views = current?.blocks.map((b) => ({
     b,
-    view: editing ? null : ViewBlock({ block: b, data: character.data, inSummary }),
+    view: editing ? null : ViewBlock({ block: b, data: character.data, inSummary, set }),
   }));
   const nothingToShow = !editing && views?.every((v) => v.view === null);
 
@@ -558,7 +624,9 @@ export function CharacterSheet({ character, socket }: { character: Character; so
             {schema.summary.stats.map((f) => (
               <div key={f.key} className="summary-stat">
                 <span className="summary-value">
-                  {f.key === "vitals.initiative" ? signed(get(character.data, f.key)) || "—" : show(f, get(character.data, f.key))}
+                  {f.key === "vitals.initiative"
+                    ? signed(get(character.data, f.key)) || "—"
+                    : show(f, get(character.data, f.key))}
                 </span>
                 <span className="muted">{f.label}</span>
               </div>
@@ -568,34 +636,53 @@ export function CharacterSheet({ character, socket }: { character: Character; so
 
         {schema ? (
           <>
-            <nav className="sheet-tabs" role="tablist">
-              {schema.tabs.map((t) => (
-                <button
-                  key={t.id}
-                  role="tab"
-                  aria-selected={t.id === current?.id}
-                  className={t.id === current?.id ? "sheet-tab sheet-tab-on" : "sheet-tab"}
-                  onClick={() => {
-                    setTab(t.id);
-                    try {
-                      localStorage.setItem(TAB_KEY, t.id);
-                    } catch {
-                      /* не запомнили вкладку - не страшно */
-                    }
-                  }}
-                >
-                  {t.title}
-                </button>
-              ))}
-            </nav>
-            <div className="sheet-body">
-              {editing
-                ? current?.blocks.map((b) => <EditBlock key={b.title} block={b} data={character.data} set={set} />)
-                : views?.map(({ b, view }) => view && <div key={b.title} className="sheet-cell">{view}</div>)}
-              {nothingToShow && (
-                <p className="muted sheet-empty">Здесь пока пусто. «Редактировать» - заполнить.</p>
-              )}
-            </div>
+            <input
+              className="sheet-search"
+              type="search"
+              placeholder="Поиск по листу: умение, предмет, навык..."
+              aria-label="Поиск по листу"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query.trim() ? (
+              <SearchResults schema={schema} data={character.data} q={query.trim().toLowerCase()} set={set} />
+            ) : (
+              <>
+                <nav className="sheet-tabs" role="tablist">
+                  {schema.tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      role="tab"
+                      aria-selected={t.id === current?.id}
+                      className={t.id === current?.id ? "sheet-tab sheet-tab-on" : "sheet-tab"}
+                      onClick={() => {
+                        setTab(t.id);
+                        try {
+                          localStorage.setItem(TAB_KEY, t.id);
+                        } catch {
+                          /* не запомнили вкладку - не страшно */
+                        }
+                      }}
+                    >
+                      {t.title}
+                    </button>
+                  ))}
+                </nav>
+                <div className="sheet-body">
+                  {editing
+                    ? current?.blocks.map((b) => <EditBlock key={b.title} block={b} data={character.data} set={set} />)
+                    : views?.map(
+                        ({ b, view }) =>
+                          view && (
+                            <div key={b.title} className="sheet-cell">
+                              {view}
+                            </div>
+                          ),
+                      )}
+                  {nothingToShow && <p className="muted sheet-empty">Здесь пока пусто. «Редактировать» - заполнить.</p>}
+                </div>
+              </>
+            )}
           </>
         ) : (
           <p className="muted">Неизвестная система листа: {character.system}</p>
@@ -616,12 +703,19 @@ export function CharacterSheet({ character, socket }: { character: Character; so
                   Правки пропадут - точно?
                 </button>
               ) : (
-                <button className="tool" title="заново прочитать сохранённый файл импорта" onClick={() => setConfirmReimport(true)}>
+                <button
+                  className="tool"
+                  title="заново прочитать сохранённый файл импорта"
+                  onClick={() => setConfirmReimport(true)}
+                >
                   Переимпортировать
                 </button>
               ))}
             {confirmDelete ? (
-              <button className="tool tool-danger" onClick={() => socket.send("character.delete", { id: character.id })}>
+              <button
+                className="tool tool-danger"
+                onClick={() => socket.send("character.delete", { id: character.id })}
+              >
                 Удалить лист?
               </button>
             ) : (

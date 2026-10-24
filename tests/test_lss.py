@@ -70,8 +70,19 @@ class Sample(unittest.TestCase):
         self.assertTrue(first["id"].startswith("resource-"))
         self.assertEqual({x["rest"] for x in r}, {"long", "short"})
 
+    def cards(self):
+        """Все карточки из текстов: умения и предметы."""
+        return self.data["features"] + self.data["equipment"]
+
+    def test_texts_become_cards(self):
+        ids = [c["id"] for c in self.cards()]
+        self.assertTrue(all(i.startswith("lss-") for i in ids))
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual([c["name"] for c in self.data["equipment"]], ["Снаряжение"])
+        self.assertTrue(all(c["source"] == "lss" for c in self.cards()))
+
     def test_texts_whitelisted(self):
-        texts = self.data["texts"]
+        texts = self.cards()
         self.assertTrue(texts)
         allowed = {"doc", "paragraph", "text", "hardBreak", "heading", "bulletList", "orderedList", "listItem", "resource"}
         seen = set()
@@ -84,9 +95,9 @@ class Sample(unittest.TestCase):
             for c in node.get("content", []):
                 walk(c)
 
-        for entry in texts.values():
-            self.assertTrue(entry["label"])
-            walk(entry["doc"])
+        for card in texts:
+            self.assertTrue(card.get("title") or card.get("name"))
+            walk(card["doc"])
         self.assertLessEqual(seen, allowed)
         self.assertIn("resource", seen)
 
@@ -96,15 +107,15 @@ class Sample(unittest.TestCase):
                 return bool(node["text"].strip())
             return node["type"] == "resource" or any(has_text(c) for c in node.get("content", []))
 
-        for key, entry in self.data["texts"].items():
-            self.assertTrue(has_text(entry["doc"]), key)
-        self.assertNotIn("ideals", self.data["texts"])  # в образце пустой
+        for card in self.cards():
+            self.assertTrue(has_text(card["doc"]), card["id"])
+        self.assertNotIn("lss-ideals", [c["id"] for c in self.cards()])  # в образце пустой
 
     def test_known_labels(self):
-        labels = {k: v["label"] for k, v in self.data["texts"].items()}
+        titles = {c["id"]: c.get("title") or c.get("name") for c in self.cards()}
         for key in ("feats", "appearance", "notes-2", "notes-3"):
-            if key in labels:
-                self.assertNotEqual(labels[key], key)
+            if f"lss-{key}" in titles:
+                self.assertNotEqual(titles[f"lss-{key}"], key)
 
     def test_passes_sheet_checks(self):
         # Что отдаёт адаптер, должно проходить ту же проверку формы, что и правки.
@@ -184,7 +195,7 @@ class Hostile(unittest.TestCase):
             inner["text"]["features"]["value"]["data"] = evil
 
         _, data = lss.parse(with_inner(change))
-        doc = data["texts"]["features"]["doc"]
+        doc = next(c for c in data["features"] if c["id"] == "lss-features")["doc"]
         dumped = json.dumps(doc)
         for bad in ("javascript", "onerror", "evil.example", "onclick", "script", "html", "iframe", "image", "link"):
             self.assertNotIn(bad, dumped, bad)

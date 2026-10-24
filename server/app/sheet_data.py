@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import re
 
+from .richtext import clean_docs
+
 MAX_DATA_BYTES = 256 * 1024
 MAX_STRING = 20_000
 # Тексты способностей - документы TipTap (doc > list > paragraph > text >
@@ -66,6 +68,9 @@ def apply_set(data: dict, changes: object) -> dict:
     for path, value in changes.items():
         parts = parse_path(path)
         check_value(value)
+        # Описания умений и предметов из редактора - через тот же белый
+        # список, что и импорт: текст видит вся кампания.
+        value = clean_docs(value)
         node = data
         for part in parts[:-1]:
             nxt = node.get(part)

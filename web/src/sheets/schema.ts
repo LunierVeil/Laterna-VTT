@@ -53,11 +53,21 @@ export type Block =
   /** Таблица, строки добавляет игрок: оружие, заклинания. data[path] = [{...}, ...]. */
   | { kind: "table"; title: string; path: string; columns: Field[]; addLabel: string }
   /**
-   * Тексты из импорта (документы TipTap), только чтение:
-   * data[path][key] = { label, doc }. resourcesPath - откуда брать счётчики
-   * для узлов resource. Пусто - блок не показывается.
+   * Карточки: умения, предметы, заклинания. data[path] = [{ id, [titleKey],
+   * ...fields, doc }]. Описание (doc) - документ TipTap. Добавлять и править
+   * можно и в режиме "игра": предмет нашли посреди сессии - не надо искать
+   * кнопку "Редактировать". resourcesPath - откуда брать счётчики для
+   * ссылок на ресурсы в описаниях.
    */
-  | { kind: "texts"; title: string; path: string; resourcesPath: string };
+  | {
+      kind: "cards";
+      title: string;
+      path: string;
+      titleKey: string;
+      fields: Field[];
+      addLabel: string;
+      resourcesPath: string;
+    };
 
 /**
  * Шапка листа - то, что нужно видеть всегда, на любой вкладке: хиты,

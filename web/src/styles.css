@@ -322,3 +322,36 @@ select {
   display: inline-block; margin: 0 2px; padding: 0 6px; border-radius: 10px;
   background: #2d313d; border: 1px solid var(--line); font-size: 12px;
 }
+
+/* cards: умения, предметы, заклинания */
+.cards { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.card-editing { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-color: var(--accent); }
+.card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-toggle {
+  display: flex; align-items: baseline; gap: 6px; flex: 1; min-width: 0;
+  background: none; border: none; color: var(--text); padding: 2px 0; cursor: pointer; text-align: left; font: inherit;
+}
+.card-toggle:disabled { cursor: default; }
+.card-arrow { color: var(--muted); width: 1ch; }
+.card-title { font-weight: 600; }
+.card-badge { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; text-decoration: none; }
+a.card-badge { color: var(--accent); }
+.card-tools { display: flex; gap: 4px; }
+.card-tools .tool { padding: 1px 8px; }
+.card-title-input { font-weight: 600; }
+.card-fields { display: flex; gap: 10px; flex-wrap: wrap; }
+.card-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.card-add { align-self: flex-start; }
+
+.doc-editor { border: 1px solid var(--line); border-radius: 6px; background: #1d1f26; }
+.doc-toolbar { display: flex; gap: 4px; padding: 4px; border-bottom: 1px solid var(--line); }
+.doc-toolbar .tool { padding: 2px 8px; min-width: 28px; }
+.doc-content .ProseMirror { min-height: 90px; padding: 8px 10px; outline: none; line-height: 1.5; font-size: 13px; }
+.doc-content .ProseMirror p { margin: 0 0 6px; }
+.doc-content .ProseMirror ul, .doc-content .ProseMirror ol { padding-left: 20px; margin: 0 0 6px; }
+
+.sheet-search { width: 100%; margin-bottom: 8px; }
+.search-results { display: flex; flex-direction: column; gap: 10px; }
+.search-tab { margin: 0 0 4px; color: var(--accent); font-size: 13px; }
+.search-hit { font-size: 13px; padding: 2px 0; }

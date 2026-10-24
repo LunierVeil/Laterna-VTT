@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import re
 
+from ..richtext import clean_doc, has_text
+
 FORMAT = "lss-2"
 SUPPORTED_VERSION = "2"
 MAX_BYTES = 512 * 1024
@@ -61,13 +63,8 @@ _COINS = ("cp", "sp", "ep", "gp", "pp")
 
 # --- тексты (TipTap) --------------------------------------------------------
 
-# Белый список узлов и меток. Файл присылает игрок, а текст увидит вся
-# кампания: всё, чего нет в списке, выбрасываем ещё при импорте. Клиент
-# рисует по такому же списку и без innerHTML - это второй слой.
-_NODES = {"doc", "paragraph", "text", "hardBreak", "heading", "bulletList", "orderedList", "listItem", "resource"}
-_MARKS = {"bold", "italic"}
-_MAX_TEXT_DEPTH = 12
-
+# Раздел текста LSS -> карточка листа. Снаряжение - карточкой предмета,
+# остальное - карточками умений: в листе их можно править и дополнять.
 _TEXT_LABELS = {
     "features": "Умения и способности",
     "traits": "Умения и особенности",
@@ -87,48 +84,6 @@ _TEXT_LABELS = {
     "notes-2": "Заметки 2",
     "notes-3": "Заметки 3",
 }
-
-
-def _has_text(node: dict) -> bool:
-    if node.get("type") in ("text", "resource"):
-        return bool(node.get("text", "").strip()) if node["type"] == "text" else True
-    return any(_has_text(c) for c in node.get("content", []))
-
-
-def clean_doc(node: object, depth: int = 0) -> dict | None:
-    if depth > _MAX_TEXT_DEPTH or not isinstance(node, dict):
-        return None
-    kind = node.get("type")
-    if kind not in _NODES:
-        return None
-    out: dict = {"type": kind}
-    if kind == "text":
-        text = node.get("text")
-        if not isinstance(text, str) or not text:
-            return None
-        out["text"] = text[:5000]
-        marks = [
-            {"type": m["type"]}
-            for m in node.get("marks") or []
-            if isinstance(m, dict) and m.get("type") in _MARKS
-        ]
-        if marks:
-            out["marks"] = marks
-        return out
-    attrs = node.get("attrs") if isinstance(node.get("attrs"), dict) else {}
-    if kind == "resource":
-        rid = attrs.get("id")
-        if not isinstance(rid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", rid):
-            return None
-        out["attrs"] = {"id": rid}
-        return out
-    if kind == "heading":
-        level = attrs.get("level")
-        out["attrs"] = {"level": level if isinstance(level, int) and 1 <= level <= 6 else 3}
-    content = [c for c in (clean_doc(x, depth + 1) for x in node.get("content") or []) if c]
-    if content:
-        out["content"] = content
-    return out
 
 
 # --- разбор -----------------------------------------------------------------
@@ -231,7 +186,8 @@ def parse(raw: object) -> tuple[str, dict]:
         "coins": {c: _int((inner.get("coins") or {}).get(c), 0, 9_999_999) for c in _COINS}
         if isinstance(inner.get("coins"), dict)
         else {},
-        "texts": {},
+        "features": [],
+        "equipment": [],
         "import": {"edition": _str(outer.get("edition"), 20)},
     }
 
@@ -242,9 +198,13 @@ def parse(raw: object) -> tuple[str, dict]:
         value = entry.get("value") if isinstance(entry.get("value"), dict) else {}
         doc = clean_doc(value.get("data") if "data" in value else value)
         # Пустые разделы (в LSS там часто пустые абзацы) не тащим в лист.
-        if not doc or not _has_text(doc):
+        if not doc or not has_text(doc):
             continue
         label = _str(entry.get("customLabel")) or _TEXT_LABELS.get(key) or key
-        data["texts"][key] = {"label": label, "doc": doc}
+        # id из ключа LSS: переимпорт даёт те же карточки, а не новые.
+        if key == "equipment":
+            data["equipment"].append({"id": f"lss-{key}", "name": label, "doc": doc, "source": "lss"})
+        else:
+            data["features"].append({"id": f"lss-{key}", "title": label, "doc": doc, "source": "lss"})
 
     return name, data
