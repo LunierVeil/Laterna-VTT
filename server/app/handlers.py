@@ -233,6 +233,26 @@ async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     }
 
 
+def _roll_message(campaign: Campaign, actor: Actor, formula: str, label: str | None = None) -> Message:
+    """Бросок - только здесь, через dice (secrets). Клиент шлёт формулу."""
+    try:
+        result = dice.roll(formula)
+    except dice.DiceError as exc:
+        raise CommandError(str(exc))
+    roll = result.to_dict()
+    if label:
+        # Подпись - внутри результата: схема сообщений не меняется.
+        roll["label"] = label
+    return Message(
+        campaign_id=campaign.id,
+        author=actor.name,
+        author_id=actor.id,
+        text=formula,
+        kind="roll",
+        roll_json=json.dumps(roll, ensure_ascii=False),
+    )
+
+
 async def chat_say(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     text = str(payload.get("text") or "").strip()
     if not text:
@@ -242,18 +262,7 @@ async def chat_say(db: AsyncSession, campaign: Campaign, actor: Actor, payload: 
 
     formula = dice.parse_chat(text)
     if formula:
-        try:
-            result = dice.roll(formula)
-        except dice.DiceError as exc:
-            raise CommandError(str(exc))
-        message = Message(
-            campaign_id=campaign.id,
-            author=actor.name,
-            author_id=actor.id,
-            text=formula,
-            kind="roll",
-            roll_json=json.dumps(result.to_dict(), ensure_ascii=False),
-        )
+        message = _roll_message(campaign, actor, formula)
     else:
         message = Message(
             campaign_id=campaign.id, author=actor.name, author_id=actor.id, text=text, kind="text"
@@ -269,6 +278,21 @@ async def _campaign_scene(db: AsyncSession, campaign: Campaign, payload: dict) -
     if scene is None or scene.campaign_id != campaign.id:
         raise CommandError("сцена не найдена")
     return scene
+
+
+async def dice_roll(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Бросок с подписью - из листа: "Цеп - атака". Тот же бросок, что /r.
+
+    Клиент присылает только формулу и подпись; число выпадает здесь.
+    """
+    formula = str(payload.get("formula") or "").strip()
+    if not formula:
+        raise CommandError("пустая формула")
+    label = str(payload.get("label") or "").strip()[:120] or None
+    message = _roll_message(campaign, actor, formula, label)
+    db.add(message)
+    await db.flush()
+    return "chat.said", {"message": message.to_dict()}
 
 
 async def scene_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
@@ -473,6 +497,7 @@ HANDLERS = {
 
 CAMPAIGN_HANDLERS = {
     "chat.say": chat_say,
+    "dice.roll": dice_roll,
     "scene.create": scene_create,
     "scene.activate": scene_activate,
     "scene.delete": scene_delete,

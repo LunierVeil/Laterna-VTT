@@ -33,6 +33,7 @@ function RollLine({ m }: { m: Message }) {
   });
   return (
     <div className="roll">
+      {m.roll.label && <div className="roll-label">{m.roll.label}</div>}
       <div className="roll-head">
         <span className="muted">{m.roll.formula}</span>
         <span className="roll-total">{m.roll.total}</span>

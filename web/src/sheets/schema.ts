@@ -26,6 +26,19 @@ export interface Field {
   max?: number;
 }
 
+/**
+ * Бросок по строке таблицы. Формула собирается из ячейки и уходит на сервер,
+ * бросает сервер. Как именно - описано здесь, а не в компоненте:
+ * - без d20: ячейка уже формула ("1к8+4");
+ * - с d20: "1d20" + число из ячейки ("+10"), а для преимущества и помехи -
+ *   свои кубы. Это способ записи броска, а не проверка правил.
+ */
+export interface RollSpec {
+  label: string;
+  key: string;
+  d20?: { normal: string; advantage: string; disadvantage: string };
+}
+
 export type Block =
   /** Обычные поля. */
   | { kind: "fields"; title: string; fields: Field[] }
@@ -50,8 +63,16 @@ export type Block =
       items: { key: string; label: string; hint?: string }[];
       fields: Field[];
     }
-  /** Таблица, строки добавляет игрок: оружие, заклинания. data[path] = [{...}, ...]. */
-  | { kind: "table"; title: string; path: string; columns: Field[]; addLabel: string }
+  /** Таблица, строки добавляет игрок: оружие, ресурсы. data[path] = [{...}, ...]. */
+  | {
+      kind: "table";
+      title: string;
+      path: string;
+      columns: Field[];
+      addLabel: string;
+      /** Броски по строке (в режиме "игра"). Клик по названию - все сразу. */
+      rolls?: { titleKey: string; items: RollSpec[] };
+    }
   /**
    * Карточки: умения, предметы, заклинания. data[path] = [{ id, [titleKey],
    * ...fields, doc }]. Описание (doc) - документ TipTap. Добавлять и править

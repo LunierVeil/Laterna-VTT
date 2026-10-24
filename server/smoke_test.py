@@ -293,6 +293,22 @@ async def scene_checks(scene_id: str, gm_auth: dict, player_auth: dict) -> int:
         print(f"бросок ok: {roll['formula']} -> {roll['total']} "
               f"(кубы {dice_term['rolls']}, оставлено {dice_term['kept']})")
 
+        # 5б. Бросок из листа: формула и подпись, число - на сервере
+        await gm.send(json.dumps({
+            "type": "cmd", "id": "c5b", "name": "dice.roll",
+            "payload": {"formula": "1d20+10", "label": "Цеп - атака"},
+        }))
+        ev = await recv_until(gm, lambda m: m.get("type") == "chat")
+        roll = ev["message"]["roll"]
+        assert roll["label"] == "Цеп - атака" and roll["formula"] == "1d20+10", roll
+        assert roll["total"] == roll["terms"][0]["value"] + 10, roll
+        await gm.send(json.dumps({
+            "type": "cmd", "id": "c5c", "name": "dice.roll", "payload": {"formula": "1d20; DROP", "label": "x"},
+        }))
+        err = await recv_until(gm, lambda m: m.get("type") == "error")
+        assert err["cmd_id"] == "c5c", err
+        print(f"бросок из листа ok: {roll['label']} = {roll['total']}, мусорная формула отклонена")
+
         # 6. Мусорная команда не роняет соединение
         await gm.send(json.dumps({"type": "cmd", "id": "c6", "name": "nope.nope", "payload": {}}))
         err = await recv_until(gm, lambda m: m.get("type") == "error")

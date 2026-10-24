@@ -216,13 +216,15 @@ button[type="submit"] {
 }
 
 /* character sheet */
+/* Лист - поверх сцены, но не поверх чата (320px справа): бросок из листа
+   должен быть сразу виден, не закрывая лист. */
 .sheet-overlay {
-  position: fixed; inset: 0; z-index: 20;
+  position: fixed; inset: 0 320px 0 0; z-index: 20;
   background: rgba(0, 0, 0, 0.55);
   display: grid; place-items: center;
 }
 .sheet {
-  width: min(980px, 96vw); max-height: 92vh; overflow: auto;
+  width: min(980px, calc(100vw - 340px)); max-height: 92vh; overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   padding: 14px 16px;
 }
@@ -355,3 +357,13 @@ a.card-badge { color: var(--accent); }
 .search-results { display: flex; flex-direction: column; gap: 10px; }
 .search-tab { margin: 0 0 4px; color: var(--accent); font-size: 13px; }
 .search-hit { font-size: 13px; padding: 2px 0; }
+
+/* броски из листа */
+.roll-name {
+  background: none; border: none; color: var(--text); font: inherit; padding: 0;
+  cursor: pointer; text-align: left;
+}
+.roll-name:hover { color: var(--accent); }
+.roll-buttons { white-space: nowrap; text-align: right; }
+.roll-buttons .tool { padding: 2px 8px; margin-left: 4px; }
+.roll-label { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 2px; }

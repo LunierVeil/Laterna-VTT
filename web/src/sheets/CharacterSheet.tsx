@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
 import type { Character } from "../types";
-import type { Block, Field, SheetSchema } from "./schema";
+import type { Block, Field, RollSpec, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 
@@ -267,6 +267,25 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === "";
 
+export type Edge = "normal" | "advantage" | "disadvantage";
+export type RollFn = (formula: string, label: string) => void;
+
+/**
+ * Формула броска по строке. Бросает сервер - здесь только запись: какие
+ * кубы и какое число к ним прибавить. null - бросать нечего.
+ */
+export function rollFormula(spec: RollSpec, row: Record<string, unknown>, edge: Edge = "normal"): string | null {
+  const v = row[spec.key];
+  if (!spec.d20) return typeof v === "string" && v.trim() ? v.trim() : null;
+  // Бонус - число в начале ячейки: "+10", "5", "-1 (магия)". Нет числа - просто d20.
+  const m = typeof v === "number" ? String(v) : String(v ?? "").trim().match(/^[+-]?\d+/)?.[0];
+  const bonus = m ? Number(m) : 0;
+  const dice = spec.d20[edge];
+  return bonus ? `${dice}${bonus > 0 ? "+" : ""}${bonus}` : dice;
+}
+
+const EDGE_LABEL: Record<Edge, string> = { normal: "", advantage: " (преим.)", disadvantage: " (помеха)" };
+
 /** Значение для чтения: число со знаком там, где это бонус, подпись select. */
 function show(field: Field, value: unknown): React.ReactNode {
   if (isEmpty(value)) return "—";
@@ -288,11 +307,13 @@ function ViewBlock({
   data,
   inSummary,
   set,
+  roll,
 }: {
   block: Block;
   data: unknown;
   inSummary: Set<string>;
   set: (path: string, value: unknown) => void;
+  roll: RollFn;
 }) {
   switch (block.kind) {
     case "fields": {
@@ -383,16 +404,57 @@ function ViewBlock({
                   {block.columns.map((c) => (
                     <th key={c.key}>{c.label}</th>
                   ))}
+                  {block.rolls && <th />}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => (
-                  <tr key={i}>
-                    {block.columns.map((c) => (
-                      <td key={c.key}>{show(c, row[c.key])}</td>
-                    ))}
-                  </tr>
-                ))}
+                {rows.map((row, i) => {
+                  const spec = block.rolls;
+                  const name = spec ? String(row[spec.titleKey] ?? "") || block.title : "";
+                  const fire = (items: RollSpec[], edge: Edge) => {
+                    for (const it of items) {
+                      const f = rollFormula(it, row, edge);
+                      if (f) roll(f, `${name} - ${it.label}${it.d20 ? EDGE_LABEL[edge] : ""}`);
+                    }
+                  };
+                  const edgeOf = (e: React.MouseEvent): Edge =>
+                    e.shiftKey ? "advantage" : e.altKey ? "disadvantage" : "normal";
+                  return (
+                    <tr key={i}>
+                      {block.columns.map((c) =>
+                        spec && c.key === spec.titleKey ? (
+                          <td key={c.key}>
+                            <button
+                              className="roll-name"
+                              title="бросить всё сразу; Shift - с преимуществом, Alt - с помехой"
+                              onClick={(e) => fire(spec.items, edgeOf(e))}
+                            >
+                              🎲 {show(c, row[c.key])}
+                            </button>
+                          </td>
+                        ) : (
+                          <td key={c.key}>{show(c, row[c.key])}</td>
+                        ),
+                      )}
+                      {spec && (
+                        <td className="roll-buttons">
+                          {spec.items.map((it) =>
+                            rollFormula(it, row) ? (
+                              <button
+                                key={it.key}
+                                className="tool"
+                                title={it.d20 ? "Shift - с преимуществом, Alt - с помехой" : rollFormula(it, row)!}
+                                onClick={(e) => fire([it], edgeOf(e))}
+                              >
+                                {it.label}
+                              </button>
+                            ) : null,
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -566,6 +628,8 @@ export function CharacterSheet({ character, socket }: { character: Character; so
 
   const set = (path: string, value: unknown) =>
     socket.send("character.update", { id: character.id, set: { [path]: value } });
+  // Бросок из листа: формула и подпись - на сервер, число выпадает там.
+  const roll: RollFn = (formula, label) => socket.send("dice.roll", { formula, label });
 
   const owner = accounts.find((a) => a.id === character.owner_id)?.name;
   const current = schema?.tabs.find((t) => t.id === tab) ?? schema?.tabs[0];
@@ -585,7 +649,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   );
   const views = current?.blocks.map((b) => ({
     b,
-    view: editing ? null : ViewBlock({ block: b, data: character.data, inSummary, set }),
+    view: editing ? null : ViewBlock({ block: b, data: character.data, inSummary, set, roll }),
   }));
   const nothingToShow = !editing && views?.every((v) => v.view === null);
 

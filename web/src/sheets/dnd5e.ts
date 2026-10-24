@@ -66,6 +66,17 @@ export const dnd5e: SheetSchema = {
             { key: "damage", label: "Урон", kind: "text", width: 8 },
             { key: "type", label: "Тип", kind: "text", width: 8 },
           ],
+          rolls: {
+            titleKey: "name",
+            items: [
+              {
+                label: "атака",
+                key: "attack",
+                d20: { normal: "1d20", advantage: "2d20kh1", disadvantage: "2d20kl1" },
+              },
+              { label: "урон", key: "damage" },
+            ],
+          },
         },
         {
           kind: "table",

@@ -40,6 +40,8 @@ export interface Roll {
   formula: string;
   total: number;
   terms: RollTerm[];
+  /** Подпись броска из листа: "Цеп - атака". */
+  label?: string;
 }
 
 export interface Message {
