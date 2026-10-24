@@ -20,14 +20,14 @@ from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
 from .models import Campaign, Message, Scene
-from .roles import GM_COOKIE, GM_KEY, Actor, is_gm_key
+from .roles import GM_COOKIE, Actor, gm_key_notice, is_gm_key
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await ensure_demo_scene()
-    print(f"\n  Ссылка ГМ: {FRONTEND_URL}/?gm={GM_KEY}\n  Не показывай её игрокам.\n", flush=True)
+    print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
     yield
 
 

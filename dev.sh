@@ -4,6 +4,7 @@
 #   ./dev.sh          поднять сервер (:8000) и фронт (:5173), Ctrl+C - погасить оба
 #   ./dev.sh reset    то же, но сначала стереть базу и загруженные карты
 #   ./dev.sh check    тайпчек фронта + smoke_test (сервер должен быть запущен)
+#   ./dev.sh gm       напечатать ссылку ГМ (ключ из server/gm_key.txt)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -27,6 +28,18 @@ port_busy() {
 }
 
 case "${1:-}" in
+  gm)
+    # Ссылка по запросу, а не в каждом логе сервера: логи потом вставляют
+    # в чаты, когда просят помощи.
+    KEY_FILE="$ROOT/server/gm_key.txt"
+    if [ ! -f "$KEY_FILE" ]; then
+      echo "ключа ещё нет - запусти ./dev.sh, он создастся при первом старте"
+      exit 1
+    fi
+    echo "http://localhost:5173/?gm=$(tr -d '[:space:]' < "$KEY_FILE")"
+    echo "Не показывай её игрокам."
+    exit 0
+    ;;
   check)
     need_deps
     echo "> tsc"
@@ -82,7 +95,7 @@ for _ in $(seq 50); do port_busy 8000 && break; sleep 0.2; done
 (cd "$ROOT/web" && npm run dev --silent) &
 
 echo
-echo "  ГМ:    ссылка «Ссылка ГМ» ниже, в выводе сервера"
+echo "  ГМ:    ./dev.sh gm в другом терминале - напечатает ссылку"
 echo "  Игрок: http://127.0.0.1:5173   (другой адрес = другое имя и без прав ГМ)"
 echo "  Ctrl+C - остановить"
 echo
