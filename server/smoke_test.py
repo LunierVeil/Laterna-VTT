@@ -317,6 +317,31 @@ async def main() -> int:
             await run(gm, "d11", "wall.remove", {"id": door["id"]})
     print("двери: закрытая и запертая не пускают, открытая пускает; запереть и отпереть может только ГМ")
 
+    # Скрытый бросок мастера: игроку - заглушка без цифр, и вживую, и в истории.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        await gm.recv(), await pl.recv()  # снапшоты
+        await cmd(gm, "r1", "chat.say", {"text": "/gr 1d20+7"})
+        got_gm = await recv_until(gm, lambda m: m.get("type") == "chat")
+        got_pl = await recv_until(pl, lambda m: m.get("type") == "chat")
+        assert got_gm["message"]["roll"]["hidden"] and got_gm["message"]["roll"]["formula"] == "1d20+7", got_gm
+        assert got_pl["message"]["kind"] == "hidden_roll" and got_pl["message"]["roll"] is None, got_pl
+        assert "1d20" not in json.dumps(got_pl) and got_pl["message"]["text"] == "", got_pl
+        await cmd(gm, "r2", "dice.roll", {"formula": "2d6", "label": "Гоблин - урон", "hidden": True})
+        got_pl = await recv_until(pl, lambda m: m.get("type") == "chat")
+        assert got_pl["message"]["kind"] == "hidden_roll" and "Гоблин" not in json.dumps(got_pl, ensure_ascii=False), got_pl
+        await cmd(pl, "r3", "chat.say", {"text": "/gr 1d20"})
+        err = await recv_until(pl, lambda m: m.get("cmd_id") == "r3")
+        assert err["type"] == "error", err
+        await cmd(pl, "r4", "dice.roll", {"formula": "1d20", "hidden": True})
+        err = await recv_until(pl, lambda m: m.get("cmd_id") == "r4")
+        assert err["type"] == "error", err
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        history = json.loads(await pl.recv())["scene"]["messages"]
+        assert not any((m.get("roll") or {}).get("hidden") for m in history), "скрытый бросок в истории игрока"
+        assert "Гоблин - урон" not in json.dumps(history, ensure_ascii=False)
+    print("скрытый бросок мастера: игроку заглушка без цифр, вживую и в истории; игроку /gr нельзя")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:

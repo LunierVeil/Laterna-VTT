@@ -33,7 +33,12 @@ function RollLine({ m }: { m: Message }) {
   });
   return (
     <div className="roll">
-      {m.roll.label && <div className="roll-label">{m.roll.label}</div>}
+      {(m.roll.label || m.roll.hidden) && (
+        <div className="roll-label">
+          {m.roll.label}
+          {m.roll.hidden && <span className="roll-hidden">скрыто</span>}
+        </div>
+      )}
       <div className="roll-head">
         <span className="muted">{m.roll.formula}</span>
         <span className="roll-total">{m.roll.total}</span>
@@ -44,7 +49,7 @@ function RollLine({ m }: { m: Message }) {
 }
 
 export function Chat({ socket }: { socket: SceneSocket }) {
-  const { messages, me } = useUi();
+  const { messages, me, isGm } = useUi();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -66,7 +71,13 @@ export function Chat({ socket }: { socket: SceneSocket }) {
         {messages.map((m) => (
           <div key={m.id} className={m.author_id && m.author_id === me?.id ? "msg msg-own" : "msg"}>
             <div className="msg-author">{m.author}</div>
-            {m.kind === "roll" ? <RollLine m={m} /> : <div className="msg-text">{m.text}</div>}
+            {m.kind === "roll" ? (
+              <RollLine m={m} />
+            ) : m.kind === "hidden_roll" ? (
+              <div className="msg-text muted">🎲 бросил кубы скрыто</div>
+            ) : (
+              <div className="msg-text">{m.text}</div>
+            )}
           </div>
         ))}
         <div ref={bottom} />
@@ -76,7 +87,7 @@ export function Chat({ socket }: { socket: SceneSocket }) {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="сообщение или /r 2d6+3"
+          placeholder={isGm ? "сообщение, /r 2d6+3, /gr - скрыто" : "сообщение или /r 2d6+3"}
         />
         <button type="submit">↵</button>
       </form>

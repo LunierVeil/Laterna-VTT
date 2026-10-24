@@ -755,7 +755,10 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   const set = (path: string, value: unknown) =>
     socket.send("character.update", { id: character.id, set: { [path]: value } });
   // Бросок из листа: формула и подпись - на сервер, число выпадает там.
-  const roll: RollFn = (formula, label) => socket.send("dice.roll", { formula, label });
+  // У ГМ галочка "скрыто" в панели кубов действует и на броски из листа:
+  // атака монстра не должна светить игрокам бонус и урон.
+  const roll: RollFn = (formula, label) =>
+    socket.send("dice.roll", { formula, label, hidden: useUi.getState().isGm && useUi.getState().hiddenRolls });
 
   const owner = accounts.find((a) => a.id === character.owner_id)?.name;
   const current = schema?.tabs.find((t) => t.id === tab) ?? schema?.tabs[0];

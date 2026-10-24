@@ -44,6 +44,8 @@ export interface Roll {
   terms: RollTerm[];
   /** Подпись броска из листа: "Цеп - атака". */
   label?: string;
+  /** Скрытый бросок мастера - так его видит сам ГМ. */
+  hidden?: boolean;
 }
 
 export interface Message {
@@ -52,7 +54,8 @@ export interface Message {
   author: string;
   author_id: string | null;
   text: string;
-  kind: "text" | "roll";
+  /** hidden_roll - скрытый бросок мастера глазами игрока: только "бросил". */
+  kind: "text" | "roll" | "hidden_roll";
   roll: Roll | null;
   created_at: string | null;
 }

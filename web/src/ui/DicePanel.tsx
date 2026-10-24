@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
@@ -31,8 +32,11 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
     .join("+");
   const formula = diceText ? diceText + modText : "";
 
+  const isGm = useUi((s) => s.isGm);
+  const hidden = useUi((s) => s.hiddenRolls);
   const roll = (f: string) => {
-    socket.send("chat.say", { text: `/r ${f}` });
+    // Бросает сервер. Скрыто - только у ГМ: игроку уйдёт "бросил скрыто".
+    socket.send("dice.roll", { formula: f, hidden: isGm && hidden });
     setPool({});
     setMod(0);
   };
@@ -91,6 +95,12 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
         <button type="button" className="die-btn" title={`2d20kl1${modText}`} onClick={() => roll(`2d20kl1${modText}`)}>
           d20 помеха
         </button>
+        {isGm && (
+          <label className="dice-hidden" title="результат увидишь только ты; игроки - «бросил скрыто»">
+            <input type="checkbox" checked={hidden} onChange={(e) => useUi.getState().setHiddenRolls(e.target.checked)} />
+            скрыто
+          </label>
+        )}
         <button type="button" className="dice-roll" disabled={!formula} onClick={() => roll(formula)}>
           Бросить
         </button>

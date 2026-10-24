@@ -135,6 +135,27 @@ async def publish_campaign(db: AsyncSession, campaign: Campaign) -> None:
                 pass
 
 
+def message_for(message: dict, actor: Actor) -> dict:
+    """Сообщение чата глазами получателя.
+
+    Скрытый бросок мастера игроку - заглушка: кто бросил, и всё. Ни
+    формулы, ни кубов, ни итога: прятать на клиенте бесполезно, всё
+    пришедшее видно в DevTools.
+    """
+    roll = message.get("roll") or {}
+    if not roll.get("hidden") or actor.is_gm or actor.id == message.get("author_id"):
+        return message
+    return {
+        "id": message["id"],
+        "author": message["author"],
+        "author_id": message["author_id"],
+        "text": "",
+        "kind": "hidden_roll",
+        "roll": None,
+        "created_at": message["created_at"],
+    }
+
+
 def combat_for(combat: dict | None, actor: Actor) -> dict | None:
     """Бой глазами получателя: игроку - без скрытых участников (засада)."""
     if combat is None or actor.is_gm:
@@ -203,7 +224,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         # бесполезно, всё пришедшее видно в DevTools.
         "tokens": [t.to_dict() for t in scene.tokens if actor.is_gm or t.layer != "gm"],
         "walls": [w.to_dict() for w in scene.walls],
-        "messages": [m.to_dict() for m in reversed(messages)],
+        "messages": [message_for(m.to_dict(), actor) for m in reversed(messages)],
     }
 
 
@@ -461,14 +482,21 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             await websocket.send_json(await campaign_view(db, campaign, actor))
             await websocket.close(code=4000)
             return
+        view = await campaign_view(db, campaign, actor)
+
+    # В рассылку - сразу, как собран снапшот, а не после отправки: иначе
+    # всё, что случилось, пока снапшот летел, клиент терял. События сцены
+    # это переживали (разрыв seq -> перезапрос), а чат (без seq) пропадал
+    # молча. Событие, обогнавшее снапшот, клиент увидит как разрыв seq и
+    # перезапросит состояние.
+    await hub.join(scene_id, websocket, actor)
+    try:
+        # Отправка - уже под try: ушёл клиент, пока летел снапшот, -
+        # finally всё равно уберёт его из рассылки.
         you = {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm}
         await websocket.send_json(protocol.snapshot(snap["seq"], snap, you))
-        await websocket.send_json(await campaign_view(db, campaign, actor))
-
-    await hub.join(scene_id, websocket, actor)
-    await hub.broadcast_all(protocol.presence(hub.users()))
-
-    try:
+        await websocket.send_json(view)
+        await hub.broadcast_all(protocol.presence(hub.users()))
         while True:
             raw = await websocket.receive_text()
             await handle_raw(websocket, scene_id, actor, raw)
@@ -543,7 +571,8 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
             await db.commit()
 
             if name == "chat.said":
-                await hub.broadcast_all(protocol.chat(payload["message"]))
+                message = payload["message"]
+                await hub.broadcast_all_each(lambda a: protocol.chat(message_for(message, a)))
                 return
             if name.startswith("character."):
                 if name == "character.created":

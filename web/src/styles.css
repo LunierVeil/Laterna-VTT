@@ -401,3 +401,6 @@ a.card-badge { color: var(--accent); }
 
 .wall-kind { display: flex; gap: 2px; }
 .wall-kind .tool { padding: 3px 8px; font-size: 12px; }
+
+.roll-hidden { margin-left: 6px; font-size: 10px; color: #1a1a1a; background: #9fc3ff; border-radius: 4px; padding: 0 5px; }
+.dice-hidden { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }

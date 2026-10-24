@@ -47,6 +47,11 @@ class Hub:
         for _, ws, _ in self.connections():
             await self.send(ws, message)
 
+    async def broadcast_all_each(self, make) -> None:
+        """Всей кампании, но каждому своё: make(actor) -> dict."""
+        for _, ws, actor in self.connections():
+            await self.send(ws, make(actor))
+
     async def broadcast(self, scene_id: str, message: dict) -> None:
         dead: list[WebSocket] = []
         for ws in list(self._rooms.get(scene_id, {})):

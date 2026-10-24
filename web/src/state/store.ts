@@ -30,6 +30,8 @@ interface UiState {
   placeHidden: boolean;
   /** Что рисует инструмент "Стена": стену или дверь. */
   wallKind: "wall" | "door";
+  /** ГМ бросает скрыто: панель кубов и броски из листа. */
+  hiddenRolls: boolean;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -71,6 +73,7 @@ interface UiState {
   setCombatOpen: (v: boolean) => void;
   setPlaceHidden: (v: boolean) => void;
   setWallKind: (v: "wall" | "door") => void;
+  setHiddenRolls: (v: boolean) => void;
 }
 
 /**
@@ -94,6 +97,7 @@ export const useUi = create<UiState>((set) => ({
   combatOpen: false,
   placeHidden: false,
   wallKind: "wall",
+  hiddenRolls: false,
   tool: "select",
   messages: [],
   users: [],
@@ -144,4 +148,5 @@ export const useUi = create<UiState>((set) => ({
   setCombatOpen: (combatOpen) => set({ combatOpen }),
   setPlaceHidden: (placeHidden) => set({ placeHidden }),
   setWallKind: (wallKind) => set({ wallKind }),
+  setHiddenRolls: (hiddenRolls) => set({ hiddenRolls }),
 }));

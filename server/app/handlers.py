@@ -312,8 +312,19 @@ async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     }
 
 
-def _roll_message(campaign: Campaign, actor: Actor, formula: str, label: str | None = None) -> Message:
-    """Бросок - только здесь, через dice (secrets). Клиент шлёт формулу."""
+_GM_ROLL = re.compile(r"^/gr\s+(?P<formula>.+)$", re.IGNORECASE)
+
+
+def _roll_message(
+    campaign: Campaign, actor: Actor, formula: str, label: str | None = None, hidden: bool = False
+) -> Message:
+    """Бросок - только здесь, через dice (secrets). Клиент шлёт формулу.
+
+    hidden - скрытый бросок мастера: результат видит только ГМ (и сам
+    бросивший), игроку main.py отдаёт заглушку без цифр.
+    """
+    if hidden and not actor.is_gm:
+        raise CommandError("скрытый бросок - только для ГМ")
     try:
         result = dice.roll(formula)
     except dice.DiceError as exc:
@@ -322,6 +333,8 @@ def _roll_message(campaign: Campaign, actor: Actor, formula: str, label: str | N
     if label:
         # Подпись - внутри результата: схема сообщений не меняется.
         roll["label"] = label
+    if hidden:
+        roll["hidden"] = True
     return Message(
         campaign_id=campaign.id,
         author=actor.name,
@@ -339,8 +352,11 @@ async def chat_say(db: AsyncSession, campaign: Campaign, actor: Actor, payload: 
     if len(text) > 2000:
         raise CommandError("слишком длинное сообщение")
 
+    gm_roll = _GM_ROLL.match(text)
     formula = dice.parse_chat(text)
-    if formula:
+    if gm_roll:
+        message = _roll_message(campaign, actor, gm_roll.group("formula"), hidden=True)
+    elif formula:
         message = _roll_message(campaign, actor, formula)
     else:
         message = Message(
@@ -368,7 +384,7 @@ async def dice_roll(db: AsyncSession, campaign: Campaign, actor: Actor, payload:
     if not formula:
         raise CommandError("пустая формула")
     label = str(payload.get("label") or "").strip()[:120] or None
-    message = _roll_message(campaign, actor, formula, label)
+    message = _roll_message(campaign, actor, formula, label, hidden=bool(payload.get("hidden")))
     db.add(message)
     await db.flush()
     return "chat.said", {"message": message.to_dict()}
