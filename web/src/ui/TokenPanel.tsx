@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi, type SelectedToken } from "../state/store";
+import { uploadImage } from "../net/upload";
 import type { SceneSocket } from "../net/socket";
 
 const PALETTE = [
@@ -47,6 +48,55 @@ export function TokenPanel({ socket }: { socket: SceneSocket }) {
  * Привязка токена к листу. В списке - только видимые этому клиенту листы:
  * игроку свои, ГМ все (сервер проверяет то же самое).
  */
+/**
+ * Картинка токена. Загрузить может и игрок (лимит меньше, чем у ГМ);
+ * поставить - тот, кто может править токен, это проверяет сервер.
+ */
+function TokenImage({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
+  const isGm = useUi((s) => s.isGm);
+  const file = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (f: File) => {
+    setBusy(true);
+    try {
+      const { url } = await uploadImage(f, {
+        // Должно совпадать с лимитами в server/app/config.py.
+        maxBytes: (isGm ? 25 : 5) * 1024 * 1024,
+        maxSide: 2048,
+        what: "картинка",
+      });
+      socket.send("token.update", { id: token.id, image_url: url });
+    } catch (e) {
+      useUi.getState().flashError(e instanceof Error ? e.message : "загрузка не удалась");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="token-link">
+      <input
+        ref={file}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void pick(f);
+        }}
+      />
+      <button className="tool" disabled={busy} onClick={() => file.current?.click()}>
+        {busy ? "Загрузка..." : token.image_url ? "Сменить картинку" : "Картинка"}
+      </button>
+      {token.image_url && (
+        <button className="tool" onClick={() => socket.send("token.update", { id: token.id, image_url: null })}>
+          Убрать
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
   const characters = useUi((s) => s.characters);
   const linked = token.character_id ? characters[token.character_id] : undefined;
@@ -182,6 +232,7 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
           <input ref={picker} type="color" className="swatch-picker" defaultValue={token.color} />
         </label>
       </div>
+      <TokenImage token={token} socket={socket} />
       <CharacterLink token={token} socket={socket} />
       <div className="sizes">
         {SIZES.map((s) => (

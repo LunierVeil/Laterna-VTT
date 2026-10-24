@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import { usePopover } from "./usePopover";
+import { uploadImage } from "../net/upload";
 
 // Должны совпадать с MAX_SCENE_SIDE и MAX_UPLOAD_BYTES в server/app/config.py.
 const MAX_SIDE = 8192;
@@ -24,33 +25,13 @@ export function SceneMenu({ socket }: { socket: SceneSocket }) {
   const fail = (msg: string) => useUi.getState().flashError(msg);
 
   const upload = async (f: File) => {
-    if (f.size > MAX_BYTES) return fail(`файл больше ${MAX_BYTES / 1024 / 1024} МБ`);
     setBusy(true);
     try {
-      // Размер узнаём до отправки: слишком большую карту отсекаем сразу,
-      // а не после того, как она легла на сервер.
-      let width: number, height: number;
-      try {
-        const bmp = await createImageBitmap(f);
-        ({ width, height } = bmp);
-        bmp.close();
-      } catch {
-        return fail("это не картинка или формат не поддерживается");
-      }
-      if (width > MAX_SIDE || height > MAX_SIDE) {
-        return fail(`карта ${width}×${height}, максимум ${MAX_SIDE} по стороне - уменьши`);
-      }
-
-      // Ключ ГМ уходит cookie, сервер проверяет его сам.
-      const res = await fetch("/api/uploads", { method: "POST", body: f });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) return fail(body.detail || `загрузка не удалась (${res.status})`);
-
-      socket.send("scene.update", { background_url: body.url, width, height });
+      const { url, width, height } = await uploadImage(f, { maxBytes: MAX_BYTES, maxSide: MAX_SIDE, what: "карта" });
+      socket.send("scene.update", { background_url: url, width, height });
       setOpen(false);
     } catch (e) {
-      console.error("загрузка карты", e);
-      fail("загрузка не удалась");
+      fail(e instanceof Error ? e.message : "загрузка не удалась");
     } finally {
       setBusy(false);
       if (file.current) file.current.value = "";

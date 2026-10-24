@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import auth, protocol
-from .config import FRONTEND_URL, FRONTEND_URLS, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
@@ -187,15 +187,17 @@ def _image_ext(data: bytes) -> str | None:
 
 @app.post("/api/uploads")
 async def upload(request: Request, db: AsyncSession = Depends(get_session)) -> dict:
-    # Карты загружает только ГМ - он же их и ставит на сцену.
-    if not (await require_actor(request, db)).is_gm:
-        raise HTTPException(403, "загружать карты может только ГМ")
+    # Загружать может любой вошедший: игрок - картинку своего токена, ГМ -
+    # ещё и карты. Поставить файл картой может только ГМ (scene.update), а
+    # картинкой токена - тот, кто может править токен (token.update).
+    actor = await require_actor(request, db)
+    limit = MAX_UPLOAD_BYTES if actor.is_gm else MAX_PLAYER_UPLOAD_BYTES
     # Тело запроса - сама картинка, без multipart: не нужна лишняя зависимость.
     data = bytearray()
     async for chunk in request.stream():
         data += chunk
-        if len(data) > MAX_UPLOAD_BYTES:
-            raise HTTPException(413, f"файл больше {MAX_UPLOAD_BYTES // (1024 * 1024)} МБ")
+        if len(data) > limit:
+            raise HTTPException(413, f"файл больше {limit // (1024 * 1024)} МБ")
 
     # SVG не принимаем намеренно: внутри может быть скрипт.
     ext = _image_ext(bytes(data[:16]))

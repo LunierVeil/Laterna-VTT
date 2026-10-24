@@ -64,6 +64,14 @@ const FEET_PER_CELL = 5;
 interface TokenView {
   data: Token;
   node: Container;
+  /** Заливка цветом - под картинкой (видна сквозь прозрачные PNG). */
+  base: Graphics;
+  /** Картинка токена, вписанная в круг маской. */
+  image: Sprite;
+  imageMask: Graphics;
+  /** Какую картинку уже грузим/показали - чтобы опоздавшая не перетёрла новую. */
+  imageUrl: string | null;
+  /** Поверх картинки: обводка, выделение, полоска хитов, значок. */
   body: Graphics;
   label: Text;
   /** Значок на токене (КД). */
@@ -341,6 +349,12 @@ export class SceneStage {
       return;
     }
     const node = new Container();
+    const base = new Graphics();
+    const image = new Sprite();
+    image.anchor.set(0.5);
+    image.visible = false;
+    const imageMask = new Graphics();
+    image.mask = imageMask;
     const body = new Graphics();
     const label = new Text({
       text: data.name,
@@ -352,12 +366,12 @@ export class SceneStage {
       style: { fill: 0xffffff, fontSize: 11, fontWeight: "700", fontFamily: "system-ui, sans-serif" },
     });
     badge.anchor.set(0.5);
-    node.addChild(body, label, badge);
+    node.addChild(base, image, imageMask, body, label, badge);
 
     node.eventMode = "static";
     node.cursor = "pointer";
 
-    const view: TokenView = { data, node, body, label, badge, lastDown: 0 };
+    const view: TokenView = { data, node, base, image, imageMask, imageUrl: null, body, label, badge, lastDown: 0 };
     node.on("pointerdown", (e: FederatedPointerEvent) => this.onTokenDown(e, view));
 
     this.tokens.set(data.id, view);
@@ -372,6 +386,38 @@ export class SceneStage {
     view.label.text = data.name;
     this.redrawToken(view);
     if (this.selectedId === data.id) this.cb.onSelect(data);
+  }
+
+  /**
+   * Картинка токена: квадрат по кругу, обрезанный маской. Грузится
+   * асинхронно - если за это время картинку сменили или токен удалили,
+   * опоздавшая не применяется.
+   */
+  private setTokenImage(view: TokenView, r: number) {
+    const url = view.data.image_url;
+    view.imageMask.clear();
+    view.imageMask.circle(0, 0, r).fill({ color: 0xffffff });
+    if (!url) {
+      view.imageUrl = null;
+      view.image.visible = false;
+      return;
+    }
+    const fit = () => {
+      // Обрезка "по кругу": меньшая сторона = диаметр, остальное - под маску.
+      const t = view.image.texture;
+      const scale = (2 * r) / Math.min(t.width || 1, t.height || 1);
+      view.image.scale.set(scale);
+      view.image.visible = true;
+    };
+    if (view.imageUrl === url && view.image.texture !== Texture.EMPTY) return fit();
+    view.imageUrl = url;
+    Assets.load<Texture>(url)
+      .then((tex) => {
+        if (this.destroyed || view.node.destroyed || view.imageUrl !== url) return;
+        view.image.texture = tex;
+        fit();
+      })
+      .catch((e) => console.error("не удалось загрузить картинку токена", url, e));
   }
 
   private removeToken(id: string) {
@@ -396,8 +442,11 @@ export class SceneStage {
     const r = (view.data.size * this.gridSize) / 2 - 3;
     const color = parseInt(view.data.color.replace("#", ""), 16) || 0xc75c5c;
 
+    view.base.clear();
+    view.base.circle(0, 0, r).fill({ color });
+    this.setTokenImage(view, r);
+
     view.body.clear();
-    view.body.circle(0, 0, r).fill({ color });
     view.body.circle(0, 0, r).stroke({ width: 2, color: 0x000000, alpha: 0.4 });
     if (this.selectedId === view.data.id) {
       view.body.circle(0, 0, r + 4).stroke({ width: 2.5, color: COLORS.selection });

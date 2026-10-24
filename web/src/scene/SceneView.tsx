@@ -78,7 +78,15 @@ export function SceneView({
           .getState()
           .setSelected(
             t
-              ? { id: t.id, name: t.name, color: t.color, owner_id: t.owner_id, size: t.size, character_id: t.character_id }
+              ? {
+                  id: t.id,
+                  name: t.name,
+                  color: t.color,
+                  owner_id: t.owner_id,
+                  size: t.size,
+                  character_id: t.character_id,
+                  image_url: t.image_url,
+                }
               : null,
           ),
       onChainChange: (active) => useUi.getState().setChaining(active),
