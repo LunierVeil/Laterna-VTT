@@ -417,7 +417,22 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
                 await hub.broadcast_all(protocol.chat(payload["message"]))
                 return
             await hub.send(websocket, protocol.reply(name, payload, command.id))
+            if name == "player.password_set":
+                await kick_user(payload["id"])
+                return
             await publish_campaign(db, campaign)
+
+
+async def kick_user(user_id: str) -> None:
+    """Закрыть все сокеты пользователя: его сессии больше не действуют."""
+    for scene_id, ws, actor in hub.connections():
+        if actor.id == user_id:
+            hub.leave(scene_id, ws)
+            await hub.send(ws, {"type": "auth_required"})
+            try:
+                await ws.close(code=4401)
+            except Exception:
+                pass
 
 
 # Монтируется последним, чтобы не перекрыть маршруты выше.

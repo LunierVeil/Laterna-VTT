@@ -309,13 +309,35 @@ async def player_create(db: AsyncSession, campaign: Campaign, actor: Actor, payl
     return "player.created", {"user": user.to_dict()}
 
 
-async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
-    _require_gm(actor)
+async def _campaign_player(db: AsyncSession, campaign: Campaign, payload: dict, gm_message: str) -> User:
     user = await db.get(User, payload.get("id")) if payload.get("id") else None
     if user is None or user.campaign_id != campaign.id:
         raise CommandError("нет такого игрока")
     if user.is_gm:
-        raise CommandError("аккаунт мастера удалить нельзя")
+        raise CommandError(gm_message)
+    return user
+
+
+async def player_password(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    # Игрок забыл пароль - мастер ставит новый. Свой пароль мастер так не
+    # меняет: его запасной вход - ссылка с ключом.
+    _require_gm(actor)
+    user = await _campaign_player(db, campaign, payload, "пароль мастера так не меняется")
+    try:
+        password = auth.check_password(payload.get("password"))
+    except auth.AuthError as exc:
+        raise CommandError(str(exc))
+    user.password_hash = await auth.hash_password(password)
+    # Старые сессии больше не действуют: если пароль меняют, потому что
+    # кто-то чужой вошёл под игроком, он должен вылететь сразу.
+    await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+    await db.flush()
+    return "player.password_set", {"id": user.id}
+
+
+async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    user = await _campaign_player(db, campaign, payload, "аккаунт мастера удалить нельзя")
     # Токены и стены ушедшего игрока переходят мастеру, а не становятся
     # общими: общий токен может двигать и удалять кто угодно.
     for model in (Token, Wall):
@@ -342,5 +364,6 @@ CAMPAIGN_HANDLERS = {
     "scene.activate": scene_activate,
     "scene.delete": scene_delete,
     "player.create": player_create,
+    "player.password": player_password,
     "player.delete": player_delete,
 }

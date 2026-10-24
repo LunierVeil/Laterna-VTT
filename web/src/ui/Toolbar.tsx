@@ -3,6 +3,7 @@ import type { SceneSocket } from "../net/socket";
 import type { Tool } from "../types";
 import { SceneMenu } from "./SceneMenu";
 import { ScenesMenu } from "./ScenesMenu";
+import { PlayersMenu } from "./PlayersMenu";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
@@ -38,6 +39,7 @@ export function Toolbar({
         <span className="muted">{connected ? "на связи" : "нет связи"}</span>
         {isGm && <ScenesMenu socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
         {isGm && <SceneMenu socket={socket} />}
+        {isGm && <PlayersMenu socket={socket} />}
       </div>
 
       <div className="toolbar-tools">

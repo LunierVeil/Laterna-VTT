@@ -101,6 +101,7 @@ Campaign           active_scene_id
 | `scene.activate` | `campaign`, игроки переезжают | ГМ |
 | `scene.delete` | `campaign` | ГМ, не активную |
 | `player.create` | `reply` + `campaign` | ГМ |
+| `player.password` | `reply`, сессии игрока закрываются | ГМ, не себе |
 | `player.delete` | `campaign`, сокеты игрока закрываются | ГМ, не себя |
 
 ### Сцены и что видят игроки

@@ -83,8 +83,20 @@ async def main() -> int:
         assert bad.status_code == 401, bad.status_code
         r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
         assert r.status_code == 200, r.text
-        player_auth = session_header(r)
+        old_auth = session_header(r)
     print(f"игрок {player_name} создан, неверный пароль отклонён, вход ok")
+
+    # Смена пароля мастером: старая сессия перестаёт действовать.
+    password = secrets.token_urlsafe(12)
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
+        await cmd(gm, "p3", "player.password", {"id": player_id, "password": password})
+        await recv_until(gm, lambda m: m.get("type") == "reply")
+    async with httpx.AsyncClient() as client:
+        assert (await client.get(f"{BASE}/api/me", headers=old_auth)).json() is None, "старая сессия жива"
+        r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
+        assert r.status_code == 200, r.text
+        player_auth = session_header(r)
+    print("смена пароля: старая сессия закрыта, новый пароль подходит")
 
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)

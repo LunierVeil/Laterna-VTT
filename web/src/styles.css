@@ -109,6 +109,8 @@ main { display: flex; flex: 1; min-height: 0; }
 .scene-row-actions .tool { padding: 3px 8px; font-size: 12px; }
 .scene-new-name { flex: 1; min-width: 0; }
 .tool-danger { border-color: #c0624f; color: #f0a3a3; }
+.player-pass { width: 140px; padding: 3px 8px; }
+.player-new { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .prep-badge {
   font-size: 11px; color: var(--accent); border: 1px dashed var(--accent);
   border-radius: 4px; padding: 1px 6px;
