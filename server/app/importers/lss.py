@@ -1,7 +1,7 @@
 """Импорт листа из Long Story Short (jsonType "character", version "2").
 
 Такой файл отдаёт mycharacterbuilder.com кнопкой "скачать" и сам LSS.
-Адаптер переводит его в схему листа Lanterna (web/src/sheets/dnd5e.ts).
+Адаптер переводит его в схему листа Laterna (web/src/sheets/dnd5e.ts).
 Формат LSS внутрь не попадает: он версионирован и поменяется, а свой лист
 - наш. Исходный файл хранится рядом с листом целиком, чтобы при смене
 адаптера переимпортировать.
@@ -89,7 +89,7 @@ _TEXT_LABELS = {
 # --- разбор -----------------------------------------------------------------
 
 def parse(raw: object) -> tuple[str, dict]:
-    """Файл LSS -> (имя персонажа, data по схеме Lanterna)."""
+    """Файл LSS -> (имя персонажа, data по схеме Laterna)."""
     # Размер - первым: дальше файл разбирается целиком.
     if isinstance(raw, str) and len(raw.encode()) > MAX_BYTES:
         raise LssError(f"файл больше {MAX_BYTES // 1024} КБ")

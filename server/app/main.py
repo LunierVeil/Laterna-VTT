@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Lanterna VTT", lifespan=lifespan)
+app = FastAPI(title="Laterna VTT", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

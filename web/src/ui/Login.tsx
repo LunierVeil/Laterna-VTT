@@ -30,7 +30,7 @@ export function LoginScreen({ onDone, notice }: { onDone: (me: UserInfo) => void
           else setError(data.detail || "не удалось войти");
         }}
       >
-        <h1>Lanterna</h1>
+        <h1>Laterna VTT</h1>
         <p className="muted">Аккаунт выдаёт мастер. Регистрации нет.</p>
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Имя" autoComplete="username" />
         <input
