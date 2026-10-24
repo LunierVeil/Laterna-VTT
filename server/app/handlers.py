@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import auth, dice
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
-from .models import AuthSession, Campaign, Message, Scene, Token, User, Wall
+from .models import AuthSession, Campaign, Invite, Message, Scene, Token, User, Wall
 from .roles import Actor
 
 
@@ -297,18 +297,6 @@ async def scene_delete(db: AsyncSession, campaign: Campaign, actor: Actor, paylo
     return "scene.deleted", {"id": scene.id}
 
 
-async def player_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
-    # Публичной регистрации нет: игроков заводит мастер, как в Foundry.
-    _require_gm(actor)
-    try:
-        user = await auth.create_user(
-            db, campaign, payload.get("name"), payload.get("password"), is_gm=False
-        )
-    except auth.AuthError as exc:
-        raise CommandError(str(exc))
-    return "player.created", {"user": user.to_dict()}
-
-
 async def _campaign_player(db: AsyncSession, campaign: Campaign, payload: dict, gm_message: str) -> User:
     user = await db.get(User, payload.get("id")) if payload.get("id") else None
     if user is None or user.campaign_id != campaign.id:
@@ -318,21 +306,32 @@ async def _campaign_player(db: AsyncSession, campaign: Campaign, payload: dict, 
     return user
 
 
-async def player_password(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
-    # Игрок забыл пароль - мастер ставит новый. Свой пароль мастер так не
-    # меняет: его запасной вход - ссылка с ключом.
+async def invite_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Ссылка-приглашение. Без user_id - новый игрок, с ним - сброс пароля.
+
+    Регистрации нет: аккаунт появляется только по ссылке от мастера. Но
+    имя и пароль игрок придумывает сам - мастеру их знать незачем.
+    Код из ссылки уходит только мастеру в reply, в базе - его хеш.
+    """
     _require_gm(actor)
-    user = await _campaign_player(db, campaign, payload, "пароль мастера так не меняется")
-    try:
-        password = auth.check_password(payload.get("password"))
-    except auth.AuthError as exc:
-        raise CommandError(str(exc))
-    user.password_hash = await auth.hash_password(password)
-    # Старые сессии больше не действуют: если пароль меняют, потому что
-    # кто-то чужой вошёл под игроком, он должен вылететь сразу.
-    await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+    user_id = None
+    if payload.get("user_id"):
+        user = await _campaign_player(
+            db, campaign, {"id": payload["user_id"]}, "пароль мастера сбрасывается ключом ГМ"
+        )
+        user_id = user.id
+    token = await auth.create_invite(db, campaign, user_id)
+    return "invite.created", {"token": token, "user_id": user_id}
+
+
+async def invite_revoke(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    invite = await db.get(Invite, str(payload.get("id") or ""))
+    if invite is None or invite.campaign_id != campaign.id:
+        raise CommandError("нет такого приглашения")
+    await db.delete(invite)
     await db.flush()
-    return "player.password_set", {"id": user.id}
+    return "invite.revoked", {"id": payload["id"]}
 
 
 async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
@@ -343,6 +342,7 @@ async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payl
     for model in (Token, Wall):
         await db.execute(update(model).where(model.owner_id == user.id).values(owner_id=actor.id))
     await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+    await db.execute(Invite.__table__.delete().where(Invite.user_id == user.id))
     await db.delete(user)
     await db.flush()
     return "player.deleted", {"id": user.id}
@@ -363,7 +363,7 @@ CAMPAIGN_HANDLERS = {
     "scene.create": scene_create,
     "scene.activate": scene_activate,
     "scene.delete": scene_delete,
-    "player.create": player_create,
-    "player.password": player_password,
+    "invite.create": invite_create,
+    "invite.revoke": invite_revoke,
     "player.delete": player_delete,
 }

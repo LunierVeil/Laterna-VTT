@@ -70,6 +70,34 @@ class AuthSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class Invite(Base):
+    """Одноразовая ссылка от мастера: завести аккаунт или сменить пароль.
+
+    Пароль придумывает сам игрок - мастер его не знает. Как и у сессий,
+    в базе только sha256 кода из ссылки.
+    """
+
+    __tablename__ = "invites"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    # null - новый игрок; id - сброс пароля этого игрока.
+    user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    def to_dict(self) -> dict:
+        # Уходит только ГМ. Хеш - просто идентификатор для "отозвать",
+        # войти по нему нельзя.
+        return {
+            "id": self.token_hash,
+            "user_id": self.user_id,
+            "expires_at": self.expires_at.isoformat(),
+        }
+
+
 class Scene(Base):
     __tablename__ = "scenes"
 

@@ -8,7 +8,7 @@
 
 ГМ входит по ключу (LANTERNA_GM_KEY или server/gm_key.txt). Аккаунт
 мастера тест не создаёт - иначе на свежем сервере пароль мастера стал бы
-паролем из теста. Игрока тест заводит временного и в конце удаляет.
+паролем из теста. Игрока тест заводит по приглашению и в конце удаляет.
 """
 
 from __future__ import annotations
@@ -72,31 +72,47 @@ async def main() -> int:
         assert json.loads(await anon.recv())["type"] == "auth_required"
     print("без входа сокет не пускает")
 
-    # Временный игрок: ГМ заводит, игрок входит по паролю.
+    # Временный игрок по приглашению: ГМ даёт ссылку, игрок сам задаёт
+    # имя и пароль.
     player_name = f"smoke-{secrets.token_hex(3)}"
     password = secrets.token_urlsafe(12)
-    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
-        await cmd(gm, "p1", "player.create", {"name": player_name, "password": password})
-        player_id = (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["user"]["id"]
+
+    async def invite(payload: dict) -> str:
+        async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
+            await cmd(gm, "inv", "invite.create", payload)
+            return (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["token"]
+
+    token = await invite({})
     async with httpx.AsyncClient() as client:
+        info = (await client.post(f"{BASE}/api/invite/info", json={"token": token})).json()
+        assert info == {"kind": "join"}, info
+        r = await client.post(
+            f"{BASE}/api/invite/accept", json={"token": token, "name": player_name, "password": password}
+        )
+        assert r.status_code == 200, r.text
+        player_id = r.json()["id"]
+        old_auth = session_header(r)
+        again = await client.post(
+            f"{BASE}/api/invite/accept", json={"token": token, "name": "x", "password": password}
+        )
+        assert again.status_code == 404, "приглашение сработало дважды"
         bad = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": "wrong-pass"})
         assert bad.status_code == 401, bad.status_code
         r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
         assert r.status_code == 200, r.text
-        old_auth = session_header(r)
-    print(f"игрок {player_name} создан, неверный пароль отклонён, вход ok")
+    print(f"игрок {player_name} создан по приглашению, ссылка одноразовая, вход ok")
 
-    # Смена пароля мастером: старая сессия перестаёт действовать.
+    # Сброс пароля по ссылке: старая сессия перестаёт действовать.
+    token = await invite({"user_id": player_id})
     password = secrets.token_urlsafe(12)
-    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm:
-        await cmd(gm, "p3", "player.password", {"id": player_id, "password": password})
-        await recv_until(gm, lambda m: m.get("type") == "reply")
     async with httpx.AsyncClient() as client:
-        assert (await client.get(f"{BASE}/api/me", headers=old_auth)).json() is None, "старая сессия жива"
-        r = await client.post(f"{BASE}/api/login", json={"name": player_name, "password": password})
+        info = (await client.post(f"{BASE}/api/invite/info", json={"token": token})).json()
+        assert info == {"kind": "reset", "name": player_name}, info
+        r = await client.post(f"{BASE}/api/invite/accept", json={"token": token, "password": password})
         assert r.status_code == 200, r.text
+        assert (await client.get(f"{BASE}/api/me", headers=old_auth)).json() is None, "старая сессия жива"
         player_auth = session_header(r)
-    print("смена пароля: старая сессия закрыта, новый пароль подходит")
+    print("сброс пароля по ссылке: старая сессия закрыта, новый пароль подходит")
 
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)

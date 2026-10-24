@@ -19,7 +19,7 @@ from .config import FRONTEND_URL, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
-from .models import Campaign, Message, Scene, User
+from .models import Campaign, Invite, Message, Scene, User
 from .roles import Actor, gm_key_notice, is_gm_key
 
 
@@ -99,9 +99,15 @@ async def campaign_view(db: AsyncSession, campaign: Campaign, actor: Actor) -> d
             select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.created_at)
         )
     ).scalars()
-    return protocol.campaign(
+    invites = await db.execute(
+        select(Invite).where(Invite.campaign_id == campaign.id).order_by(Invite.created_at)
+    )
+    msg = protocol.campaign(
         campaign.active_scene_id, [{"id": s.id, "name": s.name} for s in scenes], users
     )
+    # Ожидающие приглашения - только мастеру, и без самих кодов.
+    msg["invites"] = [i.to_dict() for i in invites.scalars()]
+    return msg
 
 
 async def publish_campaign(db: AsyncSession, campaign: Campaign) -> None:
@@ -223,6 +229,12 @@ class LoginBody(BaseModel):
     password: str = ""
 
 
+class InviteBody(BaseModel):
+    token: str
+    name: str | None = None
+    password: str = ""
+
+
 class GmLoginBody(BaseModel):
     key: str
     name: str | None = None
@@ -274,6 +286,43 @@ async def gm_login(body: GmLoginBody, response: Response, db: AsyncSession = Dep
         _set_session(response, await auth.create_session(db, gm))
         await db.commit()
     return gm.to_dict()
+
+
+@app.post("/api/invite/info")
+async def invite_info(body: InviteBody, db: AsyncSession = Depends(get_session)) -> dict:
+    """Что за приглашение: новый игрок или сброс пароля (и чей)."""
+    invite = await auth.find_invite(db, body.token)
+    await db.commit()  # просроченное find_invite удаляет
+    if invite is None:
+        raise HTTPException(404, "приглашение не найдено или истекло")
+    if invite.user_id:
+        user = await db.get(User, invite.user_id)
+        return {"kind": "reset", "name": user.name if user else None}
+    return {"kind": "join"}
+
+
+@app.post("/api/invite/accept")
+async def invite_accept(
+    body: InviteBody, response: Response, db: AsyncSession = Depends(get_session)
+) -> dict:
+    async with hub.lock("campaign"):
+        campaign = await get_campaign(db)
+        invite = await auth.find_invite(db, body.token)
+        if invite is None:
+            await db.commit()
+            raise HTTPException(404, "приглашение не найдено или истекло")
+        try:
+            user = await auth.accept_invite(db, campaign, invite, body.name, body.password)
+        except auth.AuthError as exc:
+            raise HTTPException(400, str(exc))
+        _set_session(response, await auth.create_session(db, user))
+        await db.commit()
+        # Сброс пароля: открытые сокеты со старыми сессиями - выгнать.
+        # Новый игрок: мастеру - обновлённый список.
+        if invite.user_id:
+            await kick_user(user.id)
+        await publish_campaign(db, campaign)
+    return user.to_dict()
 
 
 @app.post("/api/logout")
@@ -417,9 +466,6 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
                 await hub.broadcast_all(protocol.chat(payload["message"]))
                 return
             await hub.send(websocket, protocol.reply(name, payload, command.id))
-            if name == "player.password_set":
-                await kick_user(payload["id"])
-                return
             await publish_campaign(db, campaign)
 
 

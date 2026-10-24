@@ -6,7 +6,7 @@ import { Toolbar } from "./ui/Toolbar";
 import { Chat } from "./ui/Chat";
 import { TokenPanel } from "./ui/TokenPanel";
 import { useUi } from "./state/store";
-import { GmSetupScreen, LoginScreen } from "./ui/Login";
+import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
 import type { Scene, SceneInfo, UserInfo } from "./types";
 
 const GM_SCENE = "lanterna.gmScene";
@@ -17,15 +17,19 @@ const GM_SCENE = "lanterna.gmScene";
  * запуск уже не нашёл бы ключ в адресе) и сразу убираем из адресной
  * строки - чтобы не светить при показе экрана. Дальше нужна только сессия.
  */
-const GM_KEY_FROM_URL = (() => {
+function takeFromUrl(param: string): string | null {
   const url = new URL(location.href);
-  const key = url.searchParams.get("gm");
-  if (key) {
-    url.searchParams.delete("gm");
+  const value = url.searchParams.get(param);
+  if (value) {
+    url.searchParams.delete(param);
     history.replaceState(null, "", url);
   }
-  return key;
-})();
+  return value;
+}
+
+const GM_KEY_FROM_URL = takeFromUrl("gm");
+// Приглашение от мастера - так же: забрать и убрать из адреса.
+const INVITE_FROM_URL = takeFromUrl("invite");
 
 export default function App() {
   const me = useUi((s) => s.me);
@@ -33,6 +37,7 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [setupKey, setSetupKey] = useState<string | null>(null);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(INVITE_FROM_URL);
   const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
 
@@ -145,7 +150,7 @@ export default function App() {
         return;
       }
       if (msg.type === "campaign") {
-        ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users);
+        ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users, msg.invites);
         // Аккаунт удалили - сессии больше нет, на экран входа.
         const myId = useUi.getState().me?.id;
         if (myId && !msg.users.some((u) => u.id === myId)) {
@@ -166,6 +171,8 @@ export default function App() {
       if (msg.type === "reply") {
         // ГМ создал сцену - сразу открываем её, чтобы готовить.
         if (msg.name === "scene.created") openScene(msg.payload.id);
+        // Код приглашения приходит только сюда и только один раз.
+        if (msg.name === "invite.created") ui.setLastInvite(msg.payload);
         return;
       }
       if (msg.name === "scene.updated") {
@@ -193,6 +200,19 @@ export default function App() {
 
   const error = useUi((s) => s.error);
 
+  // По ссылке-приглашению - её экран, даже если в браузере уже кто-то вошёл:
+  // ссылку открыли, чтобы завести аккаунт, а не продолжить чужую сессию.
+  if (inviteToken) {
+    return (
+      <InviteScreen
+        token={inviteToken}
+        onDone={(u) => {
+          setInviteToken(null);
+          useUi.getState().setMe(u);
+        }}
+      />
+    );
+  }
   if (checking) return <div className="gate">Загрузка...</div>;
   if (!me && setupKey) return <GmSetupScreen gmKey={setupKey} onDone={(u) => useUi.getState().setMe(u)} />;
   if (!me) return <LoginScreen notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} />;

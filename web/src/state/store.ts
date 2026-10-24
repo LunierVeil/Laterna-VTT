@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Message, SceneInfo, Token, Tool, UserInfo } from "../types";
+import type { InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner_id" | "size">;
@@ -11,6 +11,10 @@ interface UiState {
   isGm: boolean;
   /** Аккаунты кампании: показать, чей токен, и список игроков у ГМ. */
   accounts: UserInfo[];
+  /** Ожидающие приглашения - знает только ГМ. */
+  invites: InviteInfo[];
+  /** Только что созданная ссылка: код приходит один раз, в ответе на команду. */
+  lastInvite: { token: string; user_id: string | null } | null;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -37,7 +41,13 @@ interface UiState {
   setScene: (name: string, gridSize: number, background: string | null) => void;
   setChaining: (c: boolean) => void;
   setSelected: (t: SelectedToken | null) => void;
-  setCampaign: (activeSceneId: string, scenes: SceneInfo[] | undefined, accounts: UserInfo[]) => void;
+  setCampaign: (
+    activeSceneId: string,
+    scenes: SceneInfo[] | undefined,
+    accounts: UserInfo[],
+    invites: InviteInfo[] | undefined,
+  ) => void;
+  setLastInvite: (v: { token: string; user_id: string | null } | null) => void;
 }
 
 /**
@@ -53,6 +63,8 @@ export const useUi = create<UiState>((set) => ({
   me: null,
   isGm: false,
   accounts: [],
+  invites: [],
+  lastInvite: null,
   tool: "select",
   messages: [],
   users: [],
@@ -88,6 +100,7 @@ export const useUi = create<UiState>((set) => ({
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),
   setSelected: (selected) => set({ selected }),
-  setCampaign: (activeSceneId, scenes, accounts) =>
-    set(scenes ? { activeSceneId, scenes, accounts } : { activeSceneId, accounts }),
+  setCampaign: (activeSceneId, scenes, accounts, invites) =>
+    set(scenes ? { activeSceneId, scenes, accounts, invites: invites ?? [] } : { activeSceneId, accounts }),
+  setLastInvite: (lastInvite) => set({ lastInvite }),
 }));

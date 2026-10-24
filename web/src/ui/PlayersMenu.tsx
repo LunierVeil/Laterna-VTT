@@ -3,24 +3,37 @@ import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import { usePopover } from "./usePopover";
 
+const inviteUrl = (token: string) => `${location.origin}/?invite=${encodeURIComponent(token)}`;
+
 /**
- * Аккаунты игроков - только для ГМ. Регистрации нет: имя и пароль задаёт
- * мастер и сам передаёт их игроку.
+ * Аккаунты игроков - только для ГМ. Регистрации нет: аккаунт появляется
+ * только по ссылке от мастера, но имя и пароль игрок придумывает сам.
  */
 export function PlayersMenu({ socket }: { socket: SceneSocket }) {
   const accounts = useUi((s) => s.accounts);
+  const invites = useUi((s) => s.invites);
+  const lastInvite = useUi((s) => s.lastInvite);
   const { open, setOpen, root } = usePopover();
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  // У кого сейчас открыто поле нового пароля и кого подтверждаем удалить.
-  const [resetFor, setResetFor] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const close = () => {
-    setResetFor(null);
-    setConfirmDelete(null);
-    setNewPassword("");
+  const nameOf = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? "?";
+
+  const invite = (userId: string | null) => {
+    useUi.getState().setLastInvite(null);
+    setCopied(false);
+    socket.send("invite.create", userId ? { user_id: userId } : {});
+  };
+
+  const copy = async (text: string, input: HTMLInputElement | null) => {
+    // Буфер обмена браузер даёт только на https и localhost. По адресу в
+    // сети (http://192.168...) его нет - тогда просто выделяем ссылку.
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      input?.select();
+    }
   };
 
   return (
@@ -29,7 +42,7 @@ export function PlayersMenu({ socket }: { socket: SceneSocket }) {
         className={open ? "tool tool-active" : "tool"}
         onClick={() => {
           setOpen((o) => !o);
-          close();
+          setConfirmDelete(null);
         }}
       >
         Игроки
@@ -44,46 +57,21 @@ export function PlayersMenu({ socket }: { socket: SceneSocket }) {
                 </span>
                 {a.is_gm ? (
                   <span className="scene-row-live">мастер</span>
-                ) : resetFor === a.id ? (
-                  <form
-                    className="scene-row-actions"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      socket.send("player.password", { id: a.id, password: newPassword });
-                      close();
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      type="password"
-                      className="player-pass"
-                      placeholder="новый пароль"
-                      autoComplete="new-password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <button className="tool" type="submit" disabled={!newPassword}>
-                      ОК
-                    </button>
-                  </form>
                 ) : (
                   <span className="scene-row-actions">
                     <button
                       className="tool"
-                      title="задать новый пароль - игрока выкинет, войдёт с новым"
-                      onClick={() => {
-                        close();
-                        setResetFor(a.id);
-                      }}
+                      title="ссылка, по которой игрок задаст новый пароль; старые входы перестанут работать"
+                      onClick={() => invite(a.id)}
                     >
-                      Пароль
+                      Сброс пароля
                     </button>
                     {confirmDelete === a.id ? (
                       <button
                         className="tool tool-danger"
                         onClick={() => {
                           socket.send("player.delete", { id: a.id });
-                          close();
+                          setConfirmDelete(null);
                         }}
                       >
                         Точно?
@@ -92,10 +80,7 @@ export function PlayersMenu({ socket }: { socket: SceneSocket }) {
                       <button
                         className="tool"
                         title="удалить игрока - его токены перейдут тебе"
-                        onClick={() => {
-                          close();
-                          setConfirmDelete(a.id);
-                        }}
+                        onClick={() => setConfirmDelete(a.id)}
                       >
                         ×
                       </button>
@@ -105,34 +90,58 @@ export function PlayersMenu({ socket }: { socket: SceneSocket }) {
               </li>
             ))}
           </ul>
-          <form
-            className="player-new"
-            onSubmit={(e) => {
-              e.preventDefault();
-              socket.send("player.create", { name: name.trim(), password });
-              setName("");
-              setPassword("");
-            }}
-          >
-            <input
-              placeholder="Имя игрока"
-              maxLength={100}
-              autoComplete="off"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Пароль, от 8 символов"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button className="tool" type="submit" disabled={!name.trim() || !password}>
-              Создать
-            </button>
-          </form>
-          <p className="muted scene-menu-note">Имя и пароль передай игроку сам. Регистрации нет.</p>
+
+          <button className="tool" onClick={() => invite(null)}>
+            Пригласить игрока
+          </button>
+
+          {lastInvite && (
+            <div className="invite-box">
+              <div className="muted">
+                {lastInvite.user_id ? `Ссылка на новый пароль для «${nameOf(lastInvite.user_id)}»` : "Ссылка для нового игрока"}
+                {" "}- одноразовая, 7 дней. Код видно только сейчас.
+              </div>
+              <div className="invite-row">
+                <input
+                  readOnly
+                  className="invite-link"
+                  value={inviteUrl(lastInvite.token)}
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  className="tool"
+                  onClick={(e) => void copy(inviteUrl(lastInvite.token), e.currentTarget.previousElementSibling as HTMLInputElement)}
+                >
+                  {copied ? "Скопировано" : "Копировать"}
+                </button>
+              </div>
+              {location.hostname === "localhost" && (
+                <div className="muted scene-menu-note">
+                  Игроку на другом компьютере замени localhost на адрес этого компьютера в сети - его
+                  печатает vite при запуске (строка Network).
+                </div>
+              )}
+            </div>
+          )}
+
+          {invites.length > 0 && (
+            <ul className="scene-list">
+              {invites.map((i) => (
+                <li key={i.id} className="scene-row">
+                  <span className="scene-row-name muted">
+                    {i.user_id ? `сброс пароля: ${nameOf(i.user_id)}` : "приглашение нового игрока"}, до{" "}
+                    {new Date(i.expires_at).toLocaleDateString()}
+                  </span>
+                  <span className="scene-row-actions">
+                    <button className="tool" onClick={() => socket.send("invite.revoke", { id: i.id })}>
+                      Отозвать
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="muted scene-menu-note">Регистрации нет: аккаунт появляется только по твоей ссылке.</p>
         </div>
       )}
     </div>

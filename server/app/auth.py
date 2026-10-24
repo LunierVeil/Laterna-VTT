@@ -10,18 +10,20 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import AuthSession, Campaign, User
+from .models import AuthSession, Campaign, Invite, User
 from .roles import Actor
 
 SESSION_COOKIE = "lanterna_session"
 SESSION_MAX_AGE = 60 * 60 * 24 * 30
 MIN_PASSWORD = 8
+INVITE_TTL = timedelta(days=7)
 
 _hasher = PasswordHasher()
 
@@ -113,6 +115,55 @@ async def drop_session(db: AsyncSession, token: str | None) -> None:
         session = await db.get(AuthSession, _digest(token))
         if session:
             await db.delete(session)
+
+
+async def create_invite(db: AsyncSession, campaign: Campaign, user_id: str | None) -> str:
+    token = secrets.token_urlsafe(32)
+    db.add(
+        Invite(
+            token_hash=_digest(token),
+            campaign_id=campaign.id,
+            user_id=user_id,
+            expires_at=datetime.now(timezone.utc) + INVITE_TTL,
+        )
+    )
+    await db.flush()
+    return token
+
+
+async def find_invite(db: AsyncSession, token: str | None) -> Invite | None:
+    if not token:
+        return None
+    invite = await db.get(Invite, _digest(token))
+    if invite is None:
+        return None
+    expires = invite.expires_at
+    # SQLite отдаёт время без пояса, хотя писали UTC.
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
+        await db.delete(invite)
+        return None
+    return invite
+
+
+async def accept_invite(
+    db: AsyncSession, campaign: Campaign, invite: Invite, name: object, password: object
+) -> User:
+    """Новый аккаунт или новый пароль - и приглашение сгорает."""
+    if invite.user_id:
+        user = await db.get(User, invite.user_id)
+        if user is None:
+            raise AuthError("игрока уже нет")
+        user.password_hash = await hash_password(check_password(password))
+        # Пароль меняют, в том числе если под игроком вошёл кто-то чужой:
+        # все прежние сессии - долой.
+        await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+    else:
+        user = await create_user(db, campaign, name, password, is_gm=False)
+    await db.delete(invite)
+    await db.flush()
+    return user
 
 
 def actor_of(user: User) -> Actor:

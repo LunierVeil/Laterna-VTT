@@ -75,7 +75,8 @@ export type ServerMessage =
   | { type: "presence"; users: string[] }
   | { type: "chat"; message: Message }
   // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
-  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[] }
+  // scenes и invites - только ГМ.
+  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[]; invites?: InviteInfo[] }
   // Сессии нет или она кончилась - на экран входа.
   | { type: "auth_required" }
   | { type: "reply"; name: string; payload: any; cmd_id: string | null };
@@ -84,6 +85,13 @@ export interface UserInfo {
   id: string;
   name: string;
   is_gm: boolean;
+}
+
+/** Ожидающее приглашение. user_id - сброс пароля этого игрока, null - новый игрок. */
+export interface InviteInfo {
+  id: string;
+  user_id: string | null;
+  expires_at: string;
 }
 
 export interface SceneInfo {
