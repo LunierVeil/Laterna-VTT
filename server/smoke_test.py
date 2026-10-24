@@ -175,6 +175,29 @@ async def main() -> int:
             assert (await client.get(f"{BASE}/api/me", headers=b)).json() is not None, "задело другой вход"
     print("выход закрыл сокет своей сессии, другой вход жив")
 
+    # Лист персонажа: игрок видит и правит только свой, ГМ - любой.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        await cmd(gm, "ch1", "character.create", {"name": "smoke: лист ГМ"})
+        char_id = (await recv_until(gm, lambda m: m.get("type") == "reply"))["payload"]["character"]["id"]
+        try:
+            await cmd(pl, "ch2", "character.update", {"id": char_id, "set": {"vitals.hp.current": 1}})
+            err = await recv_until(pl, lambda m: m.get("type") == "error")
+            assert "нет такого" in err["message"], err
+            async with httpx.AsyncClient(headers=player_auth) as client:
+                ids = [c["id"] for c in (await client.get(f"{BASE}/api/characters")).json()]
+            assert char_id not in ids, "игрок видит чужой лист"
+            await cmd(gm, "ch3", "character.update", {"id": char_id, "set": {"vitals.hp.current": 7}})
+            # Первым мог прийти лист сразу после создания - ждём именно правку.
+            saved = await recv_until(
+                gm, lambda m: m.get("type") == "character" and "vitals" in m["character"]["data"]
+            )
+            assert saved["character"]["data"]["vitals"]["hp"]["current"] == 7, saved
+        finally:
+            await cmd(gm, "ch4", "character.delete", {"id": char_id})
+            await recv_until(gm, lambda m: m.get("type") == "character_deleted")
+    print("чужой лист игрок не видит и не правит, ГМ правит")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:

@@ -4,6 +4,7 @@ import type { Tool } from "../types";
 import { SceneMenu } from "./SceneMenu";
 import { ScenesMenu } from "./ScenesMenu";
 import { PlayersMenu } from "./PlayersMenu";
+import { CharactersMenu } from "./CharactersMenu";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
@@ -40,6 +41,7 @@ export function Toolbar({
         {isGm && <ScenesMenu socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
         {isGm && <SceneMenu socket={socket} />}
         {isGm && <PlayersMenu socket={socket} />}
+        <CharactersMenu socket={socket} />
       </div>
 
       <div className="toolbar-tools">

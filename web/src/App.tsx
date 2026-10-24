@@ -7,6 +7,7 @@ import { Chat } from "./ui/Chat";
 import { TokenPanel } from "./ui/TokenPanel";
 import { useUi } from "./state/store";
 import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
+import { CharacterSheet } from "./sheets/CharacterSheet";
 import type { Scene, SceneInfo, UserInfo } from "./types";
 
 const GM_SCENE = "lanterna.gmScene";
@@ -80,9 +81,16 @@ export default function App() {
   useEffect(() => {
     if (!me) {
       setSceneId(null);
+      useUi.getState().setCharacters([]);
+      useUi.getState().openCharacter(null);
       return;
     }
     setLoginNotice(null);
+    // Листы - свои, у ГМ все. Дальше их держат в актуальном виде сообщения сокета.
+    void fetch("/api/characters")
+      .then((r) => r.json())
+      .then((list) => useUi.getState().setCharacters(list))
+      .catch((e) => console.error("не получил листы", e));
     void fetch("/api/campaign")
       .then((r) => r.json())
       .then((c: { active_scene_id: string; scenes?: SceneInfo[] }) => {
@@ -168,7 +176,17 @@ export default function App() {
         if (!stay) setSceneId(msg.active_scene_id);
         return;
       }
+      if (msg.type === "character") {
+        ui.putCharacter(msg.character);
+        return;
+      }
+      if (msg.type === "character_deleted") {
+        ui.dropCharacter(msg.id);
+        return;
+      }
       if (msg.type === "reply") {
+        // Новый лист - сразу открыть.
+        if (msg.name === "character.created") ui.openCharacter(msg.payload.character.id);
         // ГМ создал сцену - сразу открываем её, чтобы готовить.
         if (msg.name === "scene.created") openScene(msg.payload.id);
         // Код приглашения приходит только сюда и только один раз.
@@ -199,6 +217,7 @@ export default function App() {
   }, [socket, sceneId, openScene]);
 
   const error = useUi((s) => s.error);
+  const openCharacter = useUi((s) => (s.openCharacterId ? s.characters[s.openCharacterId] : null));
 
   // По ссылке-приглашению - её экран, даже если в браузере уже кто-то вошёл:
   // ссылку открыли, чтобы завести аккаунт, а не продолжить чужую сессию.
@@ -228,6 +247,7 @@ export default function App() {
         </div>
         <Chat socket={socket} />
       </main>
+      {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}
     </div>
   );

@@ -19,10 +19,12 @@ import re
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import auth, dice
+from datetime import datetime, timezone
+
+from . import auth, dice, sheet_data
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
-from .models import AuthSession, Campaign, Invite, Message, Scene, Token, User, Wall
+from .models import AuthSession, Campaign, Character, Invite, Message, Scene, Token, User, Wall
 from .roles import Actor
 
 
@@ -339,13 +341,76 @@ async def player_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payl
     user = await _campaign_player(db, campaign, payload, "аккаунт мастера удалить нельзя")
     # Токены и стены ушедшего игрока переходят мастеру, а не становятся
     # общими: общий токен может двигать и удалять кто угодно.
-    for model in (Token, Wall):
+    for model in (Token, Wall, Character):
         await db.execute(update(model).where(model.owner_id == user.id).values(owner_id=actor.id))
     await db.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
     await db.execute(Invite.__table__.delete().where(Invite.user_id == user.id))
     await db.delete(user)
     await db.flush()
     return "player.deleted", {"id": user.id}
+
+
+async def _own_character(db: AsyncSession, campaign: Campaign, actor: Actor, char_id: object) -> Character:
+    character = await db.get(Character, str(char_id)) if char_id else None
+    # Чужой лист для игрока - "нет такого", а не "нельзя": иначе по ответу
+    # было бы видно, что он существует.
+    if (
+        character is None
+        or character.campaign_id != campaign.id
+        or not (actor.is_gm or character.owner_id == actor.id)
+    ):
+        raise CommandError("нет такого персонажа")
+    return character
+
+
+def _character_name(value: object) -> str:
+    return str(value or "").strip()[:200] or "Персонаж"
+
+
+async def character_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    # Свой лист заводит любой. Чужим (NPC для игрока) владельца ставит ГМ.
+    owner_id = actor.id
+    if actor.is_gm and "owner_id" in payload:
+        owner_id = await _campaign_user(db, campaign.id, payload["owner_id"])
+    character = Character(
+        campaign_id=campaign.id,
+        owner_id=owner_id,
+        name=_character_name(payload.get("name")),
+        system="dnd5e",
+        data_json="{}",
+    )
+    db.add(character)
+    await db.flush()
+    return "character.created", {"character": character.to_dict()}
+
+
+async def character_update(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Правка по полям: {id, name?, set?: {"путь.к.полю": значение}}.
+
+    По полям, а не листом целиком: ГМ и игрок, правящие разные поля
+    одновременно, не затирают друг друга. Правил сервер не проверяет -
+    только форму данных (sheet_data).
+    """
+    character = await _own_character(db, campaign, actor, payload.get("id"))
+    if "name" in payload:
+        character.name = _character_name(payload["name"])
+    if "set" in payload:
+        try:
+            data = sheet_data.apply_set(json.loads(character.data_json or "{}"), payload["set"])
+            character.data_json = sheet_data.dump(data)
+        except sheet_data.SheetError as exc:
+            raise CommandError(str(exc))
+    character.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return "character.saved", {"character": character.to_dict()}
+
+
+async def character_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    character = await _own_character(db, campaign, actor, payload.get("id"))
+    owner_id = character.owner_id
+    await db.delete(character)
+    await db.flush()
+    return "character.deleted", {"id": character.id, "owner_id": owner_id}
 
 
 HANDLERS = {
@@ -366,4 +431,7 @@ CAMPAIGN_HANDLERS = {
     "invite.create": invite_create,
     "invite.revoke": invite_revoke,
     "player.delete": player_delete,
+    "character.create": character_create,
+    "character.update": character_update,
+    "character.delete": character_delete,
 }

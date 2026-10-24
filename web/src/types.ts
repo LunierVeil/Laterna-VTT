@@ -79,7 +79,20 @@ export type ServerMessage =
   | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[]; invites?: InviteInfo[] }
   // Сессии нет или она кончилась - на экран входа.
   | { type: "auth_required" }
+  // Лист приходит только владельцу и мастерам.
+  | { type: "character"; character: Character }
+  | { type: "character_deleted"; id: string }
   | { type: "reply"; name: string; payload: any; cmd_id: string | null };
+
+/** Лист персонажа. data - JSON по схеме листа (web/src/sheets). */
+export interface Character {
+  id: string;
+  owner_id: string | null;
+  name: string;
+  system: string;
+  data: Record<string, unknown>;
+  source_format: string | null;
+}
 
 export interface UserInfo {
   id: string;

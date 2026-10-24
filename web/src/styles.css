@@ -214,3 +214,52 @@ button[type="submit"] {
   background: #3a2328; border: 1px solid #6b3a40; color: #ffd3d3;
   padding: 8px 14px; border-radius: 8px;
 }
+
+/* character sheet */
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 20;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid; place-items: center;
+}
+.sheet {
+  width: min(980px, 96vw); max-height: 92vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px;
+}
+.sheet-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.sheet-head input { font-size: 18px; font-weight: 700; width: 20ch; }
+.sheet-head-actions { margin-left: auto; display: flex; gap: 6px; }
+.sheet-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sheet-block { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.sheet-block-wide { grid-column: 1 / -1; }
+.sheet-block h3 { margin: 0 0 8px; font-size: 13px; color: var(--accent); font-weight: 600; }
+.sheet-fields { display: flex; flex-wrap: wrap; gap: 8px; }
+.sheet-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.sheet-field-wide { flex: 1 1 100%; }
+.sheet-field input, .sheet-table input { padding: 4px 6px; }
+.sheet-longtext {
+  width: 100%; resize: vertical; font: inherit; color: var(--text);
+  background: #22252e; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+}
+.sheet-abilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sheet-ability { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; }
+.sheet-mod { font-size: 16px; font-weight: 700; min-height: 20px; }
+.sheet-save { display: flex; align-items: center; gap: 4px; }
+.sheet-checklist { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.sheet-check-row { display: flex; align-items: center; gap: 6px; }
+.sheet-check-row input[type="text"], .sheet-check-row input:not([type]) { padding: 2px 4px; }
+.sheet-table-wrap { overflow-x: auto; }
+.sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 6px; }
+.sheet-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 2px 4px; }
+.sheet-table td { padding: 2px 4px; }
+.sheet-table td input:not([style]) { width: 100%; min-width: 8ch; }
+.sheet-input-wrap { display: inline-flex; align-items: center; gap: 4px; }
+/* Растягиваться поле должно только в ячейке таблицы, иначе в навыках
+   поле бонуса съедает строку и название уезжает вправо. */
+.sheet-table .sheet-input-wrap { width: 100%; }
+.sheet-input-wrap a { color: var(--accent); text-decoration: none; }
+.sheet-bad { border-color: #c0624f !important; }
+select {
+  background: #22252e; color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
+}

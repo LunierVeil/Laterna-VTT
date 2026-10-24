@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
+import type { Character, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner_id" | "size">;
@@ -15,6 +15,10 @@ interface UiState {
   invites: InviteInfo[];
   /** Только что созданная ссылка: код приходит один раз, в ответе на команду. */
   lastInvite: { token: string; user_id: string | null } | null;
+  /** Листы, которые этому клиенту можно видеть: свои, у ГМ - все. */
+  characters: Record<string, Character>;
+  /** Открытый лист. */
+  openCharacterId: string | null;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -48,6 +52,10 @@ interface UiState {
     invites: InviteInfo[] | undefined,
   ) => void;
   setLastInvite: (v: { token: string; user_id: string | null } | null) => void;
+  setCharacters: (list: Character[]) => void;
+  putCharacter: (c: Character) => void;
+  dropCharacter: (id: string) => void;
+  openCharacter: (id: string | null) => void;
 }
 
 /**
@@ -65,6 +73,8 @@ export const useUi = create<UiState>((set) => ({
   accounts: [],
   invites: [],
   lastInvite: null,
+  characters: {},
+  openCharacterId: null,
   tool: "select",
   messages: [],
   users: [],
@@ -103,4 +113,12 @@ export const useUi = create<UiState>((set) => ({
   setCampaign: (activeSceneId, scenes, accounts, invites) =>
     set(scenes ? { activeSceneId, scenes, accounts, invites: invites ?? [] } : { activeSceneId, accounts }),
   setLastInvite: (lastInvite) => set({ lastInvite }),
+  setCharacters: (list) => set({ characters: Object.fromEntries(list.map((c) => [c.id, c])) }),
+  putCharacter: (c) => set((s) => ({ characters: { ...s.characters, [c.id]: c } })),
+  dropCharacter: (id) =>
+    set((s) => {
+      const { [id]: _, ...rest } = s.characters;
+      return { characters: rest, openCharacterId: s.openCharacterId === id ? null : s.openCharacterId };
+    }),
+  openCharacter: (openCharacterId) => set({ openCharacterId }),
 }));

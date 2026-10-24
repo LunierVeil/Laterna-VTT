@@ -19,7 +19,7 @@ from .config import FRONTEND_URL, FRONTEND_URLS, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
 from .hub import hub
-from .models import Campaign, Invite, Message, Scene, User
+from .models import Campaign, Character, Invite, Message, Scene, User
 from .roles import Actor, gm_key_notice, is_gm_key
 
 
@@ -345,6 +345,19 @@ async def get_campaign_view(request: Request, db: AsyncSession = Depends(get_ses
     return await campaign_view(db, await get_campaign(db), actor)
 
 
+@app.get("/api/characters")
+async def list_characters(request: Request, db: AsyncSession = Depends(get_session)) -> list[dict]:
+    # Игрок получает только свои листы, ГМ - все. Чужие игроку не уходят
+    # вовсе: прятать на клиенте бесполезно, всё пришедшее видно в DevTools.
+    actor = await require_actor(request, db)
+    campaign = await get_campaign(db)
+    query = select(Character).where(Character.campaign_id == campaign.id)
+    if not actor.is_gm:
+        query = query.where(Character.owner_id == actor.id)
+    rows = await db.execute(query.order_by(Character.created_at))
+    return [c.to_dict() for c in rows.scalars()]
+
+
 @app.get("/api/scenes")
 async def list_scenes(request: Request, db: AsyncSession = Depends(get_session)) -> list[dict]:
     # Игроку - только активная сцена: названия заготовок ГМ ему знать незачем.
@@ -496,8 +509,26 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
             if name == "chat.said":
                 await hub.broadcast_all(protocol.chat(payload["message"]))
                 return
+            if name.startswith("character."):
+                if name == "character.created":
+                    await hub.send(websocket, protocol.reply(name, payload, command.id))
+                await publish_character(name, payload)
+                return
             await hub.send(websocket, protocol.reply(name, payload, command.id))
             await publish_campaign(db, campaign)
+
+
+async def publish_character(name: str, payload: dict) -> None:
+    """Лист - только владельцу и мастерам. Остальным не уходит ни байта."""
+    if name == "character.deleted":
+        owner_id = payload["owner_id"]
+        msg = {"type": "character_deleted", "id": payload["id"]}
+    else:
+        owner_id = payload["character"]["owner_id"]
+        msg = {"type": "character", "character": payload["character"]}
+    for _, ws, actor in hub.connections():
+        if actor.is_gm or actor.id == owner_id:
+            await hub.send(ws, msg)
 
 
 async def kick_user(user_id: str) -> None:

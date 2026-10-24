@@ -574,7 +574,8 @@ export class SceneStage {
   private onKeyDown = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement | null;
     // Не перехватываем набор текста в чате.
-    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+    // И выпадающие списки листа: Delete в них не должен удалять токен.
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) return;
 
     if (e.key === "Escape") {
       this.endChain();

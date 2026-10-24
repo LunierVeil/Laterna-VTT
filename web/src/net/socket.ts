@@ -97,7 +97,14 @@ export class SceneSocket {
       return;
     }
 
-    if (msg.type === "presence" || msg.type === "chat" || msg.type === "campaign" || msg.type === "reply") {
+    if (
+      msg.type === "presence" ||
+      msg.type === "chat" ||
+      msg.type === "campaign" ||
+      msg.type === "reply" ||
+      msg.type === "character" ||
+      msg.type === "character_deleted"
+    ) {
       this.emit(msg);
       return;
     }

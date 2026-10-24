@@ -253,3 +253,41 @@ class Message(Base):
             "roll": json.loads(self.roll_json) if self.roll_json else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class Character(Base):
+    """Лист персонажа. Сервер не знает правил: data - JSON по схеме листа
+    (web/src/sheets), а сервер проверяет только форму данных (sheet_data.py).
+
+    Видят и правят лист владелец и ГМ - больше никто, даже на чтение.
+    """
+
+    __tablename__ = "characters"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    owner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(200), default="Персонаж")
+    # Какой схемой рисовать data. Сейчас одна - dnd5e.
+    system: Mapped[str] = mapped_column(String(40), default="dnd5e")
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    # Исходный файл импорта целиком - чтобы переимпортировать, когда адаптер
+    # поменяется. null - лист заполняли руками.
+    source_format: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    def to_dict(self) -> dict:
+        import json
+
+        return {
+            "id": self.id,
+            "owner_id": self.owner_id,
+            "name": self.name,
+            "system": self.system,
+            "data": json.loads(self.data_json or "{}"),
+            "source_format": self.source_format,
+        }
