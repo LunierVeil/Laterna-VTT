@@ -7,6 +7,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnected
 from pydantic import BaseModel, ValidationError
@@ -15,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import auth, protocol
-from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, UPLOAD_DIR, WEB_DIST
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, HIDDEN, CommandError
 from .hub import hub
@@ -626,3 +627,24 @@ async def kick(match) -> None:
 # Монтируется последним, чтобы не перекрыть маршруты выше.
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+
+# Собранный фронт - на том же порту, что и API. Тоже в самом конце: путь
+# "/{path}" ловит всё, что не поймали маршруты выше.
+if (WEB_DIST / "index.html").is_file():
+    _dist = WEB_DIST.resolve()
+    # Имена в assets с хешем содержимого - их можно кешировать.
+    app.mount("/assets", StaticFiles(directory=_dist / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def web_app(path: str):
+        # Неизвестный /api/... - честный 404, а не страница приложения.
+        if path.startswith(("api/", "ws/", "uploads/")):
+            raise HTTPException(404)
+        file = (_dist / path).resolve()
+        # resolve + is_relative_to: "../" не выводит за пределы dist.
+        if path and file.is_file() and file.is_relative_to(_dist):
+            return FileResponse(file)
+        # Всё остальное - само приложение (?gm=, ?invite= и т.п. разбирает
+        # оно). no-cache: после пересборки браузер возьмёт новый index.html.
+        return FileResponse(_dist / "index.html", headers={"Cache-Control": "no-cache"})

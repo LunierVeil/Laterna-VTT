@@ -105,7 +105,7 @@ export function PlayersPanel({ socket }: { socket: SceneSocket }) {
           {location.hostname === "localhost" && (
             <div className="muted side-note">
               Игроку на другом компьютере замени localhost на адрес этого компьютера в сети - его
-              печатает vite при запуске (строка Network).
+              печатает ./laterna.sh при запуске («Игрокам в этой сети»), а ./dev.sh - строка Network.
             </div>
           )}
         </div>

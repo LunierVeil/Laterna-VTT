@@ -57,11 +57,11 @@ def gm_key_notice(frontend_url: str) -> str:
     if GM_KEY_SOURCE == "created":
         return (
             f"Создан ключ ГМ. Ссылка ГМ: {frontend_url}/?gm={GM_KEY}\n"
-            f"  Не показывай её игрокам. Позже её выведет ./dev.sh gm."
+            f"  Не показывай её игрокам. Позже её выведет ./laterna.sh gm (или ./dev.sh gm)."
         )
     if GM_KEY_SOURCE == "env":
         return "Ключ ГМ - из LANTERNA_GM_KEY."
-    return f"Ключ ГМ - в {GM_KEY_FILE}. Ссылка: ./dev.sh gm"
+    return f"Ключ ГМ - в {GM_KEY_FILE}. Ссылка: ./laterna.sh gm (или ./dev.sh gm)"
 
 
 def is_gm_key(key: str | None) -> bool:

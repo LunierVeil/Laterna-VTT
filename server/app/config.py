@@ -27,5 +27,10 @@ FRONTEND_URLS = [
 ]
 FRONTEND_URL = FRONTEND_URLS[0]
 
+# Собранный фронт (npm run build). Есть - сервер отдаёт и его: игра и API
+# на одном порту, vite не нужен (./laterna.sh). Нет - только API, фронт
+# отдаёт vite (./dev.sh).
+WEB_DIST = Path(os.getenv("WEB_DIST", Path(__file__).resolve().parent.parent.parent / "web" / "dist"))
+
 # Больше этого WebGL на части видеокарт текстуру не примет.
 MAX_SCENE_SIDE = 8192

@@ -1,10 +1,14 @@
-.PHONY: up down server web smoke build clean
+.PHONY: up down start server web smoke build clean
 
 up:
 	docker compose up --build
 
 down:
 	docker compose down
+
+# Играть: страница и API на одном порту (:8000)
+start:
+	./laterna.sh
 
 # Локальный запуск без docker (SQLite)
 server:
