@@ -308,12 +308,15 @@ function ViewBlock({
   inSummary,
   set,
   roll,
+  startEdit,
 }: {
   block: Block;
   data: unknown;
   inSummary: Set<string>;
   set: (path: string, value: unknown) => void;
   roll: RollFn;
+  /** Перейти в "Редактировать" - из пустой таблицы. */
+  startEdit: () => void;
 }) {
   switch (block.kind) {
     case "fields": {
@@ -393,7 +396,26 @@ function ViewBlock({
     case "table": {
       const raw = get(data, block.path);
       const rows = (Array.isArray(raw) ? raw : []).filter((r) => r && Object.values(r).some((v) => !isEmpty(v)));
-      if (!rows.length) return null;
+      if (!rows.length) {
+        // Пустую таблицу не прячем: иначе игрок не узнает, что оружие и
+        // ресурсы вообще есть и куда их вписать.
+        return (
+          <section className="sheet-block sheet-block-wide">
+            <h3>{block.title}</h3>
+            <p className="muted">Пока пусто.</p>
+            <button
+              className="tool"
+              onClick={() => {
+                // Сразу пустая строка - не заставлять жать "Добавить" второй раз.
+                set(block.path, [{}]);
+                startEdit();
+              }}
+            >
+              {block.addLabel}
+            </button>
+          </section>
+        );
+      }
       return (
         <section className="sheet-block sheet-block-wide">
           <h3>{block.title}</h3>
@@ -649,7 +671,9 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   );
   const views = current?.blocks.map((b) => ({
     b,
-    view: editing ? null : ViewBlock({ block: b, data: character.data, inSummary, set, roll }),
+    view: editing
+      ? null
+      : ViewBlock({ block: b, data: character.data, inSummary, set, roll, startEdit: () => setEditing(true) }),
   }));
   const nothingToShow = !editing && views?.every((v) => v.view === null);
 
