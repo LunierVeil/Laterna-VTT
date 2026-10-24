@@ -216,6 +216,45 @@ async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     return "token.removed", _with_hidden({"id": payload["id"]}, hidden, hidden)
 
 
+# Пока только стена и дверь. Тайная дверь, окно, невидимая стена есть в
+# модели (ждут освещения), но тайную дверь нельзя слать игроку как тайную -
+# это утечка; её маскировка под стену - отдельный шаг.
+WALL_KINDS = {"wall", "door"}
+DOOR_STATES = {"closed", "open", "locked"}
+
+
+def _wall_kind(value: object) -> str:
+    kind = str(value or "wall")
+    if kind not in WALL_KINDS:
+        raise CommandError(f"такой стены пока нет: {kind[:20]}")
+    return kind
+
+
+def _door_state(value: object) -> str:
+    state = str(value or "closed")
+    if state not in DOOR_STATES:
+        raise CommandError("дверь бывает closed, open или locked")
+    return state
+
+
+async def wall_door(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    """Открыть, закрыть, запереть дверь.
+
+    Открыть и закрыть может любой - в игре персонажи открывают двери сами.
+    Запереть и отпереть - только мастер: иначе игрок отпирал бы двери,
+    которые мастер запер, просто кликом.
+    """
+    wall = await db.get(Wall, payload.get("id")) if payload.get("id") else None
+    if wall is None or wall.scene_id != scene.id or wall.kind != "door":
+        raise CommandError("двери не найдено")
+    state = _door_state(payload.get("state"))
+    if not actor.is_gm and (wall.door_state == "locked" or state == "locked"):
+        raise CommandError("дверь заперта")
+    wall.door_state = state
+    await db.flush()
+    return "wall.updated", {"wall": wall.to_dict()}
+
+
 async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     # Стены - разметка карты, её делает мастер. Игрок со стенами мог бы
     # запереть других или отгородиться от монстров.
@@ -226,8 +265,8 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
         y1=_num(payload, "y1"),
         x2=_num(payload, "x2"),
         y2=_num(payload, "y2"),
-        kind=str(payload.get("kind") or "wall")[:20],
-        door_state=str(payload.get("door_state") or "closed")[:20],
+        kind=_wall_kind(payload.get("kind")),
+        door_state=_door_state(payload.get("door_state")),
         blocks_movement=bool(payload.get("blocks_movement", True)),
         blocks_sight=bool(payload.get("blocks_sight", True)),
         blocks_sound=bool(payload.get("blocks_sound", False)),
@@ -671,6 +710,7 @@ HANDLERS = {
     "token.remove": token_remove,
     "wall.add": wall_add,
     "wall.remove": wall_remove,
+    "wall.door": wall_door,
     "scene.update": scene_update,
     "combat.add": combat_add,
     "combat.set": combat_set,

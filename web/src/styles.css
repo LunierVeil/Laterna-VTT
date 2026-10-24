@@ -398,3 +398,6 @@ a.card-badge { color: var(--accent); }
 .initiative-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .token-hidden, .place-hidden { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+
+.wall-kind { display: flex; gap: 2px; }
+.wall-kind .tool { padding: 3px 8px; font-size: 12px; }

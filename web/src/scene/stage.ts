@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
+import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Combat, Scene, Token, Wall, Tool } from "../types";
 
 const COLORS = {
@@ -8,6 +8,7 @@ const COLORS = {
   gridMajor: 0x3c4356,
   wall: 0xd0d5e0,
   door: 0x6fa8dc,
+  doorLocked: 0xd9534f,
   wallGhost: 0xffb562,
   selection: 0xffd166,
   turn: 0xff8c42,
@@ -32,6 +33,8 @@ export interface StageCallbacks {
   /** Возвращает id отправленной команды - по нему стейдж узнаёт свои стены. */
   onAddWall: (x1: number, y1: number, x2: number, y2: number) => string;
   onRemoveWall: (id: string) => void;
+  /** Клик по двери в режиме выбора: открыть/закрыть, у ГМ с Shift - запереть. */
+  onDoor: (id: string, state: "open" | "closed" | "locked") => void;
   /**
    * Выбранный токен для панели свойств. Зовётся при выборе и при
    * token.updated выбранного, но не при перемещении - иначе драг
@@ -339,6 +342,10 @@ export class SceneStage {
         }
         this.drawWalls();
         break;
+      case "wall.updated":
+        this.walls.set(payload.wall.id, payload.wall);
+        this.drawWalls();
+        break;
       case "wall.removed":
         this.walls.delete(payload.id);
         this.myWalls = this.myWalls.filter((id) => id !== payload.id);
@@ -460,6 +467,11 @@ export class SceneStage {
     const r = (view.data.size * this.gridSize) / 2 - 3;
     const color = parseInt(view.data.color.replace("#", ""), 16) || 0xc75c5c;
 
+    // Зона клика - ровно круг токена. Иначе PixiJS ловит и обводки: кольцо
+    // выделения (r+4) и хода (r+8) дотягивались до соседней клетки, и клик
+    // по двери рядом с выбранным токеном доставался токену.
+    view.node.hitArea = new Circle(0, 0, r);
+
     view.base.clear();
     view.base.circle(0, 0, r).fill({ color });
     this.setTokenImage(view, r);
@@ -571,9 +583,22 @@ export class SceneStage {
     const g = this.wallLayer;
     g.clear();
     for (const w of this.walls.values()) {
-      const isDoor = w.kind === "door" || w.kind === "secret_door";
-      g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
-      g.stroke({ width: 4, color: isDoor ? COLORS.door : COLORS.wall, alpha: 0.9 });
+      if (w.kind !== "door") {
+        g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
+        g.stroke({ width: 4, color: COLORS.wall, alpha: 0.9 });
+        continue;
+      }
+      if (w.door_state === "open") {
+        // Открытая - разрыв посередине: видно, что проход есть.
+        const dx = (w.x2 - w.x1) * 0.25;
+        const dy = (w.y2 - w.y1) * 0.25;
+        g.moveTo(w.x1, w.y1).lineTo(w.x1 + dx, w.y1 + dy);
+        g.moveTo(w.x2, w.y2).lineTo(w.x2 - dx, w.y2 - dy);
+        g.stroke({ width: 4, color: COLORS.door, alpha: 0.9 });
+      } else {
+        g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
+        g.stroke({ width: 6, color: w.door_state === "locked" ? COLORS.doorLocked : COLORS.door, alpha: 0.95 });
+      }
     }
     // Стену под курсором могли удалить или добавить рядом новую.
     if (this.tool === "erase") this.updateEraseHover();
@@ -707,6 +732,20 @@ export class SceneStage {
       // Мимо стен - панорама, как в режиме выбора.
     }
 
+    if (this.tool === "select" && e.button === 0) {
+      // Дверь под курсором - открыть или закрыть. Решает сервер: запертую
+      // игроку не откроет, ГМ с Shift запирает и отпирает.
+      const door = this.doorAt(p);
+      if (door) {
+        const next =
+          e.shiftKey && this.gm
+            ? door.door_state === "locked" ? "closed" : "locked"
+            : door.door_state === "open" ? "closed" : "open";
+        this.cb.onDoor(door.id, next);
+        return;
+      }
+    }
+
     if (e.button === 1 || e.button === 2 || this.tool === "select" || this.tool === "erase") {
       if (this.tool === "select" && e.button === 0) this.select(null);
       this.panning = {
@@ -804,7 +843,15 @@ export class SceneStage {
 
     if (this.tool === "wall" && this.wallStart) this.drawGhostWall();
     if (this.tool === "erase") this.updateEraseHover();
+    // Над дверью в режиме выбора - рука: её можно открыть. Только корню
+    // сцены: над токеном PixiJS сам возьмёт курсор токена.
+    if (this.tool === "select") this.app.stage.cursor = this.doorAt(this.pointerScene) ? "pointer" : "default";
   };
+
+  private doorAt(p: { x: number; y: number }): Wall | null {
+    const w = this.wallAt(p);
+    return w && w.kind === "door" ? w : null;
+  }
 
   private onPointerUp = () => {
     this.panning = null;

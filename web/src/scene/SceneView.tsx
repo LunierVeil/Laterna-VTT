@@ -71,7 +71,10 @@ export function SceneView({
       onRemoveToken: (id) => {
         socket.send("token.remove", { id });
       },
-      onAddWall: (x1, y1, x2, y2) => socket.send("wall.add", { x1, y1, x2, y2 }),
+      onAddWall: (x1, y1, x2, y2) => socket.send("wall.add", { x1, y1, x2, y2, kind: useUi.getState().wallKind }),
+      onDoor: (id, state) => {
+        socket.send("wall.door", { id, state });
+      },
       onRemoveWall: (id) => {
         socket.send("wall.remove", { id });
       },

@@ -28,6 +28,8 @@ interface UiState {
   combatOpen: boolean;
   /** ГМ ставит новые токены сразу скрытыми от игроков (засада). */
   placeHidden: boolean;
+  /** Что рисует инструмент "Стена": стену или дверь. */
+  wallKind: "wall" | "door";
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -68,6 +70,7 @@ interface UiState {
   setCombat: (c: Combat | null) => void;
   setCombatOpen: (v: boolean) => void;
   setPlaceHidden: (v: boolean) => void;
+  setWallKind: (v: "wall" | "door") => void;
 }
 
 /**
@@ -90,6 +93,7 @@ export const useUi = create<UiState>((set) => ({
   combat: null,
   combatOpen: false,
   placeHidden: false,
+  wallKind: "wall",
   tool: "select",
   messages: [],
   users: [],
@@ -139,4 +143,5 @@ export const useUi = create<UiState>((set) => ({
   setCombat: (combat) => set({ combat }),
   setCombatOpen: (combatOpen) => set({ combatOpen }),
   setPlaceHidden: (placeHidden) => set({ placeHidden }),
+  setWallKind: (wallKind) => set({ wallKind }),
 }));

@@ -9,10 +9,10 @@ import { CharactersMenu } from "./CharactersMenu";
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
 const TOOLS: { id: Tool; label: string; hint: string; gm?: boolean }[] = [
-  { id: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, по пустому месту - панорама, Delete - удалить свой токен" },
+  { id: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Delete - удалить свой токен" },
   { id: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },
-  { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену", gm: true },
+  { id: "wall", label: "Стена", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену. Дверь: Shift+клик в «Выборе» - запереть", gm: true },
   { id: "erase", label: "Стереть", hint: "Клик по стене - удалить", gm: true },
 ];
 
@@ -25,7 +25,7 @@ export function Toolbar({
   sceneId: string;
   onOpenScene: (id: string) => void;
 }) {
-  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me, combat, combatOpen, placeHidden } =
+  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me, combat, combatOpen, placeHidden, wallKind } =
     useUi();
   const hidden = isGm && activeSceneId !== null && sceneId !== activeSceneId;
   const hint = chaining
@@ -54,6 +54,19 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-tools">
+        {isGm && tool === "wall" && (
+          <span className="wall-kind" role="group" aria-label="что рисовать">
+            {(["wall", "door"] as const).map((k) => (
+              <button
+                key={k}
+                className={wallKind === k ? "tool tool-active" : "tool"}
+                onClick={() => useUi.getState().setWallKind(k)}
+              >
+                {k === "wall" ? "стена" : "дверь"}
+              </button>
+            ))}
+          </span>
+        )}
         {isGm && tool === "token" && (
           <label className="place-hidden" title="новые токены сразу скрыты от игроков - засада">
             <input type="checkbox" checked={placeHidden} onChange={(e) => useUi.getState().setPlaceHidden(e.target.checked)} />

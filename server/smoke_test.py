@@ -294,6 +294,29 @@ async def main() -> int:
             assert ev_pl["name"] == "noop", ev_pl  # удаление скрытого - тоже не видно
     print("слой ГМ: скрытый токен игроку - пустое событие и нет в снапшоте; показ/скрытие - added/removed; засада не в трекере")
 
+    # Двери: закрытая и запертая блокируют, открывает любой, запирает ГМ.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        async def run(ws, cid, name, payload):
+            await cmd(ws, cid, name, payload)
+            return await recv_until(ws, lambda m: m.get("cmd_id") == cid)
+
+        door = (await run(gm, "d1", "wall.add", {"x1": 280, "y1": 560, "x2": 280, "y2": 630, "kind": "door"}))["payload"]["wall"]
+        tok = (await run(pl, "d2", "token.add", {"x": 245, "y": 595}))["payload"]["token"]
+        try:
+            assert (await run(pl, "d3", "token.move", {"id": tok["id"], "x": 315, "y": 595}))["type"] == "error"
+            assert (await run(pl, "d4", "wall.door", {"id": door["id"], "state": "open"}))["type"] == "event"
+            assert (await run(pl, "d5", "token.move", {"id": tok["id"], "x": 315, "y": 595}))["type"] == "event"
+            assert (await run(pl, "d6", "token.move", {"id": tok["id"], "x": 245, "y": 595}))["type"] == "event"
+            assert (await run(gm, "d7", "wall.door", {"id": door["id"], "state": "locked"}))["type"] == "event"
+            err = await run(pl, "d8", "wall.door", {"id": door["id"], "state": "open"})
+            assert err["type"] == "error" and "заперта" in err["message"], err
+            assert (await run(pl, "d9", "token.move", {"id": tok["id"], "x": 315, "y": 595}))["type"] == "error"
+        finally:
+            await run(pl, "d10", "token.remove", {"id": tok["id"]})
+            await run(gm, "d11", "wall.remove", {"id": door["id"]})
+    print("двери: закрытая и запертая не пускают, открытая пускает; запереть и отпереть может только ГМ")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:
