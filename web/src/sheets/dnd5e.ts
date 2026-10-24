@@ -20,6 +20,10 @@ export const dnd5e: SheetSchema = {
       { key: "proficiency", label: "Мастерство", kind: "number" },
     ],
   },
+  token: {
+    bar: { current: "vitals.hp.current", max: "vitals.hp.max" },
+    badge: { key: "vitals.ac", label: "КД" },
+  },
   tabs: [
     {
       id: "main",

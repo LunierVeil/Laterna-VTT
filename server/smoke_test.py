@@ -187,6 +187,16 @@ async def main() -> int:
             async with httpx.AsyncClient(headers=player_auth) as client:
                 ids = [c["id"] for c in (await client.get(f"{BASE}/api/characters")).json()]
             assert char_id not in ids, "игрок видит чужой лист"
+            # Привязать свой токен к чужому листу игрок не может.
+            await cmd(pl, "ch2b", "token.add", {"x": 35, "y": 35})
+            tok_id = (await recv_until(pl, lambda m: m.get("name") == "token.added"))["payload"]["token"]["id"]
+            await cmd(pl, "ch2c", "token.update", {"id": tok_id, "character_id": char_id})
+            err = await recv_until(pl, lambda m: m.get("type") == "error" and m.get("cmd_id") == "ch2c")
+            assert "нет такого" in err["message"], err
+            await cmd(gm, "ch2d", "token.update", {"id": tok_id, "character_id": char_id})
+            linked = await recv_until(gm, lambda m: m.get("name") == "token.updated")
+            assert linked["payload"]["token"]["character_id"] == char_id, linked
+            await cmd(gm, "ch2e", "token.remove", {"id": tok_id})
             await cmd(gm, "ch3", "character.update", {"id": char_id, "set": {"vitals.hp.current": 7}})
             # Первым мог прийти лист сразу после создания - ждём именно правку.
             saved = await recv_until(
@@ -196,7 +206,7 @@ async def main() -> int:
         finally:
             await cmd(gm, "ch4", "character.delete", {"id": char_id})
             await recv_until(gm, lambda m: m.get("type") == "character_deleted")
-    print("чужой лист игрок не видит и не правит, ГМ правит")
+    print("чужой лист игрок не видит, не правит и не привязывает к токену; ГМ - может")
 
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)

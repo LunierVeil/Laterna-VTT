@@ -88,6 +88,19 @@ async def _campaign_user(db: AsyncSession, campaign_id: str, user_id: object) ->
     return user.id
 
 
+async def _visible_character(db: AsyncSession, campaign_id: str, actor: Actor, char_id: object) -> str | None:
+    """Привязать токен можно к своему персонажу, ГМ - к любому. None - отвязать."""
+    if char_id is None:
+        return None
+    character = await db.get(Character, str(char_id))
+    # Чужой лист - "нет такого", как и в командах листа: не выдаём, что он есть.
+    if character is None or character.campaign_id != campaign_id or not (
+        actor.is_gm or character.owner_id == actor.id
+    ):
+        raise CommandError("нет такого персонажа")
+    return character.id
+
+
 async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     # Владельцем другого может поставить только ГМ: иначе игрок создавал
     # бы токены от чужого имени. Остальным - всегда они сами.
@@ -154,6 +167,8 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         # смог бы двигать и удалять любой.
         _require_gm(actor, "менять владельца может только ГМ")
         token.owner_id = await _campaign_user(db, scene.campaign_id, payload["owner_id"])
+    if "character_id" in payload:
+        token.character_id = await _visible_character(db, scene.campaign_id, actor, payload["character_id"])
     if "size" in payload:
         size = _clamp(_num(payload, "size"), 0.25, 10)
         # Держим на месте левый верхний угол, а не центр: иначе токен 2x2
@@ -480,6 +495,8 @@ async def character_reimport(db: AsyncSession, campaign: Campaign, actor: Actor,
 async def character_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     character = await _own_character(db, campaign, actor, payload.get("id"))
     owner_id = character.owner_id
+    # Токены остаются, просто без листа. FK в SQLite не включены - явно.
+    await db.execute(update(Token).where(Token.character_id == character.id).values(character_id=None))
     await db.delete(character)
     await db.flush()
     return "character.deleted", {"id": character.id, "owner_id": owner_id}

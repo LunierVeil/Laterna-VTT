@@ -39,6 +39,18 @@ export interface StageCallbacks {
   onSelect: (token: Token | null) => void;
   /** Рисуется ли сейчас цепочка стен - для подсказки в интерфейсе. */
   onChainChange: (active: boolean) => void;
+  /** Двойной клик по токену - открыть его лист. */
+  onOpenToken: (token: Token) => void;
+}
+
+/**
+ * Что показать на токене из привязанного листа. Приходит из React (листы
+ * живут там) по id персонажа; у кого листа нет - у того и полоски нет.
+ */
+export interface CharacterStats {
+  hp?: number;
+  max?: number;
+  badge?: string;
 }
 
 interface TokenView {
@@ -46,6 +58,10 @@ interface TokenView {
   node: Container;
   body: Graphics;
   label: Text;
+  /** Значок на токене (КД). */
+  badge: Text;
+  /** Время прошлого нажатия - для двойного клика. */
+  lastDown: number;
 }
 
 /**
@@ -94,6 +110,7 @@ export class SceneStage {
 
   // ГМ может стирать любые стены. Решает сервер, это только для подсветки.
   private gm = false;
+  private stats = new Map<string, CharacterStats>();
 
   /** me - id пользователя этого клиента: по нему видно, что своё. */
   constructor(
@@ -104,6 +121,13 @@ export class SceneStage {
   /** То же правило, что _require_owner на сервере: своё, общее или ГМ. */
   private canEdit(ownerId: string | null) {
     return this.gm || ownerId === null || ownerId === this.me;
+  }
+
+  /** Хиты и КД из листов: characterId -> что показать. */
+  setCharacterStats(stats: Map<string, CharacterStats>) {
+    if (this.destroyed) return;
+    this.stats = stats;
+    for (const view of this.tokens.values()) if (view.data.character_id) this.redrawToken(view);
   }
 
   setGm(gm: boolean) {
@@ -290,12 +314,17 @@ export class SceneStage {
       style: { fill: COLORS.label, fontSize: 13, fontFamily: "system-ui, sans-serif" },
     });
     label.anchor.set(0.5, 0);
-    node.addChild(body, label);
+    const badge = new Text({
+      text: "",
+      style: { fill: 0xffffff, fontSize: 11, fontWeight: "700", fontFamily: "system-ui, sans-serif" },
+    });
+    badge.anchor.set(0.5);
+    node.addChild(body, label, badge);
 
     node.eventMode = "static";
     node.cursor = "pointer";
 
-    const view: TokenView = { data, node, body, label };
+    const view: TokenView = { data, node, body, label, badge, lastDown: 0 };
     node.on("pointerdown", (e: FederatedPointerEvent) => this.onTokenDown(e, view));
 
     this.tokens.set(data.id, view);
@@ -339,6 +368,26 @@ export class SceneStage {
     view.body.circle(0, 0, r).stroke({ width: 2, color: 0x000000, alpha: 0.4 });
     if (this.selectedId === view.data.id) {
       view.body.circle(0, 0, r + 4).stroke({ width: 2.5, color: COLORS.selection });
+    }
+
+    // Хиты и КД из листа - если лист этому клиенту виден.
+    const stats = view.data.character_id ? this.stats.get(view.data.character_id) : undefined;
+    if (stats?.hp !== undefined && stats.max) {
+      const w = 2 * r;
+      const ratio = Math.max(0, Math.min(1, stats.hp / stats.max));
+      const color = ratio > 0.5 ? 0x6cc070 : ratio > 0.25 ? 0xe0b84a : 0xd9534f;
+      view.body.roundRect(-r, -r - 10, w, 6, 3).fill({ color: 0x000000, alpha: 0.6 });
+      if (ratio > 0) view.body.roundRect(-r, -r - 10, w * ratio, 6, 3).fill({ color });
+    }
+    if (stats?.badge) {
+      const bx = r * 0.75;
+      const by = -r * 0.75;
+      view.body.circle(bx, by, 11).fill({ color: 0x2b3a55 }).stroke({ width: 1.5, color: 0x9fc3ff });
+      view.badge.text = stats.badge;
+      view.badge.position.set(bx, by);
+      view.badge.visible = true;
+    } else {
+      view.badge.visible = false;
     }
 
     view.label.position.set(0, r + 4);
@@ -503,6 +552,15 @@ export class SceneStage {
   private onTokenDown = (e: FederatedPointerEvent, view: TokenView) => {
     if (this.tool !== "select") return;
     e.stopPropagation();
+    // Двойной клик - открыть лист. Одиночный выбирает и тащит: лист,
+    // выскакивающий на каждом ходе, мешал бы.
+    const now = performance.now();
+    if (now - view.lastDown < 350) {
+      view.lastDown = 0;
+      this.cb.onOpenToken(view.data);
+      return;
+    }
+    view.lastDown = now;
     this.select(view.data.id);
     // Чужой токен выбрать можно (посмотреть), тащить - нет: сервер всё
     // равно откажет, и токен отскочил бы назад. Решает сервер, это - чтобы

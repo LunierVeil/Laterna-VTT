@@ -373,3 +373,6 @@ a.card-badge { color: var(--accent); }
 .counter-cell .tool { padding: 1px 8px; }
 .counter-value { display: inline-block; min-width: 6ch; text-align: center; font-weight: 600; }
 .rest-buttons { display: flex; gap: 6px; margin-top: 6px; }
+
+.token-link { display: flex; gap: 6px; }
+.token-link select { flex: 1; min-width: 0; }

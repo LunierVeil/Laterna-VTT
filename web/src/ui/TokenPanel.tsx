@@ -43,6 +43,43 @@ export function TokenPanel({ socket }: { socket: SceneSocket }) {
   );
 }
 
+/**
+ * Привязка токена к листу. В списке - только видимые этому клиенту листы:
+ * игроку свои, ГМ все (сервер проверяет то же самое).
+ */
+function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
+  const characters = useUi((s) => s.characters);
+  const linked = token.character_id ? characters[token.character_id] : undefined;
+  const list = Object.values(characters);
+  return (
+    <div className="token-link">
+      <select
+        aria-label="Персонаж токена"
+        value={token.character_id ?? ""}
+        onChange={(e) => {
+          const id = e.target.value || null;
+          // Привязали - токен берёт имя персонажа: на карте сразу видно, кто это.
+          const payload: Record<string, unknown> = { id: token.id, character_id: id };
+          if (id && characters[id]) payload.name = characters[id].name;
+          socket.send("token.update", payload);
+        }}
+      >
+        <option value="">без листа</option>
+        {list.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      {linked && (
+        <button className="tool" title="или двойной клик по токену" onClick={() => useUi.getState().openCharacter(linked.id)}>
+          Лист
+        </button>
+      )}
+    </div>
+  );
+}
+
 function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
   const [name, setName] = useState(token.name);
   const input = useRef<HTMLInputElement>(null);
@@ -145,6 +182,7 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
           <input ref={picker} type="color" className="swatch-picker" defaultValue={token.color} />
         </label>
       </div>
+      <CharacterLink token={token} socket={socket} />
       <div className="sizes">
         {SIZES.map((s) => (
           <button

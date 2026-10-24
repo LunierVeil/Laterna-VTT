@@ -147,6 +147,11 @@ class Token(Base):
     owner_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Лист персонажа, которого изображает токен: хиты и КД на токене - из
+    # него. Видят их только те, кому виден лист (владелец и ГМ).
+    character_id: Mapped[str | None] = mapped_column(
+        ForeignKey("characters.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Пока не используется. Понадобится на этапе освещения.
     vision_range: Mapped[float] = mapped_column(Float, default=0.0)
@@ -165,6 +170,7 @@ class Token(Base):
             "image_url": self.image_url,
             "layer": self.layer,
             "owner_id": self.owner_id,
+            "character_id": self.character_id,
             "vision_range": self.vision_range,
             "emits_light": self.emits_light,
         }

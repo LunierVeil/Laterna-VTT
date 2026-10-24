@@ -1,7 +1,38 @@
 import { useEffect, useRef } from "react";
-import { SceneStage } from "./stage";
+import { SceneStage, type CharacterStats } from "./stage";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
+import { SHEETS } from "../sheets/dnd5e";
+import type { Character } from "../types";
+
+function at(data: unknown, path: string): unknown {
+  let node = data as any;
+  for (const part of path.split(".")) {
+    if (node == null || typeof node !== "object") return undefined;
+    node = node[part];
+  }
+  return node;
+}
+
+/**
+ * Хиты и КД для токенов - из листов, которые этому клиенту видны. Что брать,
+ * говорит схема листа (token); чужих листов здесь нет, значит и полосок нет.
+ */
+function statsOf(characters: Record<string, Character>): Map<string, CharacterStats> {
+  const out = new Map<string, CharacterStats>();
+  for (const c of Object.values(characters)) {
+    const view = SHEETS[c.system]?.token;
+    if (!view) continue;
+    const num = (p: string) => (typeof at(c.data, p) === "number" ? (at(c.data, p) as number) : undefined);
+    const badge = at(c.data, view.badge.key);
+    out.set(c.id, {
+      hp: num(view.bar.current),
+      max: num(view.bar.max),
+      badge: badge == null || badge === "" ? undefined : String(badge),
+    });
+  }
+  return out;
+}
 
 export function SceneView({
   socket,
@@ -15,6 +46,7 @@ export function SceneView({
   const host = useRef<HTMLDivElement>(null);
   const tool = useUi((s) => s.tool);
   const isGm = useUi((s) => s.isGm);
+  const characters = useUi((s) => s.characters);
 
   useEffect(() => {
     const stage = new SceneStage({
@@ -41,8 +73,17 @@ export function SceneView({
       onSelect: (t) =>
         useUi
           .getState()
-          .setSelected(t ? { id: t.id, name: t.name, color: t.color, owner_id: t.owner_id, size: t.size } : null),
+          .setSelected(
+            t
+              ? { id: t.id, name: t.name, color: t.color, owner_id: t.owner_id, size: t.size, character_id: t.character_id }
+              : null,
+          ),
       onChainChange: (active) => useUi.getState().setChaining(active),
+      onOpenToken: (t) => {
+        // Лист открывается, только если он этому клиенту виден.
+        const ui = useUi.getState();
+        if (t.character_id && ui.characters[t.character_id]) ui.openCharacter(t.character_id);
+      },
     }, useUi.getState().me!.id);
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
@@ -58,6 +99,7 @@ export function SceneView({
         stageRef.current = stage;
         stage.setTool(useUi.getState().tool);
         stage.setGm(useUi.getState().isGm);
+        stage.setCharacterStats(statsOf(useUi.getState().characters));
         onReady(stage);
       })
       .catch((e) => console.error("не удалось поднять сцену", e));
@@ -76,6 +118,11 @@ export function SceneView({
   useEffect(() => {
     stageRef.current?.setGm(isGm);
   }, [isGm, stageRef]);
+
+  // Лист поменялся (урон, правка КД) - полоска на токене за ним.
+  useEffect(() => {
+    stageRef.current?.setCharacterStats(statsOf(characters));
+  }, [characters, stageRef]);
 
   return <div className="scene" ref={host} />;
 }

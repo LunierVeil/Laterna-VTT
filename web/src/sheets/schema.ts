@@ -123,10 +123,20 @@ export interface Tab {
   blocks: Block[];
 }
 
+/**
+ * Что рисовать на токене, привязанном к листу: полоску (хиты) и значок
+ * (КД). Видно только тем, кому виден лист.
+ */
+export interface TokenView {
+  bar: { current: string; max: string };
+  badge: { key: string; label: string };
+}
+
 export interface SheetSchema {
   id: string;
   title: string;
   summary: Summary;
+  token?: TokenView;
   /** Первая вкладка - та, что нужна в бою. */
   tabs: Tab[];
 }

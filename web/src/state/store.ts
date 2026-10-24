@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Character, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
-export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner_id" | "size">;
+export type SelectedToken = Pick<Token, "id" | "name" | "color" | "owner_id" | "size" | "character_id">;
 
 interface UiState {
   /** Кто вошёл - по ответу сервера. null - экран входа. */

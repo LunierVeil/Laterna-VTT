@@ -9,6 +9,8 @@ export interface Token {
   layer: string;
   /** id пользователя; null - общий. */
   owner_id: string | null;
+  /** Лист, которого изображает токен. Хиты и КД - из него. */
+  character_id: string | null;
   vision_range: number;
   emits_light: number;
 }
