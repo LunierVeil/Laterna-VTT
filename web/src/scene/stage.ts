@@ -2,17 +2,17 @@ import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture
 import type { Combat, Scene, Token, Wall, Tool } from "../types";
 
 const COLORS = {
-  background: 0x15161a,
-  sceneFill: 0x1e2027,
-  grid: 0x2e3340,
-  gridMajor: 0x3c4356,
-  wall: 0xd0d5e0,
+  background: 0x121318,
+  sceneFill: 0x2a2620,
+  grid: 0x1f1c18,
+  gridMajor: 0x16140f,
+  wall: 0xe7e1d4,
   door: 0x6fa8dc,
   doorLocked: 0xd9534f,
-  wallGhost: 0xffb562,
-  selection: 0xffd166,
+  wallGhost: 0xf0b14a,
+  selection: 0xf0b14a,
   turn: 0xff8c42,
-  label: 0xe8e8ec,
+  label: 0xe9e6df,
   eraseOwn: 0xe0605a,
   eraseForeign: 0x8b90a0,
 };
