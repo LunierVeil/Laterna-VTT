@@ -36,7 +36,7 @@ export interface StageCallbacks {
   /** Клик по двери в режиме выбора: открыть/закрыть, у ГМ с Shift - запереть. */
   onDoor: (id: string, state: "open" | "closed" | "locked") => void;
   /**
-   * Выбранный токен для панели свойств. Зовётся при выборе и при
+   * Выбранный токен для карточки токена. Зовётся при выборе и при
    * token.updated выбранного, но не при перемещении - иначе драг
    * потащит за собой ререндер React.
    */
@@ -80,8 +80,10 @@ interface TokenView {
   /** Поверх картинки: обводка, выделение, полоска хитов, значок. */
   body: Graphics;
   label: Text;
-  /** Значок на токене (КД). */
+  /** Значок на токене (КД) - правый нижний угол. */
   badge: Text;
+  /** Хиты числом поверх полоски. */
+  hpText: Text;
   /** Время прошлого нажатия - для двойного клика. */
   lastDown: number;
 }
@@ -125,6 +127,13 @@ export class SceneStage {
 
   private tool: Tool = "select";
   private selectedId: string | null = null;
+  /**
+   * Куда прикрепить карточку выбранного токена: экранные координаты центра
+   * и радиус. Карточка двигает свой DOM-узел сама, мимо React, - иначе
+   * перетаскивание токена гоняло бы ререндер на каждый кадр.
+   */
+  private anchorListener: ((a: { x: number; y: number; r: number } | null) => void) | null = null;
+  private lastAnchor = "";
 
   // grab - где внутри токена его взяли, чтобы большой токен не прыгал
   // центром под курсор.
@@ -239,7 +248,30 @@ export class SceneStage {
 
     this.drawBackground();
     this.drawGrid();
+    this.app.ticker.add(this.tickAnchor);
   }
+
+  /** Подписка на положение выбранного токена на экране; null - отписаться. */
+  setAnchorListener(cb: ((a: { x: number; y: number; r: number } | null) => void) | null) {
+    this.anchorListener = cb;
+    this.lastAnchor = "";
+  }
+
+  private tickAnchor = () => {
+    if (!this.anchorListener) return;
+    const view = this.selectedId ? this.tokens.get(this.selectedId) : undefined;
+    if (!view) {
+      if (this.lastAnchor !== "none") this.anchorListener(null);
+      this.lastAnchor = "none";
+      return;
+    }
+    const p = view.node.getGlobalPosition();
+    const r = ((view.data.size * this.gridSize) / 2) * this.world.scale.x;
+    const key = `${Math.round(p.x)},${Math.round(p.y)},${Math.round(r)}`;
+    if (key === this.lastAnchor) return;
+    this.lastAnchor = key;
+    this.anchorListener({ x: p.x, y: p.y, r });
+  };
 
   /**
    * Безопасно в любой момент, в том числе до того, как app.init()
@@ -385,20 +417,37 @@ export class SceneStage {
     const body = new Graphics();
     const label = new Text({
       text: data.name,
-      style: { fill: COLORS.label, fontSize: 13, fontFamily: "system-ui, sans-serif" },
+      style: {
+        fill: COLORS.label,
+        fontSize: 13,
+        fontWeight: "500",
+        fontFamily: "IBM Plex Sans, system-ui, sans-serif",
+        stroke: { color: 0x000000, width: 3 },
+      },
     });
     label.anchor.set(0.5, 0);
     const badge = new Text({
       text: "",
-      style: { fill: 0xffffff, fontSize: 11, fontWeight: "700", fontFamily: "system-ui, sans-serif" },
+      style: { fill: 0xffffff, fontSize: 11, fontWeight: "700", fontFamily: "IBM Plex Mono, monospace" },
     });
     badge.anchor.set(0.5);
-    node.addChild(base, image, imageMask, body, label, badge);
+    const hpText = new Text({
+      text: "",
+      style: {
+        fill: 0xffffff,
+        fontSize: 11,
+        fontWeight: "600",
+        fontFamily: "IBM Plex Mono, monospace",
+        stroke: { color: 0x000000, width: 2.5 },
+      },
+    });
+    hpText.anchor.set(0.5);
+    node.addChild(base, image, imageMask, body, label, badge, hpText);
 
     node.eventMode = "static";
     node.cursor = "pointer";
 
-    const view: TokenView = { data, node, base, image, imageMask, imageUrl: null, body, label, badge, lastDown: 0 };
+    const view: TokenView = { data, node, base, image, imageMask, imageUrl: null, body, label, badge, hpText, lastDown: 0 };
     node.on("pointerdown", (e: FederatedPointerEvent) => this.onTokenDown(e, view));
 
     this.tokens.set(data.id, view);
@@ -489,26 +538,42 @@ export class SceneStage {
     }
 
     // Хиты и КД из листа - если лист этому клиенту виден.
+    // Полоска хитов - поперёк нижнего края токена, с числом; КД - щит в
+    // правом нижнем углу; имя - под токеном, ниже кольца хода.
     const stats = view.data.character_id ? this.stats.get(view.data.character_id) : undefined;
-    if (stats?.hp !== undefined && stats.max) {
-      const w = 2 * r;
-      const ratio = Math.max(0, Math.min(1, stats.hp / stats.max));
-      const color = ratio > 0.5 ? 0x6cc070 : ratio > 0.25 ? 0xe0b84a : 0xd9534f;
-      view.body.roundRect(-r, -r - 10, w, 6, 3).fill({ color: 0x000000, alpha: 0.6 });
-      if (ratio > 0) view.body.roundRect(-r, -r - 10, w * ratio, 6, 3).fill({ color });
+    const hasBar = stats?.hp !== undefined && !!stats.max;
+    if (hasBar) {
+      const w = Math.max(44, 1.6 * r);
+      const h = 14;
+      const y = r - h / 2;
+      const ratio = Math.max(0, Math.min(1, stats!.hp! / stats!.max!));
+      const color = ratio > 0.5 ? 0x4f9a52 : ratio > 0.25 ? 0xc29a32 : 0xb8443f;
+      view.body.roundRect(-w / 2, y, w, h, 4).fill({ color: 0x111216, alpha: 0.9 });
+      if (ratio > 0) view.body.roundRect(-w / 2, y, w * ratio, h, 4).fill({ color });
+      view.body.roundRect(-w / 2, y, w, h, 4).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
+      view.hpText.text = `${stats!.hp}/${stats!.max}`;
+      view.hpText.position.set(0, r);
+      view.hpText.visible = true;
+    } else {
+      view.hpText.visible = false;
     }
     if (stats?.badge) {
-      const bx = r * 0.75;
-      const by = -r * 0.75;
-      view.body.circle(bx, by, 11).fill({ color: 0x2b3a55 }).stroke({ width: 1.5, color: 0x9fc3ff });
+      // Щит: над полоской хитов, чтобы не перекрывать число.
+      const bx = r * 0.78;
+      const by = r * 0.78 - (hasBar ? 9 : 0);
+      view.body
+        .poly([bx - 10, by - 10, bx + 10, by - 10, bx + 10, by + 1, bx, by + 11, bx - 10, by + 1])
+        .fill({ color: 0x1f2129 })
+        .stroke({ width: 1.5, color: 0x9fc3ff });
       view.badge.text = stats.badge;
-      view.badge.position.set(bx, by);
+      view.badge.position.set(bx, by - 1);
       view.badge.visible = true;
     } else {
       view.badge.visible = false;
     }
 
-    view.label.position.set(0, r + 4);
+    const turn = this.currentTurnToken === view.data.id;
+    view.label.position.set(0, r + (turn ? 12 : hasBar ? 8 : 4));
     // Скрытый от игроков токен ГМ видит полупрозрачным - чтобы не забыть,
     // что игроки его не видят. Игрокам такие токены не приходят вовсе.
     view.node.alpha = view.data.layer === "gm" ? 0.5 : 1;

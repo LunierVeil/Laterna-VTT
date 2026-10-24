@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useUi, type SelectedToken } from "../state/store";
 import { uploadImage } from "../net/upload";
 import type { SceneSocket } from "../net/socket";
+import type { SceneStage } from "../scene/stage";
+import { SHEETS } from "../sheets/dnd5e";
+import { at, characterStats } from "../sheets/tokenStats";
+import { HpWidget } from "../sheets/CharacterSheet";
+import { Icon } from "./icons";
 
 const PALETTE = [
   "#c75c5c", "#d98e48", "#d4c05a", "#6cae5f", "#4fa3a5",
@@ -15,30 +20,142 @@ const SIZES = [
 ];
 
 /**
- * Свойства выбранного токена. Ничего не меняет сама - шлёт token.update
- * и показывает то, что пришло обратно от сервера.
+ * Карточка выбранного токена - над ним на карте, как в макете. Ничего не
+ * меняет сама: токен - token.update, хиты - character.update; показывает
+ * то, что вернул сервер.
  */
-export function TokenPanel({ socket }: { socket: SceneSocket }) {
+export function TokenCard({
+  socket,
+  stageRef,
+}: {
+  socket: SceneSocket;
+  stageRef: React.MutableRefObject<SceneStage | null>;
+}) {
   const selected = useUi((s) => s.selected);
   const me = useUi((s) => s.me);
   const isGm = useUi((s) => s.isGm);
   const accounts = useUi((s) => s.accounts);
+  const character = useUi((s) => (selected?.character_id ? s.characters[selected.character_id] : undefined));
+  const [settings, setSettings] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSettings(false);
+    setConfirmDelete(false);
+  }, [selected?.id]);
+
+  // Положение - мимо React: стейдж зовёт это, когда токен сдвинулся на экране.
+  useEffect(() => {
+    const stage = stageRef.current;
+    const el = root.current;
+    if (!stage || !el || !selected) return;
+    stage.setAnchorListener((a) => {
+      if (!a) return;
+      const area = el.parentElement!.getBoundingClientRect();
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const gap = 12;
+      const clamp = (v: number, max: number) => Math.max(8, Math.min(max - 8, v));
+      let left = clamp(a.x - w / 2, area.width - w);
+      // Над токеном; не влезает - под ним (ниже имени); и там нет - сбоку.
+      let top = a.y - a.r - gap - h;
+      if (top < 8) {
+        top = a.y + a.r + gap + 14;
+        if (top + h > area.height - 8) {
+          top = clamp(a.y - h / 2, area.height - h);
+          left = a.x + a.r + gap + w <= area.width - 8 ? a.x + a.r + gap : clamp(a.x - a.r - gap - w, area.width - w);
+        }
+      }
+      el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+      el.style.visibility = "visible";
+    });
+    return () => stage.setAnchorListener(null);
+  }, [stageRef, selected?.id, settings, confirmDelete]);
+
   if (!selected) return null;
 
   const mine = selected.owner_id === null || selected.owner_id === me?.id;
   const ownerName = accounts.find((a) => a.id === selected.owner_id)?.name ?? "?";
   // ГМ правит любой токен, но видит, чей он.
   const editable = mine || isGm;
+  const schema = character ? SHEETS[character.system] : undefined;
+  const stats = character ? characterStats(character) : null;
+  const subtitle = schema && character ? schema.summary.subtitle.map((p) => at(character.data, p)).filter((v) => v != null && v !== "").join(" ") : "";
+  const tile = (label: string, value: unknown) => (
+    <div className="card-stat">
+      <span className="card-stat-label">{label}</span>
+      <span className="card-stat-value">{value == null || value === "" ? "—" : String(value)}</span>
+    </div>
+  );
+
   return (
-    <div className="token-panel">
-      {!mine && isGm && <div className="muted">токен игрока {ownerName}</div>}
-      {editable ? (
-        <TokenEditor key={selected.id} token={selected} socket={socket} />
-      ) : (
+    <div className="token-card" ref={root} style={{ visibility: "hidden" }}>
+      <div className="token-card-head">
+        <strong className="token-card-name" title={selected.name}>
+          {selected.name}
+        </strong>
+        <span className="muted token-card-sub">{subtitle || (!mine ? ownerName : "")}</span>
+      </div>
+
+      {character && stats && (
         <>
-          <div className="token-panel-name">{selected.name}</div>
-          <div className="muted">токен игрока {ownerName}, менять нельзя</div>
+          <div className="card-stats">
+            {tile("Хиты", stats.hp !== undefined ? `${stats.hp}${stats.max ? `/${stats.max}` : ""}` : undefined)}
+            {tile(SHEETS[character.system]?.token?.badge.label ?? "КД", stats.badge)}
+            {tile("Скор.", stats.speed)}
+          </div>
+          {schema && (
+            <HpWidget
+              schema={schema}
+              data={character.data}
+              set={(path, value) => socket.send("character.update", { id: character.id, set: { [path]: value } })}
+            />
+          )}
         </>
+      )}
+      {!character && editable && <p className="muted token-card-note">Без листа. Привязать - в настройках.</p>}
+      {!editable && <p className="muted token-card-note">Токен {ownerName}, менять нельзя.</p>}
+
+      <div className="token-card-actions">
+        {character && (
+          <button className="btn btn-accent grow" title="или двойной клик по токену" onClick={() => useUi.getState().openCharacter(character.id)}>
+            Открыть лист
+          </button>
+        )}
+        {editable && (
+          <button
+            className={settings ? "icon-btn icon-btn-box btn-on" : "icon-btn icon-btn-box"}
+            title="настройки токена"
+            aria-label="настройки токена"
+            aria-pressed={settings}
+            onClick={() => setSettings((v) => !v)}
+          >
+            <Icon name="gear" size={18} />
+          </button>
+        )}
+        {editable &&
+          (confirmDelete ? (
+            <button className="btn tool-danger" onClick={() => socket.send("token.remove", { id: selected.id })}>
+              Удалить?
+            </button>
+          ) : (
+            <button
+              className="icon-btn icon-btn-box"
+              title="удалить токен (Delete)"
+              aria-label="удалить токен"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Icon name="trash" size={18} />
+            </button>
+          ))}
+      </div>
+
+      {editable && settings && (
+        <div className="token-card-settings">
+          {!mine && isGm && <div className="muted">токен игрока {ownerName}</div>}
+          <TokenEditor key={selected.id} token={selected} socket={socket} />
+        </div>
       )}
     </div>
   );
@@ -99,7 +216,6 @@ function TokenImage({ token, socket }: { token: SelectedToken; socket: SceneSock
 
 function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
   const characters = useUi((s) => s.characters);
-  const linked = token.character_id ? characters[token.character_id] : undefined;
   const list = Object.values(characters);
   return (
     <div className="token-link">
@@ -121,11 +237,6 @@ function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneS
           </option>
         ))}
       </select>
-      {linked && (
-        <button className="tool" title="или двойной клик по токену" onClick={() => useUi.getState().openCharacter(linked.id)}>
-          Лист
-        </button>
-      )}
     </div>
   );
 }
@@ -201,7 +312,6 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
       >
         <input
           ref={input}
-          className="token-panel-input"
           value={name}
           maxLength={200}
           onChange={(e) => {

@@ -676,7 +676,7 @@ function SearchResults({
 }
 
 /** Хиты: всегда на виду, с кнопками. Лечение не выше максимума. */
-function HpWidget({
+export function HpWidget({
   schema,
   data,
   set,

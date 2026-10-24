@@ -1,41 +1,8 @@
 import { useEffect, useRef } from "react";
-import { SceneStage, type CharacterStats } from "./stage";
+import { SceneStage } from "./stage";
+import { statsOf } from "../sheets/tokenStats";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
-import { SHEETS } from "../sheets/dnd5e";
-import type { Character } from "../types";
-
-function at(data: unknown, path: string): unknown {
-  let node = data as any;
-  for (const part of path.split(".")) {
-    if (node == null || typeof node !== "object") return undefined;
-    node = node[part];
-  }
-  return node;
-}
-
-/**
- * Хиты и КД для токенов - из листов, которые этому клиенту видны. Что брать,
- * говорит схема листа (token); чужих листов здесь нет, значит и полосок нет.
- */
-function statsOf(characters: Record<string, Character>): Map<string, CharacterStats> {
-  const out = new Map<string, CharacterStats>();
-  for (const c of Object.values(characters)) {
-    const view = SHEETS[c.system]?.token;
-    if (!view) continue;
-    const num = (p: string) => (typeof at(c.data, p) === "number" ? (at(c.data, p) as number) : undefined);
-    const badge = at(c.data, view.badge.key);
-    // Скорость в листе - текст ("30", "30 фт"): берём число в начале.
-    const speedRaw = view.speed ? String(at(c.data, view.speed) ?? "").match(/^\s*(\d+)/)?.[1] : undefined;
-    out.set(c.id, {
-      hp: num(view.bar.current),
-      max: num(view.bar.max),
-      badge: badge == null || badge === "" ? undefined : String(badge),
-      speed: speedRaw ? Number(speedRaw) : undefined,
-    });
-  }
-  return out;
-}
 
 export function SceneView({
   socket,

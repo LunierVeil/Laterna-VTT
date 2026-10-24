@@ -41,15 +41,34 @@ main { display: flex; flex: 1; min-height: 0; }
 .scene-area { flex: 1; min-width: 0; display: flex; position: relative; }
 .scene { flex: 1; min-width: 0; position: relative; overflow: hidden; }
 
-/* token panel */
-.token-panel {
-  position: absolute; top: 12px; left: 12px; width: 236px;
-  display: flex; flex-direction: column; gap: 8px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-  padding: 10px;
+/* карточка токена - над выбранным токеном, положение ставит стейдж */
+.token-card {
+  position: absolute; top: 0; left: 0; z-index: 6; width: 244px;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  max-height: calc(100% - 16px); overflow-y: auto;
 }
-.token-panel-name { font-weight: 600; }
-.token-panel-input { width: 100%; }
+.token-card-head { display: flex; align-items: baseline; gap: 8px; }
+.token-card-name { flex: 1; min-width: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.token-card-sub { font-size: 12px; white-space: nowrap; }
+.token-card-note { margin: 0; font-size: 12px; }
+.card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.card-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px; border-radius: 8px; background: var(--surface);
+}
+.card-stat-label { font-size: 11px; color: var(--muted); }
+.card-stat-value { font: 600 15px var(--mono); }
+/* Хиты числом - в плитке выше; здесь только изменить. */
+.token-card .hp-value { display: none; }
+.token-card .hp-amount { flex: 1; min-width: 0; text-align: center; order: 1; }
+.token-card .hp-widget .tool:last-of-type { order: 2; }
+.token-card .hp-widget .tool { width: 40px; height: 34px; padding: 0; }
+.token-card-actions { display: flex; gap: 6px; }
+.icon-btn.icon-btn-box { width: 40px; height: 40px; border-color: var(--line); background: var(--surface); }
+.token-card-settings { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.token-card-settings input:not([type]) { width: 100%; }
 .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
 .swatch {
   width: 22px; height: 22px; padding: 0; cursor: pointer;

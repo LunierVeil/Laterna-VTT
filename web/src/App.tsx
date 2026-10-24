@@ -6,7 +6,7 @@ import { TopBar } from "./ui/TopBar";
 import { ToolRail, ToolHint } from "./ui/ToolRail";
 import { Sidebar } from "./ui/Sidebar";
 import { ZoomControl } from "./ui/ZoomControl";
-import { TokenPanel } from "./ui/TokenPanel";
+import { TokenCard } from "./ui/TokenCard";
 import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
 import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
@@ -252,7 +252,7 @@ export default function App() {
         <ToolRail />
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
-          <TokenPanel socket={socket} />
+          <TokenCard socket={socket} stageRef={stageRef} />
           <InitiativePanel socket={socket} />
           <ToolHint />
           <ZoomControl stageRef={stageRef} />

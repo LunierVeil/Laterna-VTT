@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Character, Combat, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
 
-/** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
+/** Что нужно карточки токена. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
   Token,
   "id" | "name" | "color" | "owner_id" | "size" | "character_id" | "image_url" | "layer"
@@ -91,7 +91,7 @@ export type SideTab = "chat" | "scenes" | "players" | "characters";
  * на каждый кадр драга.
  *
  * Исключение - selected: имя, цвет, размер и владелец выбранного токена для
- * панели свойств. Обновляется только при выборе и token.updated.
+ * карточки токена. Обновляется только при выборе и token.updated.
  */
 export const useUi = create<UiState>((set) => ({
   me: null,
