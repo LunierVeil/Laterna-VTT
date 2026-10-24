@@ -433,7 +433,7 @@ function ViewBlock({
               const bonus = num ? get(data, `${block.path}.${item.key}.${num.key}`) : undefined;
               return (
                 <div key={item.key} className={on ? "view-check view-check-on" : "view-check"}>
-                  <span className="view-dot">{on ? "●" : "○"}</span>
+                  <span className={on ? "dot dot-on" : "dot"} aria-label={on ? "владение" : undefined} />
                   <span>{item.label}</span>
                   {item.hint && <span className="muted">{item.hint}</span>}
                   <span className="view-bonus">{signed(bonus)}</span>
@@ -527,6 +527,11 @@ function ViewBlock({
                               >
                                 +
                               </button>
+                            </td>
+                          ) : c.key === counter.rest && !isEmpty(row[c.key]) ? (
+                            // Какой отдых восстанавливает - плашкой, как в макете.
+                            <td key={c.key}>
+                              <span className={`rest-chip rest-${String(row[c.key])}`}>{show(c, row[c.key])}</span>
                             </td>
                           ) : (
                             <td key={c.key}>{show(c, row[c.key])}</td>
@@ -676,40 +681,22 @@ function SearchResults({
   );
 }
 
-/** Хиты: всегда на виду, с кнопками. Лечение не выше максимума. */
-export function HpWidget({
-  schema,
-  data,
-  set,
-}: {
-  schema: SheetSchema;
-  data: unknown;
-  set: (path: string, value: unknown) => void;
-}) {
+/**
+ * Урон и лечение: −, поле «±N», +. Лечение не выше максимума. Общее для
+ * листа и карточки токена (у моба хиты пишутся в токен - onSet другой).
+ */
+export function HpControls({ current, max, onSet }: { current?: number; max?: number; onSet: (v: number) => void }) {
   const [amount, setAmount] = useState("");
-  const hp = schema.summary.hp;
-  if (!hp) return null;
-  const cur = get(data, hp.current);
-  const max = get(data, hp.max);
-  const temp = hp.temp ? get(data, hp.temp) : undefined;
   const change = (delta: number) => {
-    const base = typeof cur === "number" ? cur : typeof max === "number" ? max : 0;
+    const base = current ?? max ?? 0;
     let next = base + delta;
-    if (typeof max === "number") next = Math.min(next, max);
-    set(hp.current, Math.max(-999, next));
+    if (max !== undefined) next = Math.min(next, max);
+    onSet(Math.max(-999, next));
   };
   return (
-    <div className="hp-widget">
-      <button className="tool" title="−1 хит" onClick={() => change(-1)}>
+    <div className="hp-controls">
+      <button className="tool" title="−1 хит" aria-label="−1 хит" onClick={() => change(-1)}>
         −
-      </button>
-      <span className="hp-value" title="хиты">
-        ♥ {typeof cur === "number" ? cur : "—"}
-        <span className="muted"> / {typeof max === "number" ? max : "—"}</span>
-        {typeof temp === "number" && temp > 0 && <span className="hp-temp"> +{temp}</span>}
-      </span>
-      <button className="tool" title="+1 хит" onClick={() => change(1)}>
-        +
       </button>
       <input
         className="hp-amount"
@@ -725,6 +712,46 @@ export function HpWidget({
           setAmount("");
         }}
       />
+      <button className="tool" title="+1 хит" aria-label="+1 хит" onClick={() => change(1)}>
+        +
+      </button>
+    </div>
+  );
+}
+
+const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+
+/** Плитка хитов в шапке листа: число, полоска, урон и лечение. */
+function HpTile({
+  schema,
+  data,
+  set,
+}: {
+  schema: SheetSchema;
+  data: unknown;
+  set: (path: string, value: unknown) => void;
+}) {
+  const hp = schema.summary.hp;
+  if (!hp) return null;
+  const cur = num(get(data, hp.current));
+  const max = num(get(data, hp.max));
+  const temp = hp.temp ? num(get(data, hp.temp)) : undefined;
+  const ratio = cur !== undefined && max ? Math.max(0, Math.min(1, cur / max)) : 0;
+  return (
+    <div className="tile tile-hp">
+      <span className="tile-label">Хиты</span>
+      <span className="tile-value">
+        {cur ?? "—"}
+        <span className="tile-max"> / {max ?? "—"}</span>
+        {temp !== undefined && temp > 0 && <span className="hp-temp"> +{temp}</span>}
+      </span>
+      <div className="hp-bar">
+        <div
+          className={ratio > 0.5 ? "hp-fill" : ratio > 0.25 ? "hp-fill hp-fill-mid" : "hp-fill hp-fill-low"}
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+      <HpControls current={cur} max={max} onSet={(v) => set(hp.current, v)} />
     </div>
   );
 }
@@ -870,11 +897,9 @@ export function CharacterSheet({ character, socket }: { character: Character; so
             ) : (
               <h2>{character.name}</h2>
             )}
-            <span className="muted">
-              {subtitle || schema?.title || character.system}
-              {/* Моб всегда мастерский - подпись "игрок" ему ни к чему. */}
-              {isGm && owner && character.system !== "mob" ? ` · игрок ${owner}` : ""}
-            </span>
+            <span className="sheet-sub">{subtitle || schema?.title || character.system}</span>
+            {/* Моб всегда мастерский - подпись "игрок" ему ни к чему. */}
+            {isGm && owner && character.system !== "mob" && <span className="muted sheet-owner">Игрок: {owner}</span>}
           </div>
           <span className="sheet-head-actions">
             <button className={editing ? "tool tool-active" : "tool"} onClick={() => setEditing((e) => !e)}>
@@ -887,16 +912,16 @@ export function CharacterSheet({ character, socket }: { character: Character; so
         </header>
 
         {schema && (
-          <div className="sheet-summary">
-            <HpWidget schema={schema} data={character.data} set={set} />
+          <div className="sheet-tiles">
+            <HpTile schema={schema} data={character.data} set={set} />
             {schema.summary.stats.map((f) => (
-              <div key={f.key} className="summary-stat">
-                <span className="summary-value">
+              <div key={f.key} className="tile">
+                <span className="tile-label">{f.label}</span>
+                <span className={f.key === "vitals.initiative" ? "tile-value tile-accent" : "tile-value"}>
                   {f.key === "vitals.initiative"
                     ? signed(get(character.data, f.key)) || "—"
                     : show(f, get(character.data, f.key))}
                 </span>
-                <span className="muted">{f.label}</span>
               </div>
             ))}
           </div>

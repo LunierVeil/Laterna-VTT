@@ -5,7 +5,7 @@ import type { SceneSocket } from "../net/socket";
 import type { SceneStage } from "../scene/stage";
 import { SHEETS } from "../sheets/dnd5e";
 import { at, characterStats } from "../sheets/tokenStats";
-import { HpWidget } from "../sheets/CharacterSheet";
+import { HpControls } from "../sheets/CharacterSheet";
 import { Icon } from "./icons";
 
 const PALETTE = [
@@ -109,17 +109,15 @@ export function TokenCard({
             {tile(SHEETS[character.system]?.token?.badge.label ?? "КД", stats.badge)}
             {tile("Скор.", stats.speed)}
           </div>
-          {isMob ? (
-            <TokenHp
+          {(isMob || schema?.token) && (
+            <HpControls
               current={hp}
               max={stats.max}
-              onSet={(v) => socket.send("token.update", { id: selected.id, hp: v })}
-            />
-          ) : schema && (
-            <HpWidget
-              schema={schema}
-              data={character.data}
-              set={(path, value) => socket.send("character.update", { id: character.id, set: { [path]: value } })}
+              onSet={(v) =>
+                isMob
+                  ? socket.send("token.update", { id: selected.id, hp: v })
+                  : socket.send("character.update", { id: character.id, set: { [schema!.token!.bar.current]: v } })
+              }
             />
           )}
         </>
@@ -166,41 +164,6 @@ export function TokenCard({
           <TokenEditor key={selected.id} token={selected} socket={socket} />
         </div>
       )}
-    </div>
-  );
-}
-
-/** Хиты экземпляра моба: тот же вид, что у листа, но пишет в токен. */
-function TokenHp({ current, max, onSet }: { current?: number; max?: number; onSet: (v: number) => void }) {
-  const [amount, setAmount] = useState("");
-  const change = (delta: number) => {
-    const base = current ?? max ?? 0;
-    let next = base + delta;
-    if (max !== undefined) next = Math.min(next, max);
-    onSet(Math.max(-999, next));
-  };
-  return (
-    <div className="hp-widget">
-      <button className="tool" title="−1 хит" onClick={() => change(-1)}>
-        −
-      </button>
-      <button className="tool" title="+1 хит" onClick={() => change(1)}>
-        +
-      </button>
-      <input
-        className="hp-amount"
-        placeholder="±N"
-        aria-label="изменить хиты на"
-        title="−7 - урон, 5 - лечение; Enter"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter") return;
-          const n = Number(amount.trim());
-          if (Number.isInteger(n) && n !== 0) change(n);
-          setAmount("");
-        }}
-      />
     </div>
   );
 }
