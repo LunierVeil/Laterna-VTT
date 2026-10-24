@@ -57,6 +57,18 @@ class Hub:
         for ws in dead:
             self.leave(scene_id, ws)
 
+    async def broadcast_each(self, scene_id: str, make) -> None:
+        """Каждому - своё сообщение: make(actor) -> dict. Для того, что
+        игроку и ГМ видно по-разному (скрытые токены, засады в бою)."""
+        dead: list[WebSocket] = []
+        for ws, actor in list(self._rooms.get(scene_id, {}).items()):
+            try:
+                await ws.send_json(make(actor))
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.leave(scene_id, ws)
+
     async def send(self, ws: WebSocket, message: dict) -> None:
         try:
             await ws.send_json(message)

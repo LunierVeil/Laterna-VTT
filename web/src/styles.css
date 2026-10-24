@@ -396,3 +396,5 @@ a.card-badge { color: var(--accent); }
 .init-roll { font-size: 11px; }
 .init-row .tool { padding: 1px 6px; }
 .initiative-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.token-hidden, .place-hidden { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }

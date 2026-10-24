@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from . import auth, protocol
 from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from .db import SessionLocal, get_session, init_db
-from .handlers import CAMPAIGN_HANDLERS, HANDLERS, CommandError
+from .handlers import CAMPAIGN_HANDLERS, HANDLERS, HIDDEN, CommandError
 from .hub import hub
 from .models import Campaign, Character, Invite, Message, Scene, User
 from .roles import Actor, gm_key_notice, is_gm_key
@@ -135,7 +135,37 @@ async def publish_campaign(db: AsyncSession, campaign: Campaign) -> None:
                 pass
 
 
-async def scene_snapshot(db: AsyncSession, scene_id: str) -> dict | None:
+def combat_for(combat: dict | None, actor: Actor) -> dict | None:
+    """Бой глазами получателя: игроку - без скрытых участников (засада)."""
+    if combat is None or actor.is_gm:
+        return combat
+    return {**combat, "entries": [e for e in combat["entries"] if not e.get("hidden")]}
+
+
+def event_for(actor: Actor, name: str, seq: int, payload: dict, hidden, cmd_id: str | None) -> dict:
+    """Событие сцены глазами получателя.
+
+    Токены слоя ГМ игроку не уходят. Но seq сцены у всех один, и если
+    просто не отправить событие, клиент увидит разрыв нумерации и
+    перезапросит весь снапшот. Поэтому - пустое событие с тем же seq:
+    порядок сохранён, содержимого нет.
+    """
+    if name == "combat.updated":
+        payload = {"combat": combat_for(payload["combat"], actor)}
+    if actor.is_gm or hidden is None:
+        return protocol.event(name, seq, payload, cmd_id)
+    before, after = hidden
+    if before and after:
+        return protocol.event("noop", seq, {}, None)
+    token_id = payload.get("id") or payload.get("token", {}).get("id")
+    if after:  # был виден - спрятали
+        return protocol.event("token.removed", seq, {"id": token_id}, cmd_id)
+    if before:  # был скрыт - показали
+        return protocol.event("token.added", seq, {"token": payload["token"]}, cmd_id)
+    return protocol.event(name, seq, payload, cmd_id)
+
+
+async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
     scene = (
         await db.execute(
             select(Scene)
@@ -168,8 +198,10 @@ async def scene_snapshot(db: AsyncSession, scene_id: str) -> dict | None:
         "grid_size": scene.grid_size,
         "grid_type": scene.grid_type,
         "background_url": scene.background_url,
-        "combat": json.loads(scene.combat_json) if scene.combat_json else None,
-        "tokens": [t.to_dict() for t in scene.tokens],
+        "combat": combat_for(json.loads(scene.combat_json) if scene.combat_json else None, actor),
+        # Токены слоя ГМ игроку не отдаём вовсе: прятать на клиенте
+        # бесполезно, всё пришедшее видно в DevTools.
+        "tokens": [t.to_dict() for t in scene.tokens if actor.is_gm or t.layer != "gm"],
         "walls": [w.to_dict() for w in scene.walls],
         "messages": [m.to_dict() for m in reversed(messages)],
     }
@@ -380,7 +412,7 @@ async def get_scene(scene_id: str, request: Request, db: AsyncSession = Depends(
     # вытащил бы им скрытую сцену целиком.
     if not can_see(await require_actor(request, db), await get_campaign(db), scene_id):
         raise HTTPException(404, "scene not found")
-    data = await scene_snapshot(db, scene_id)
+    data = await scene_snapshot(db, scene_id, await require_actor(request, db))
     return data or {"error": "scene not found"}
 
 
@@ -422,7 +454,7 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             await websocket.close(code=4401)
             return
         campaign = await get_campaign(db)
-        snap = await scene_snapshot(db, scene_id) if can_see(actor, campaign, scene_id) else None
+        snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
         if snap is None:
             # Скрытая или удалённая сцена - говорим, какая активна, и закрываем.
             # Отличать "нет такой" от "скрыта" не будем: это тоже утечка.
@@ -488,7 +520,8 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
             seq = scene.seq
             await db.commit()
 
-        await hub.broadcast(scene_id, protocol.event(name, seq, payload, command.id))
+        hidden = payload.pop(HIDDEN, None)
+        await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
 
 
 async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.Command) -> None:

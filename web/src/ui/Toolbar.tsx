@@ -25,7 +25,8 @@ export function Toolbar({
   sceneId: string;
   onOpenScene: (id: string) => void;
 }) {
-  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me, combat, combatOpen } = useUi();
+  const { tool, setTool, users, connected, sceneName, chaining, isGm, activeSceneId, me, combat, combatOpen, placeHidden } =
+    useUi();
   const hidden = isGm && activeSceneId !== null && sceneId !== activeSceneId;
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
@@ -53,6 +54,12 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-tools">
+        {isGm && tool === "token" && (
+          <label className="place-hidden" title="новые токены сразу скрыты от игроков - засада">
+            <input type="checkbox" checked={placeHidden} onChange={(e) => useUi.getState().setPlaceHidden(e.target.checked)} />
+            скрытыми
+          </label>
+        )}
         {TOOLS.filter((t) => isGm || !t.gm).map((t) => (
           <button
             key={t.id}

@@ -65,6 +65,20 @@ def _upload_url(value, what: str) -> str | None:
     return m.group(0)
 
 
+HIDDEN = "hidden"  # ключ видимости в payload, см. _with_hidden
+
+
+def _with_hidden(payload: dict, before: bool, after: bool) -> dict:
+    """Пометить событие токена: был ли он скрыт от игроков до и после.
+
+    main.py снимает пометку и решает, что отправить игроку: событие как есть,
+    пустое (скрыт и был скрыт), token.added (показали) или token.removed
+    (спрятали). Хендлер знает слой токена, main.py - кто получатель.
+    """
+    payload[HIDDEN] = (before, after)
+    return payload
+
+
 def _require_gm(actor: Actor, message: str = "это может только ГМ") -> None:
     if not actor.is_gm:
         raise CommandError(message)
@@ -116,12 +130,15 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         size=_clamp(float(payload.get("size") or 1), 0.25, 10),
         color=str(payload.get("color") or "#c75c5c")[:20],
         image_url=_upload_url(payload.get("image_url"), "картинка токена"),
-        layer="gm" if payload.get("layer") == "gm" else "tokens",
+        # Скрытый от игроков токен ставит только ГМ: иначе игрок прятал бы
+        # свои токены от остальных.
+        layer="gm" if payload.get("layer") == "gm" and actor.is_gm else "tokens",
         owner_id=owner_id,
     )
     db.add(token)
     await db.flush()
-    return "token.added", {"token": token.to_dict()}
+    hidden = token.layer == "gm"
+    return "token.added", _with_hidden({"token": token.to_dict()}, hidden, hidden)
 
 
 async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -141,7 +158,8 @@ async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict
 
     token.x, token.y = nx, ny
     await db.flush()
-    return "token.moved", {"id": token.id, "x": token.x, "y": token.y}
+    hidden = token.layer == "gm"
+    return "token.moved", _with_hidden({"id": token.id, "x": token.x, "y": token.y}, hidden, hidden)
 
 
 async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -178,8 +196,13 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         token.x = _clamp(token.x + shift, 0, scene.width)
         token.y = _clamp(token.y + shift, 0, scene.height)
         token.size = size
+    was_hidden = token.layer == "gm"
+    if "layer" in payload:
+        # Показать токен игрокам или спрятать - решение мастера.
+        _require_gm(actor, "скрывать и показывать токены может только ГМ")
+        token.layer = "gm" if payload["layer"] == "gm" else "tokens"
     await db.flush()
-    return "token.updated", {"token": token.to_dict()}
+    return "token.updated", _with_hidden({"token": token.to_dict()}, was_hidden, token.layer == "gm")
 
 
 async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -187,9 +210,10 @@ async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     if token is None or token.scene_id != scene.id:
         raise CommandError("токен не найден")
     _require_owner(token, actor, "нельзя удалить чужой токен")
+    hidden = token.layer == "gm"
     await db.delete(token)
     await db.flush()
-    return "token.removed", {"id": payload["id"]}
+    return "token.removed", _with_hidden({"id": payload["id"]}, hidden, hidden)
 
 
 async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -522,6 +546,8 @@ async def _refresh_entries(db: AsyncSession, combat: dict) -> None:
         token = await db.get(Token, e["token_id"]) if e.get("token_id") else None
         if token is not None:
             e["name"], e["owner_id"], e["character_id"] = token.name, token.owner_id, token.character_id
+            # Скрытый токен в бою - засада: игрокам эту строку не показываем.
+            e["hidden"] = token.layer == "gm"
 
 
 def _save_combat(scene: Scene, combat: dict | None) -> tuple[str, dict]:

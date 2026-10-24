@@ -495,6 +495,9 @@ export class SceneStage {
     }
 
     view.label.position.set(0, r + 4);
+    // Скрытый от игроков токен ГМ видит полупрозрачным - чтобы не забыть,
+    // что игроки его не видят. Игрокам такие токены не приходят вовсе.
+    view.node.alpha = view.data.layer === "gm" ? 0.5 : 1;
     view.node.position.set(view.data.x, view.data.y);
   }
 

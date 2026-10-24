@@ -243,6 +243,57 @@ async def main() -> int:
                 await combat(gm, f"b14{i}", "token.remove", {"id": t})
     print("бой: чужой токен, чужую инициативу и чужой ход игрок не трогает; свой ход заканчивает")
 
+    # Слой ГМ: скрытый токен игроку не уходит - ни в событиях, ни в снапшоте.
+    async with websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=gm_auth) as gm, \
+            websockets.connect(f"{WS}/ws/scene/{scene_id}", additional_headers=player_auth) as pl:
+        await gm.recv(), await pl.recv()  # снапшоты
+
+        def seen(m):
+            return m.get("type") == "event"
+
+        await cmd(gm, "h1", "token.add", {"x": 35, "y": 175, "name": "smoke: засада", "layer": "gm"})
+        ev_gm = await recv_until(gm, lambda m: m.get("cmd_id") == "h1")
+        hid = ev_gm["payload"]["token"]["id"]
+        ev_pl = await recv_until(pl, seen)
+        assert ev_pl["name"] == "noop" and ev_pl["seq"] == ev_gm["seq"] and not ev_pl["payload"], ev_pl
+        try:
+            async with httpx.AsyncClient(headers=player_auth) as client:
+                snap = (await client.get(f"{BASE}/api/scenes/{scene_id}")).json()
+            assert hid not in [t["id"] for t in snap["tokens"]], "скрытый токен в снапшоте игрока"
+            assert "засада" not in json.dumps(snap, ensure_ascii=False), "имя скрытого токена утекло"
+
+            await cmd(gm, "h2", "token.move", {"id": hid, "x": 105, "y": 175})
+            ev_pl = await recv_until(pl, seen)
+            assert ev_pl["name"] == "noop", ev_pl
+
+            await cmd(gm, "h3", "combat.add", {"token_id": hid})
+            ev_pl = await recv_until(pl, seen)
+            assert ev_pl["name"] == "combat.updated" and ev_pl["payload"]["combat"]["entries"] == [], ev_pl
+            await cmd(gm, "h4", "combat.end", {})
+            await recv_until(pl, seen)
+
+            await cmd(gm, "h5", "token.update", {"id": hid, "layer": "tokens"})
+            ev_pl = await recv_until(pl, seen)
+            assert ev_pl["name"] == "token.added" and ev_pl["payload"]["token"]["id"] == hid, ev_pl
+
+            await cmd(gm, "h6", "token.update", {"id": hid, "layer": "gm"})
+            ev_pl = await recv_until(pl, seen)
+            assert ev_pl["name"] == "token.removed" and ev_pl["payload"] == {"id": hid}, ev_pl
+
+            await cmd(pl, "h7", "token.add", {"x": 175, "y": 175, "layer": "gm"})
+            own = await recv_until(pl, lambda m: m.get("cmd_id") == "h7")
+            assert own["payload"]["token"]["layer"] == "tokens", "игрок поставил скрытый токен"
+            await cmd(pl, "h8", "token.update", {"id": own["payload"]["token"]["id"], "layer": "gm"})
+            err = await recv_until(pl, lambda m: m.get("cmd_id") == "h8")
+            assert err["type"] == "error", err
+            await cmd(pl, "h9", "token.remove", {"id": own["payload"]["token"]["id"]})
+            await recv_until(pl, lambda m: m.get("cmd_id") == "h9")
+        finally:
+            await cmd(gm, "h10", "token.remove", {"id": hid})
+            ev_pl = await recv_until(pl, seen)
+            assert ev_pl["name"] == "noop", ev_pl  # удаление скрытого - тоже не видно
+    print("слой ГМ: скрытый токен игроку - пустое событие и нет в снапшоте; показ/скрытие - added/removed; засада не в трекере")
+
     try:
         return await scene_checks(scene_id, gm_auth, player_auth)
     finally:

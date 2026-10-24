@@ -4,7 +4,7 @@ import type { Character, Combat, InviteInfo, Message, SceneInfo, Token, Tool, Us
 /** Что нужно панели свойств. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
   Token,
-  "id" | "name" | "color" | "owner_id" | "size" | "character_id" | "image_url"
+  "id" | "name" | "color" | "owner_id" | "size" | "character_id" | "image_url" | "layer"
 >;
 
 interface UiState {
@@ -26,6 +26,8 @@ interface UiState {
   combat: Combat | null;
   /** Панель боя открыта вручную (когда боя ещё нет). */
   combatOpen: boolean;
+  /** ГМ ставит новые токены сразу скрытыми от игроков (засада). */
+  placeHidden: boolean;
   tool: Tool;
   messages: Message[];
   users: string[];
@@ -65,6 +67,7 @@ interface UiState {
   openCharacter: (id: string | null) => void;
   setCombat: (c: Combat | null) => void;
   setCombatOpen: (v: boolean) => void;
+  setPlaceHidden: (v: boolean) => void;
 }
 
 /**
@@ -86,6 +89,7 @@ export const useUi = create<UiState>((set) => ({
   openCharacterId: null,
   combat: null,
   combatOpen: false,
+  placeHidden: false,
   tool: "select",
   messages: [],
   users: [],
@@ -134,4 +138,5 @@ export const useUi = create<UiState>((set) => ({
   openCharacter: (openCharacterId) => set({ openCharacterId }),
   setCombat: (combat) => set({ combat }),
   setCombatOpen: (combatOpen) => set({ combatOpen }),
+  setPlaceHidden: (placeHidden) => set({ placeHidden }),
 }));

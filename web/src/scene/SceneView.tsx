@@ -64,7 +64,9 @@ export function SceneView({
         );
       },
       onAddToken: (x, y) => {
-        socket.send("token.add", { x, y, name: "Токен" });
+        // Скрытым ставит только ГМ - сервер всё равно проверит.
+        const hidden = useUi.getState().isGm && useUi.getState().placeHidden;
+        socket.send("token.add", { x, y, name: "Токен", ...(hidden ? { layer: "gm" } : {}) });
       },
       onRemoveToken: (id) => {
         socket.send("token.remove", { id });
@@ -86,6 +88,7 @@ export function SceneView({
                   size: t.size,
                   character_id: t.character_id,
                   image_url: t.image_url,
+                  layer: t.layer,
                 }
               : null,
           ),

@@ -130,6 +130,8 @@ function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneS
   );
 }
 
+const isGmNow = () => useUi.getState().isGm;
+
 function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
   const [name, setName] = useState(token.name);
   const input = useRef<HTMLInputElement>(null);
@@ -232,6 +234,16 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
           <input ref={picker} type="color" className="swatch-picker" defaultValue={token.color} />
         </label>
       </div>
+      {isGmNow() && (
+        <label className="token-hidden">
+          <input
+            type="checkbox"
+            checked={token.layer === "gm"}
+            onChange={(e) => socket.send("token.update", { id: token.id, layer: e.target.checked ? "gm" : "tokens" })}
+          />
+          Скрыт от игроков
+        </label>
+      )}
       <TokenImage token={token} socket={socket} />
       <CharacterLink token={token} socket={socket} />
       <div className="sizes">
