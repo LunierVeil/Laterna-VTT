@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from . import auth, protocol
-from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, UPLOAD_DIR, WEB_DIST
+from .config import FRONTEND_URL, FRONTEND_URLS, MAX_PLAYER_UPLOAD_BYTES, MAX_UPLOAD_BYTES, PUBLIC_URL, UPLOAD_DIR, WEB_DIST
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, HANDLERS, HIDDEN, CommandError
 from .hub import hub
@@ -505,6 +505,10 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
         # Отправка - уже под try: ушёл клиент, пока летел снапшот, -
         # finally всё равно уберёт его из рассылки.
         you = {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm}
+        if actor.is_gm:
+            # Адрес туннеля - мастеру, для ссылок-приглашений. Снапшот
+            # приходит при каждом подключении, в отличие от ответа на вход.
+            you["public_url"] = PUBLIC_URL
         await websocket.send_json(protocol.snapshot(snap["seq"], snap, you))
         await websocket.send_json(view)
         await hub.broadcast_all(protocol.presence(hub.users()))

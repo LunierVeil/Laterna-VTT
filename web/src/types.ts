@@ -127,6 +127,8 @@ export interface UserInfo {
   id: string;
   name: string;
   is_gm: boolean;
+  /** Адрес туннеля - только у ГМ, из снапшота сцены: для приглашений. */
+  public_url?: string | null;
 }
 
 /** Ожидающее приглашение. user_id - сброс пароля этого игрока, null - новый игрок. */

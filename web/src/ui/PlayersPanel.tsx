@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 
-const inviteUrl = (token: string) => `${location.origin}/?invite=${encodeURIComponent(token)}`;
+// Через туннель - его адрес: мастер сидит на localhost, а игрокам нужен
+// адрес из интернета.
+const inviteUrl = (token: string) =>
+  `${useUi.getState().me?.public_url ?? location.origin}/?invite=${encodeURIComponent(token)}`;
 
 /**
  * Аккаунты игроков - только для ГМ. Регистрации нет: аккаунт появляется
@@ -12,6 +15,7 @@ export function PlayersPanel({ socket }: { socket: SceneSocket }) {
   const accounts = useUi((s) => s.accounts);
   const invites = useUi((s) => s.invites);
   const lastInvite = useUi((s) => s.lastInvite);
+  const publicUrl = useUi((s) => s.me?.public_url);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -102,7 +106,7 @@ export function PlayersPanel({ socket }: { socket: SceneSocket }) {
               {copied ? "Скопировано" : "Копировать"}
             </button>
           </div>
-          {location.hostname === "localhost" && (
+          {location.hostname === "localhost" && !publicUrl && (
             <div className="muted side-note">
               Игроку на другом компьютере замени localhost на адрес этого компьютера в сети - его
               печатает ./laterna.sh при запуске («Игрокам в этой сети»), а ./dev.sh - строка Network.

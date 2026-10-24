@@ -56,7 +56,8 @@ cd web && npm run dev                                     # http://localhost:517
 
 **Вход есть, но без HTTPS и без ограничения попыток входа.** Аккаунты,
 argon2 и сессии - см. "Роли" в ARCHITECTURE.md. Не выставлять в
-интернет без HTTPS-прокси перед ним.
+интернет без HTTPS-прокси перед ним (`./laterna.sh tunnel` - HTTPS через
+Cloudflare, см. "Туннель").
 
 ## Стиль общения
 

@@ -27,6 +27,11 @@ FRONTEND_URLS = [
 ]
 FRONTEND_URL = FRONTEND_URLS[0]
 
+# Публичный адрес стола - ссылка туннеля (./laterna.sh tunnel). По нему
+# мастер раздаёт приглашения: сам он сидит на localhost, а игрокам нужен
+# адрес из интернета. Пусто - приглашения с адреса, где открыт стол.
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").strip().rstrip("/") or None
+
 # Собранный фронт (npm run build). Есть - сервер отдаёт и его: игра и API
 # на одном порту, vite не нужен (./laterna.sh). Нет - только API, фронт
 # отдаёт vite (./dev.sh).
