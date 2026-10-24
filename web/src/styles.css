@@ -187,12 +187,46 @@ button[type="submit"] {
   border-radius: 6px; padding: 7px 12px; cursor: pointer; font-weight: 600;
 }
 
-/* gate */
-.gate { height: 100%; display: grid; place-items: center; }
-.gate form { display: flex; flex-direction: column; gap: 10px; width: 280px; }
-.gate h1 { margin: 0; }
-.gate p { margin: 0; font-size: 13px; }
+/* экраны до игры (макет "1 вход") */
+.gate-wait { height: 100%; display: grid; place-items: center; color: var(--muted); }
+.gate { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 440px; }
+.gate-hero { display: flex; flex-direction: column; padding: 64px 72px 56px; gap: 32px; }
+.gate-brand { font-family: var(--serif); font-size: 30px; font-weight: 700; }
+.gate-pitch { margin: auto 0; max-width: 560px; display: flex; flex-direction: column; gap: 22px; }
+.gate-pitch h1 { margin: 0; font-family: var(--serif); font-size: 64px; line-height: 1; font-weight: 700; color: #f1ece2; }
+.gate-lead { margin: 0; font-size: 17px; line-height: 1.6; color: #b7b4ac; }
+.gate-points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15px; color: var(--text-2); }
+.gate-points li { display: flex; align-items: center; gap: 12px; }
+.gate-points li::before { content: ""; width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--accent); }
+.gate-foot { margin: 0; font-size: 13px; }
+.gate-panel {
+  display: flex; align-items: center; padding: 48px 56px;
+  background: var(--panel); border-left: 1px solid var(--line-soft);
+}
+.gate-form { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.gate-form h2 { margin: 0 0 6px; font-family: var(--serif); font-size: 36px; line-height: 1.1; font-weight: 700; }
+.gate-form p { margin: 0; font-size: 13px; line-height: 1.5; }
+.gate-form input { min-height: 46px; padding: 0 14px; font-size: 15px; border-radius: 8px; }
+.gate-kicker { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.gate-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; }
+.gate-submit { min-height: 48px; font-size: 15px !important; border-radius: 8px !important; }
+.gate-submit:disabled { opacity: 0.55; cursor: default; }
+.gate-note {
+  margin-top: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 16px 18px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line-soft);
+  font-size: 13px; line-height: 1.5; color: var(--text-2);
+}
+.gate-link {
+  background: none; border: none; padding: 0; cursor: pointer; align-self: flex-start;
+  color: var(--accent); font: 600 13px var(--sans); text-decoration: underline; text-underline-offset: 3px;
+}
 .gate-error { color: #f0a3a3; }
+@media (max-width: 860px) {
+  .gate { grid-template-columns: 1fr; }
+  .gate-hero { padding: 32px 20px; }
+  .gate-pitch h1 { font-size: 44px; }
+  .gate-panel { border-left: none; border-top: 1px solid var(--line-soft); padding: 32px 20px; }
+}
 
 /* toast */
 .toast {

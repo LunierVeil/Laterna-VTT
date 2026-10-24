@@ -35,6 +35,27 @@ const GM_KEY_FROM_URL = takeFromUrl("gm");
 // Приглашение от мастера - так же: забрать и убрать из адреса.
 const INVITE_FROM_URL = takeFromUrl("invite");
 
+/**
+ * Вход мастера по ключу - из ссылки ?gm=... или с экрана входа. Первый
+ * раз (аккаунта ещё нет) - на экран "придумай имя и пароль".
+ * Возвращает текст ошибки или null.
+ */
+async function gmKeyLogin(
+  key: string,
+  onSetup: (key: string) => void,
+): Promise<string | null> {
+  const res = await fetch("/api/gm/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data.needs_setup) onSetup(key);
+  else if (res.ok) useUi.getState().setMe(data as UserInfo);
+  else return data.detail || "ключ ГМ не подошёл";
+  return null;
+}
+
 export default function App() {
   const me = useUi((s) => s.me);
   // Экран до игры: проверяем сессию, затем вход или первый вход мастера.
@@ -44,6 +65,7 @@ export default function App() {
   const [inviteToken, setInviteToken] = useState<string | null>(INVITE_FROM_URL);
   const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
+  const loginWithKey = (key: string) => gmKeyLogin(key, setSetupKey);
 
   // Сокет подключается быстрее, чем инициализируется PixiJS, поэтому
   // снапшот и события, пришедшие до готовности сцены, копим здесь и
@@ -59,15 +81,9 @@ export default function App() {
     void (async () => {
       try {
         if (GM_KEY_FROM_URL) {
-          const res = await fetch("/api/gm/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: GM_KEY_FROM_URL }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.needs_setup) return setSetupKey(GM_KEY_FROM_URL);
-          if (res.ok) return ui.setMe(data as UserInfo);
-          setLoginNotice(data.detail || "ключ ГМ не подошёл");
+          const error = await loginWithKey(GM_KEY_FROM_URL);
+          if (!error) return;
+          setLoginNotice(error);
         }
         const res = await fetch("/api/me");
         if (res.ok) ui.setMe(await res.json()); // null, если сессии нет
@@ -240,10 +256,20 @@ export default function App() {
       />
     );
   }
-  if (checking) return <div className="gate">Загрузка...</div>;
-  if (!me && setupKey) return <GmSetupScreen gmKey={setupKey} onDone={(u) => useUi.getState().setMe(u)} />;
-  if (!me) return <LoginScreen notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} />;
-  if (!socket) return <div className="gate">Загрузка сцены...</div>;
+  if (checking) return <div className="gate-wait">Загрузка...</div>;
+  if (!me && setupKey) return (
+      <GmSetupScreen
+        gmKey={setupKey}
+        onDone={(u) => {
+          // Аккаунт создан - ключ больше не нужен. Иначе после выхода
+          // снова открылся бы экран "придумай имя и пароль".
+          setSetupKey(null);
+          useUi.getState().setMe(u);
+        }}
+      />
+    );
+  if (!me) return <LoginScreen notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} onGmKey={loginWithKey} />;
+  if (!socket) return <div className="gate-wait">Загрузка сцены...</div>;
 
   return (
     <div className="app">
