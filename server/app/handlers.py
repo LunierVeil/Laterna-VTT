@@ -44,9 +44,26 @@ def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def _require_gm(actor: Actor) -> None:
+_UPLOAD_URL = re.compile(r"/uploads/(?P<name>[0-9a-f]{32}\.(?:png|jpg|webp))")
+
+
+def _upload_url(value, what: str) -> str | None:
+    """Картинка - только то, что загружено через /api/uploads, или ничего.
+
+    Произвольный URL заставил бы браузеры всех игроков ходить на чужой
+    сервер: трекинг, подмена картинки, а для не-картинок и хуже.
+    """
+    if value is None:
+        return None
+    m = _UPLOAD_URL.fullmatch(str(value))
+    if not m or not (UPLOAD_DIR / m.group("name")).is_file():
+        raise CommandError(f"{what} - только загруженная картинка")
+    return m.group(0)
+
+
+def _require_gm(actor: Actor, message: str = "это может только ГМ") -> None:
     if not actor.is_gm:
-        raise CommandError("это может только ГМ")
+        raise CommandError(message)
 
 
 def _require_owner(obj: Token | Wall, actor: Actor, message: str) -> None:
@@ -66,7 +83,7 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         y=_clamp(_num(payload, "y", 0), 0, scene.height),
         size=_clamp(float(payload.get("size") or 1), 0.25, 10),
         color=str(payload.get("color") or "#c75c5c")[:20],
-        image_url=payload.get("image_url"),
+        image_url=_upload_url(payload.get("image_url"), "картинка токена"),
         layer="gm" if payload.get("layer") == "gm" else "tokens",
         # Чужое имя владельцем может поставить только ГМ: иначе игрок
         # создавал бы токены от имени другого.
@@ -113,9 +130,15 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
             raise CommandError("цвет должен быть вида #rrggbb")
         token.color = color.lower()
-    for field in ("image_url", "owner"):
-        if field in payload:
-            setattr(token, field, payload[field])
+    if "image_url" in payload:
+        token.image_url = _upload_url(payload["image_url"], "картинка токена")
+    if "owner" in payload:
+        # Отдать токен другому - решение мастера. Иначе игрок "подарил" бы
+        # свой токен кому-то или сделал его общим (owner = null), и его
+        # смог бы двигать и удалять любой.
+        _require_gm(actor, "менять владельца может только ГМ")
+        owner = payload["owner"]
+        token.owner = None if owner is None else str(owner).strip()[:100] or None
     if "size" in payload:
         size = _clamp(_num(payload, "size"), 0.25, 10)
         # Держим на месте левый верхний угол, а не центр: иначе токен 2x2
@@ -169,9 +192,6 @@ async def wall_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dic
     return "wall.removed", {"id": payload["id"]}
 
 
-_UPLOAD_URL = re.compile(r"/uploads/(?P<name>[0-9a-f]{32}\.(?:png|jpg|webp))")
-
-
 async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     if not actor.is_gm:
         raise CommandError("сцену меняет только ГМ")
@@ -180,14 +200,7 @@ async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     if "name" in payload:
         scene.name = str(payload["name"])[:200]
     if "background_url" in payload:
-        url = payload["background_url"]
-        if url is not None:
-            # Только то, что загружено через /api/uploads. Произвольный URL
-            # заставил бы браузеры всех игроков ходить на чужой сервер.
-            m = _UPLOAD_URL.fullmatch(str(url))
-            if not m or not (UPLOAD_DIR / m.group("name")).is_file():
-                raise CommandError("фон - только загруженная картинка")
-        scene.background_url = url
+        scene.background_url = _upload_url(payload["background_url"], "фон")
     if "width" in payload:
         scene.width = int(_clamp(_num(payload, "width"), 100, MAX_SCENE_SIDE))
     if "height" in payload:
