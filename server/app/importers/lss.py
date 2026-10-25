@@ -215,6 +215,18 @@ def _resources(raw: object) -> tuple[list, list, int]:
     return list(counters.values()), list(items.values()), deleted
 
 
+def _slots(spells: object) -> dict:
+    if not isinstance(spells, dict):
+        return {}
+    out = {}
+    for key, node in spells.items():
+        m = re.fullmatch(r"slots-([1-9])", str(key))
+        value = _int(node, 0, 99) if m else None
+        if value is not None:
+            out[m.group(1)] = value
+    return out
+
+
 # Внешность из subInfo - поля "О персонаже".
 _SUB_INFO = ("age", "height", "weight", "eyes", "skin", "hair")
 # Размер - значения select в схеме листа.
@@ -316,7 +328,7 @@ def _bad_links(node: object, depth: int = 0) -> int:
     return count + sum(_bad_links(c, depth + 1) for c in node.get("content") or [])
 
 
-def _report(data: dict, deleted: int, avatar: bool, bad_links: int) -> dict:
+def _report(data: dict, deleted: int, avatar: bool, bad_links: int, prepared: bool = False) -> dict:
     """Что перенесено и что нет - одной строкой в интерфейсе после загрузки."""
     items = [c for c in data["equipment"] if c.get("qty") is not None]
     texts = len(data["features"]) + len(data["lore"]) + len(data["equipment"]) - len(items)
@@ -337,6 +349,9 @@ def _report(data: dict, deleted: int, avatar: bool, bad_links: int) -> dict:
         skipped.append("портрет не перенесён, загрузите вручную")
     if bad_links:
         skipped.append(f"ссылки не https: {bad_links}")
+    if prepared:
+        # Там только id из базы LSS без названий - переносить нечего.
+        skipped.append("подготовленные заклинания не перенесены")
     return {"done": done, "skipped": skipped}
 
 
@@ -407,6 +422,8 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
             "speed": _str(vit.get("speed"), 40),
             "initiative": _int(vit.get("initiative"), -10, 30),
             "hit_dice": _str(vit.get("hit-die"), 40),
+            # Сколько костей хитов осталось (hp-dice-current) - число, как в файле.
+            "hit_dice_current": _int(vit.get("hp-dice-current"), 0, 99),
         },
         # Спасброски от смерти - как в файле; правила (3 успеха, 3 провала)
         # знает лист-форма, а не импорт.
@@ -416,6 +433,9 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
             "dying": bool(vit.get("isDying")),
         },
         "proficiency": _int(inner.get("proficiency"), 0, 10),
+        "inspiration": _val(inner.get("inspiration")) is True,
+        # Ячейки заклинаний по кругам: spells."slots-N" -> slots.N.
+        "slots": _slots(inner.get("spells")),
         "abilities": {
             key: {
                 "score": _int((stats.get(key) or {}).get("score"), 1, 30),
@@ -479,7 +499,11 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
         for e in texts.values()
         if isinstance(e, dict)
     )
-    return name, data, _report(data, deleted, has_avatar, bad_links)
+    outer_spells = outer.get("spells") if isinstance(outer.get("spells"), dict) else {}
+    prepared = bool(outer_spells.get("prepared")) or bool(
+        isinstance(inner.get("spells"), dict) and inner["spells"].get("prepared")
+    )
+    return name, data, _report(data, deleted, has_avatar, bad_links, prepared)
 
 
 # --- переимпорт --------------------------------------------------------------

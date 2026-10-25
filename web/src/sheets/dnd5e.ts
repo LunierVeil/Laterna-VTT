@@ -89,6 +89,8 @@ export const dnd5e: SheetSchema = {
             { key: "vitals.speed", label: "Скорость", kind: "text", width: 6 },
             { key: "vitals.initiative", label: "Инициатива", kind: "number", width: 4, min: -10, max: 30 },
             { key: "vitals.hit_dice", label: "Кости хитов", kind: "text", width: 6 },
+            { key: "vitals.hit_dice_current", label: "Осталось костей", kind: "number", width: 3, min: 0, max: 99 },
+            { key: "inspiration", label: "Вдохновение", kind: "checkbox" },
             { key: "proficiency", label: "Бонус мастерства", kind: "number", width: 4, min: 0, max: 10 },
           ],
         },
@@ -295,6 +297,18 @@ export const dnd5e: SheetSchema = {
       id: "spells",
       title: "Заклинания",
       blocks: [
+        {
+          kind: "fields",
+          title: "Ячейки заклинаний",
+          fields: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
+            key: `slots.${n}`,
+            label: `${n} круг`,
+            kind: "number" as const,
+            width: 3,
+            min: 0,
+            max: 99,
+          })),
+        },
         {
           kind: "cards",
           title: "Заклинания",

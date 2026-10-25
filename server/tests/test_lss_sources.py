@@ -342,3 +342,25 @@ def test_reimport_keeps_own_story():
     # Пустую историю импорт заполняет.
     empty = lss.merge_reimport(dict(played, about={}), parse(ALL["lss_vespira"]))
     assert empty["about"]["story"].startswith("маленькая Мария")
+
+
+# --- кости хитов, вдохновение, ячейки ------------------------------------------
+
+
+def test_hit_dice_inspiration_slots():
+    lucius = parse(ALL["lss_lucius"])
+    assert (lucius["vitals"]["hit_dice"], lucius["vitals"]["hit_dice_current"]) == ("d10", 3)
+    assert lucius["inspiration"] is False
+    lapland, report = lss.parse_report(ALL["lss_lapland"])[1:]
+    assert lapland["slots"] == {"1": 2}
+    # Подготовленные - id из базы LSS без названий: не переносим, говорим.
+    assert "подготовленные заклинания не перенесены" in report["skipped"]
+    assert "подготовленные заклинания не перенесены" not in lss.parse_report(SAD)[2]["skipped"]
+
+
+def test_inspiration_true():
+    raw = json.loads(SAD)
+    inner = json.loads(raw["data"])
+    inner["inspiration"] = True
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    assert parse(json.dumps(raw, ensure_ascii=False))["inspiration"] is True
