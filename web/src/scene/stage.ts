@@ -47,6 +47,8 @@ export interface StageCallbacks {
   onOpenToken: (token: Token) => void;
   /** Масштаб поменялся - для индикатора "100%". Зовётся на шаг колеса, не на кадр. */
   onZoom: (scale: number) => void;
+  /** Пинг: Alt+клик или долгое нажатие на телефоне. Точка - в пикселях сцены. */
+  onPing: (x: number, y: number) => void;
 }
 
 /**
@@ -106,6 +108,11 @@ export class SceneStage {
   private tokenLayer = new Container();
   // Линейка и путь перетаскиваемого токена - поверх токенов.
   private measureLayer = new Graphics();
+  /** Пинги - над всем, гаснут сами по тикеру, React не трогают. */
+  private pingLayer = new Container();
+  private pings: { node: Container; ring: Graphics; color: number; born: number }[] = [];
+  /** Долгое нажатие пальцем - пинг (на телефоне нет Alt). */
+  private longPress: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null;
   private measureLabel = new Text({
     text: "",
     style: {
@@ -225,6 +232,7 @@ export class SceneStage {
       this.tokenLayer,
       this.measureLayer,
       this.measureLabel,
+      this.pingLayer,
     );
     this.measureLabel.anchor.set(0, 1);
     this.measureLabel.visible = false;
@@ -249,6 +257,49 @@ export class SceneStage {
     this.drawBackground();
     this.drawGrid();
     this.app.ticker.add(this.tickAnchor);
+    this.app.ticker.add(this.tickPings);
+  }
+
+  /** Пинг от участника: кольцо с именем на ~4 секунды. */
+  showPing(x: number, y: number, author: string, color: string) {
+    if (this.destroyed) return;
+    const node = new Container();
+    node.position.set(x, y);
+    const ring = new Graphics();
+    const label = new Text({
+      text: author,
+      style: { fill: 0xffffff, fontSize: 13, fontWeight: "600", fontFamily: "IBM Plex Sans, sans-serif", stroke: { color: 0x000000, width: 3 } },
+    });
+    label.anchor.set(0.5, 0);
+    label.position.set(0, this.gridSize * 0.6 + 4);
+    node.addChild(ring, label);
+    this.pingLayer.addChild(node);
+    this.pings.push({ node, ring, color: parseInt(color.replace("#", ""), 16) || 0xf0b14a, born: performance.now() });
+  }
+
+  private tickPings = () => {
+    if (!this.pings.length) return;
+    const now = performance.now();
+    const r0 = this.gridSize * 0.6;
+    this.pings = this.pings.filter((p) => {
+      const t = (now - p.born) / 1000;
+      if (t >= 4) {
+        p.node.destroy({ children: true });
+        return false;
+      }
+      // Кольцо пульсирует раз в секунду, последнюю секунду - гаснет.
+      const pulse = (t % 1) / 1;
+      p.ring.clear();
+      p.ring.circle(0, 0, r0).stroke({ width: 3, color: p.color });
+      p.ring.circle(0, 0, r0 * (1 + pulse)).stroke({ width: 2, color: p.color, alpha: 1 - pulse });
+      p.node.alpha = t > 3 ? 4 - t : 1;
+      return true;
+    });
+  };
+
+  private cancelLongPress() {
+    if (this.longPress) clearTimeout(this.longPress.timer);
+    this.longPress = null;
   }
 
   /** Подписка на положение выбранного токена на экране; null - отписаться. */
@@ -751,6 +802,12 @@ export class SceneStage {
   }
 
   private onTokenDown = (e: FederatedPointerEvent, view: TokenView) => {
+    if (e.altKey && e.button === 0) {
+      e.stopPropagation();
+      const p = this.toScene(e);
+      this.cb.onPing(p.x, p.y);
+      return;
+    }
     if (this.tool !== "select") return;
     e.stopPropagation();
     // Двойной клик - открыть лист. Одиночный выбирает и тащит: лист,
@@ -777,6 +834,24 @@ export class SceneStage {
 
   private onBackgroundDown = (e: FederatedPointerEvent) => {
     const p = this.toScene(e);
+
+    // Пинг - в любом инструменте: Alt+клик, на телефоне - долгое нажатие.
+    if (e.altKey && e.button === 0) {
+      this.cb.onPing(p.x, p.y);
+      return;
+    }
+    if (e.pointerType === "touch") {
+      this.cancelLongPress();
+      this.longPress = {
+        x: e.global.x,
+        y: e.global.y,
+        timer: setTimeout(() => {
+          this.longPress = null;
+          this.panning = null; // держал палец - это пинг, а не панорама
+          this.cb.onPing(p.x, p.y);
+        }, 600),
+      };
+    }
 
     // ПКМ во время цепочки - закончить её, а не панорамировать.
     if (e.button === 2 && this.tool === "wall" && this.wallStart) {
@@ -882,6 +957,9 @@ export class SceneStage {
 
   private onPointerMove = (e: FederatedPointerEvent) => {
     this.pointerScene = this.toScene(e);
+    if (this.longPress && Math.hypot(e.global.x - this.longPress.x, e.global.y - this.longPress.y) > 10) {
+      this.cancelLongPress(); // повёл пальцем - это панорама
+    }
 
     if (this.panning) {
       this.world.position.set(
@@ -923,6 +1001,7 @@ export class SceneStage {
   }
 
   private onPointerUp = () => {
+    this.cancelLongPress();
     this.panning = null;
     this.measuring = null;
     this.clearMeasure();

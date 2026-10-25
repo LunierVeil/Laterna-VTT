@@ -459,3 +459,35 @@ def test_origin_loopback_any_port():
     assert not main.origin_allowed(ws("https://evil.example", "127.0.0.1:8000"))
     assert not main.origin_allowed(ws("http://127.0.0.1.evil.example", "127.0.0.1:8000"))
     assert not main.origin_allowed(ws("http://127.0.0.1:5000", "192.168.1.5:8000"))
+
+
+# --- пинг ----------------------------------------------------------------------
+
+
+def test_ping_rate_limit_unit():
+    scene = SimpleNamespace(width=1000, height=800)
+    actor = SimpleNamespace(id="u-ping-test", name="Тест")
+    first = handlers.ping(scene, actor, {"x": 5000, "y": -3}, now=100.0)
+    assert first["x"] == 1000 and first["y"] == 0 and first["author"] == "Тест" and first["color"].startswith("#")
+    assert handlers.ping(scene, actor, {"x": 1, "y": 1}, now=100.5) is None  # чаще 700 мс - мимо
+    assert handlers.ping(scene, actor, {"x": 1, "y": 1}, now=100.8) is not None
+    with pytest.raises(handlers.CommandError):
+        handlers.ping(scene, actor, {"x": float("inf"), "y": 1}, now=200.0)
+
+
+def test_ping_broadcast_without_seq(client, gm, sockets, scene_id):
+    g, p = sockets
+    seq_before = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"]
+    handlers._last_ping.clear()
+    g.send_text(json.dumps({"type": "cmd", "id": "pg1", "name": "ping", "payload": {"x": 100, "y": 120}}))
+    g.send_text(json.dumps({"type": "cmd", "id": "pg2", "name": "ping", "payload": {"x": 300, "y": 320}}))
+    g.send_text(json.dumps({"type": "cmd", "id": "pg3", "name": "chat.say", "payload": {"text": "после пингов"}}))
+    got = []
+    while True:
+        m = p.receive_json()
+        if m.get("type") == "chat":
+            break
+        if m.get("type") == "ping":
+            got.append(m)
+    assert len(got) == 1 and (got[0]["x"], got[0]["y"]) == (100, 120) and got[0]["author"] == "Мастер"
+    assert client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"] == seq_before  # состояние не менялось

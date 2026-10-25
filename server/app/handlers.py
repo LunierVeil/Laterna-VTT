@@ -13,10 +13,12 @@ seq и рассылка - снаружи, в main.py, под локом сцен
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
 import secrets
+import time
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -893,6 +895,33 @@ async def combat_next(db: AsyncSession, scene: Scene, actor: Actor, payload: dic
 async def combat_end(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     _require_gm(actor, "закончить бой может только ГМ")
     return _save_combat(scene, None)
+
+
+# --- пинг: не состояние сцены ---------------------------------------------
+#
+# Кольцо на карте, чтобы показать место. Ничего не меняет: без seq, без
+# базы, при переподключении не повторяется. Поэтому не в HANDLERS (те
+# увеличивают seq), а отдельно - main рассылает результат всем в сцене.
+
+PING_INTERVAL = 0.7  # не чаще раза в 700 мс на пользователя, лишнее - молча мимо
+PING_COLORS = ["#f0b14a", "#6fa8dc", "#7fb37a", "#c75c5c", "#b38fd6", "#4fa3a5", "#d98e48", "#c46fb0"]
+_last_ping: dict[str, float] = {}
+
+
+def ping(scene: Scene, actor: Actor, payload: dict, now: float | None = None) -> dict | None:
+    """{x, y} -> сообщение для всех в сцене или None (слишком часто)."""
+    x = _clamp(_num(payload, "x"), 0, scene.width)
+    y = _clamp(_num(payload, "y"), 0, scene.height)
+    now = time.monotonic() if now is None else now
+    if now - _last_ping.get(actor.id, float("-inf")) < PING_INTERVAL:
+        return None
+    _last_ping[actor.id] = now
+    # Цвет - от id пользователя: у каждого свой и не меняется между пингами.
+    color = PING_COLORS[int(hashlib.sha1(actor.id.encode()).hexdigest(), 16) % len(PING_COLORS)]
+    return {"type": "ping", "x": x, "y": y, "author": actor.name, "color": color}
+
+
+EPHEMERAL = {"ping": ping}
 
 
 HANDLERS = {

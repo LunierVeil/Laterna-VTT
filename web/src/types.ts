@@ -103,6 +103,8 @@ export type ServerMessage =
   | { type: "error"; message: string; cmd_id: string | null }
   | { type: "presence"; users: string[] }
   | { type: "chat"; message: Message }
+  /** Пинг на карте: не событие сцены, без seq. */
+  | { type: "ping"; x: number; y: number; author: string; color: string }
   // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
   // scenes и invites - только ГМ.
   | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[]; invites?: InviteInfo[] }

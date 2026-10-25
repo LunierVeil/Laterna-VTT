@@ -70,6 +70,7 @@ export function SceneView({
         if (t.character_id && ui.characters[t.character_id]) ui.openCharacter(t.character_id);
       },
       onZoom: (scale) => useUi.getState().setZoom(scale),
+      onPing: (x, y) => socket.send("ping", { x, y }),
     }, useUi.getState().me!.id);
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.

@@ -173,6 +173,11 @@ export default function App() {
         ui.flashError(msg.message);
         return;
       }
+      if (msg.type === "ping") {
+        // Не событие сцены: без seq, в буфер до готовности стейджа не кладём.
+        stageRef.current?.showPing(msg.x, msg.y, msg.author, msg.color);
+        return;
+      }
       if (msg.type === "chat") {
         ui.pushMessage(msg.message);
         return;

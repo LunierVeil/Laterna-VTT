@@ -103,7 +103,8 @@ export class SceneSocket {
       msg.type === "campaign" ||
       msg.type === "reply" ||
       msg.type === "character" ||
-      msg.type === "character_deleted"
+      msg.type === "character_deleted" ||
+      msg.type === "ping"
     ) {
       this.emit(msg);
       return;

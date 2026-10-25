@@ -37,7 +37,7 @@ from .config import (
 )
 from .ratelimit import LoginLimiter
 from .db import SessionLocal, get_session, init_db
-from .handlers import CAMPAIGN_HANDLERS, HANDLERS, HIDDEN, CommandError
+from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError
 from .hub import hub
 from .models import Campaign, Character, Invite, Message, Scene, User
 from .roles import Actor, gm_key_notice, is_gm_key
@@ -640,6 +640,21 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
 
     if command.name in CAMPAIGN_HANDLERS:
         await handle_campaign(websocket, actor, command)
+        return
+
+    if command.name in EPHEMERAL:
+        # Пинг и подобное: проверить и разослать, состояние сцены не трогаем.
+        async with SessionLocal() as db:
+            scene = await db.get(Scene, scene_id)
+        if scene is None:
+            return
+        try:
+            message = EPHEMERAL[command.name](scene, actor, command.payload)
+        except CommandError as exc:
+            await hub.send(websocket, protocol.error(str(exc), command.id))
+            return
+        if message is not None:
+            await hub.broadcast(scene_id, message)
         return
 
     handler = HANDLERS.get(command.name)
