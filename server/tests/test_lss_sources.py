@@ -364,3 +364,24 @@ def test_inspiration_true():
     inner["inspiration"] = True
     raw["data"] = json.dumps(inner, ensure_ascii=False)
     assert parse(json.dumps(raw, ensure_ascii=False))["inspiration"] is True
+
+
+# --- переимпорт на всех образцах ------------------------------------------------
+
+
+def test_reimport_keeps_own_edits_all_fixtures():
+    for stem, raw in ALL.items():
+        played = parse(raw)
+        played.setdefault("about", {})["flaws"] = "своя слабость"
+        played["notes"] = "свои заметки"
+        played["tools"] = [{"name": "Свои инструменты", "ability": "dex", "level": 1}]
+        played["skills"].setdefault("stealth", {})["bonus"] = 11
+        played["equipment"].append({"id": "own-1", "name": "Свой предмет", "qty": 1, "weight": 2})
+        played["coins"]["gp"] = 999  # в файле есть - из файла, это ожидаемо
+        merged = lss.merge_reimport(played, parse(raw))
+        assert merged["about"]["flaws"] == "своя слабость", stem
+        assert merged["notes"] == "свои заметки", stem
+        assert merged["tools"] == played["tools"], stem
+        assert merged["skills"]["stealth"]["bonus"] == 11, stem
+        assert "Свой предмет" in [c["name"] for c in merged["equipment"]], stem
+        assert merged["coins"] == parse(raw)["coins"], stem
