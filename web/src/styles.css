@@ -752,3 +752,4 @@ button.portrait:hover { filter: brightness(1.15); }
 .spell-prep-always { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent); cursor: default; }
 .circle-lock { display: grid; place-items: center; color: var(--muted); }
 .circle-lock-open { color: var(--accent); }
+.rail-flyout-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }

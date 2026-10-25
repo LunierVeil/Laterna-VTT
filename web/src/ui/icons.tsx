@@ -13,6 +13,7 @@ const PATHS = {
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
   sheet: "M7 3h7l5 5v13H7zM14 3v5h5M10 12h6M10 16h6",
   lock: "M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3M12 15v2",
+  fog: "M4 9h12a3 3 0 1 0-3-3M3 13h16a3 3 0 1 1-3 3M5 17h7",
   unlock: "M6 11h12v10H6zM8 11V8a4 4 0 0 1 7.5-2M12 15v2",
 } as const;
 

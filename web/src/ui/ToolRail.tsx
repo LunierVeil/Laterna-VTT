@@ -1,6 +1,8 @@
 import { useUi } from "../state/store";
 import type { Tool } from "../types";
 import { Icon, type IconName } from "./icons";
+import type { SceneSocket } from "../net/socket";
+import type { SceneStage } from "../scene/stage";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
@@ -10,11 +12,15 @@ const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boole
   { id: "ruler", icon: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },
   { id: "wall", icon: "wall", label: "Стены и двери", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену. Дверь: Shift+клик в «Выборе» - запереть", gm: true },
   { id: "erase", icon: "erase", label: "Стереть", hint: "Клик по стене - удалить", gm: true },
+  { id: "fog", icon: "fog", label: "Туман", hint: "Тяни рамку: «Скрыть» закрывает область от игроков, «Открыть» - открывает. Ctrl+Z - отменить своё", gm: true },
 ];
 
 /** Параметры инструмента - выезжают рядом с его кнопкой. */
-function ToolOptions({ tool }: { tool: Tool }) {
+function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSocket; stageRef: React.MutableRefObject<SceneStage | null> }) {
   const isGm = useUi((s) => s.isGm);
+  const fogMode = useUi((s) => s.fogMode);
+  // Кнопки "всё" - тоже свои действия: Ctrl+Z их отменяет.
+  const fogAll = (name: string) => stageRef.current?.noteMyFogCmd(socket.send(name, {}));
   const wallKind = useUi((s) => s.wallKind);
   const placeHidden = useUi((s) => s.placeHidden);
   if (!isGm) return null;
@@ -31,6 +37,24 @@ function ToolOptions({ tool }: { tool: Tool }) {
             {k === "wall" ? "Стена" : "Дверь"}
           </button>
         ))}
+      </div>
+    );
+  }
+  if (tool === "fog") {
+    return (
+      <div className="rail-flyout" role="group" aria-label="туман">
+        {(["cover", "reveal"] as const).map((m) => (
+          <button key={m} className={fogMode === m ? "seg seg-on" : "seg"} onClick={() => useUi.getState().setFogMode(m)}>
+            {m === "cover" ? "Скрыть" : "Открыть"}
+          </button>
+        ))}
+        <span className="rail-flyout-sep" />
+        <button className="seg" title="закрыть туманом всю карту" onClick={() => fogAll("fog.cover_all")}>
+          Скрыть всё
+        </button>
+        <button className="seg" title="убрать весь туман" onClick={() => fogAll("fog.clear")}>
+          Открыть всё
+        </button>
       </div>
     );
   }
@@ -53,7 +77,7 @@ function ToolOptions({ tool }: { tool: Tool }) {
 }
 
 /** Колонка инструментов слева от сцены. */
-export function ToolRail() {
+export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: React.MutableRefObject<SceneStage | null> }) {
   const tool = useUi((s) => s.tool);
   const isGm = useUi((s) => s.isGm);
   const combat = useUi((s) => s.combat);
@@ -72,7 +96,7 @@ export function ToolRail() {
           >
             <Icon name={t.icon} />
           </button>
-          {t.id === tool && <ToolOptions tool={t.id} />}
+          {t.id === tool && <ToolOptions tool={t.id} socket={socket} stageRef={stageRef} />}
         </div>
       ))}
       <div className="rail-sep" />

@@ -71,6 +71,10 @@ export function SceneView({
       },
       onZoom: (scale) => useUi.getState().setZoom(scale),
       onPing: (x, y) => socket.send("ping", { x, y }),
+      onFog: (mode, x, y, w, h) => socket.send(mode === "cover" ? "fog.cover" : "fog.reveal", { x, y, w, h }),
+      onFogUndo: () => {
+        socket.send("fog.undo", {});
+      },
     }, useUi.getState().me!.id);
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
@@ -86,6 +90,7 @@ export function SceneView({
         stageRef.current = stage;
         stage.setTool(useUi.getState().tool);
         stage.setGm(useUi.getState().isGm);
+        stage.setFogMode(useUi.getState().fogMode);
         stage.setCharacterStats(statsOf(useUi.getState().characters));
         useUi.getState().setZoom(1);
         onReady(stage);
@@ -106,6 +111,11 @@ export function SceneView({
   useEffect(() => {
     stageRef.current?.setGm(isGm);
   }, [isGm, stageRef]);
+
+  const fogMode = useUi((s) => s.fogMode);
+  useEffect(() => {
+    stageRef.current?.setFogMode(fogMode);
+  }, [fogMode, stageRef]);
 
   // Лист поменялся (урон, правка КД) - полоска на токене за ним.
   useEffect(() => {

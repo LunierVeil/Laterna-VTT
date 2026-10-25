@@ -28,6 +28,8 @@ interface UiState {
   combatOpen: boolean;
   /** ГМ ставит новые токены сразу скрытыми от игроков (засада). */
   placeHidden: boolean;
+  /** Инструмент "Туман": рамка закрывает или открывает. */
+  fogMode: "cover" | "reveal";
   /** Что рисует инструмент "Стена": стену или дверь. */
   wallKind: "wall" | "door";
   /** ГМ бросает скрыто: панель кубов и броски из листа. */
@@ -80,6 +82,7 @@ interface UiState {
   setCombat: (c: Combat | null) => void;
   setCombatOpen: (v: boolean) => void;
   setPlaceHidden: (v: boolean) => void;
+  setFogMode: (v: "cover" | "reveal") => void;
   setWallKind: (v: "wall" | "door") => void;
   setHiddenRolls: (v: boolean) => void;
   setSideTab: (t: SideTab) => void;
@@ -108,6 +111,7 @@ export const useUi = create<UiState>((set) => ({
   combat: null,
   combatOpen: false,
   placeHidden: false,
+  fogMode: "cover",
   wallKind: "wall",
   hiddenRolls: false,
   sideTab: "chat",
@@ -133,7 +137,7 @@ export const useUi = create<UiState>((set) => ({
       return {
         me,
         isGm,
-        tool: !isGm && (s.tool === "wall" || s.tool === "erase") ? "select" : s.tool,
+        tool: !isGm && (s.tool === "wall" || s.tool === "erase" || s.tool === "fog") ? "select" : s.tool,
         sideTab: !isGm && (s.sideTab === "scenes" || s.sideTab === "players") ? "chat" : s.sideTab,
       };
     }),
@@ -173,6 +177,7 @@ export const useUi = create<UiState>((set) => ({
   setCombat: (combat) => set({ combat }),
   setCombatOpen: (combatOpen) => set({ combatOpen }),
   setPlaceHidden: (placeHidden) => set({ placeHidden }),
+  setFogMode: (fogMode) => set({ fogMode }),
   setWallKind: (wallKind) => set({ wallKind }),
   setHiddenRolls: (hiddenRolls) => set({ hiddenRolls }),
   setSideTab: (sideTab) => set({ sideTab }),

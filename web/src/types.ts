@@ -93,7 +93,17 @@ export interface Scene {
   combat: Combat | null;
   tokens: Token[];
   walls: Wall[];
+  /** Ручной туман: прямоугольники в пикселях сцены. */
+  fog?: FogRect[];
   messages: Message[];
+}
+
+export interface FogRect {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export type ServerMessage =
@@ -145,4 +155,4 @@ export interface SceneInfo {
   name: string;
 }
 
-export type Tool = "select" | "wall" | "token" | "erase" | "ruler";
+export type Tool = "select" | "wall" | "token" | "erase" | "ruler" | "fog";

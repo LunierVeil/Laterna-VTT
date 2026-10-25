@@ -290,7 +290,7 @@ export default function App() {
     <div className="app">
       <TopBar socket={socket} sceneId={sceneId!} />
       <main>
-        <ToolRail />
+        <ToolRail socket={socket} stageRef={stageRef} />
         <div className="scene-area">
           <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
           <TokenCard socket={socket} stageRef={stageRef} />

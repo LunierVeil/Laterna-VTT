@@ -1,5 +1,5 @@
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
-import type { Combat, Scene, Token, Wall, Tool } from "../types";
+import type { Combat, FogRect, Scene, Token, Wall, Tool } from "../types";
 
 const COLORS = {
   background: 0x121318,
@@ -49,6 +49,10 @@ export interface StageCallbacks {
   onZoom: (scale: number) => void;
   /** Пинг: Alt+клик или долгое нажатие на телефоне. Точка - в пикселях сцены. */
   onPing: (x: number, y: number) => void;
+  /** Рамка инструмента "Туман" (ГМ): закрыть или открыть. Возвращает id команды. */
+  onFog: (mode: "cover" | "reveal", x: number, y: number, w: number, h: number) => string;
+  /** Ctrl+Z, когда последним своим действием был туман. */
+  onFogUndo: () => void;
 }
 
 /**
@@ -108,6 +112,15 @@ export class SceneStage {
   private tokenLayer = new Container();
   // Линейка и путь перетаскиваемого токена - поверх токенов.
   private measureLayer = new Graphics();
+  /** Туман: над картой и сеткой, под стенами и токенами (свой токен в тумане виден). */
+  private fogLayer = new Graphics();
+  private fog: FogRect[] = [];
+  private fogMode: "cover" | "reveal" = "cover";
+  private fogDrag: { x: number; y: number } | null = null;
+  /** Свои команды тумана (cmd_id) - для Ctrl+Z, как свои стены. */
+  private myFogCmds = new Set<string>();
+  /** Порядок своих действий для Ctrl+Z: стена или туман. */
+  private myActions: ("wall" | "fog")[] = [];
   /** Пинги - над всем, гаснут сами по тикеру, React не трогают. */
   private pingLayer = new Container();
   private pings: { node: Container; ring: Graphics; color: number; born: number }[] = [];
@@ -197,6 +210,7 @@ export class SceneStage {
   setGm(gm: boolean) {
     if (this.destroyed) return;
     this.gm = gm;
+    this.drawFog();
     if (this.tool === "erase") this.updateEraseHover();
   }
 
@@ -227,6 +241,7 @@ export class SceneStage {
       this.bg,
       this.map,
       this.gridLayer,
+      this.fogLayer,
       this.wallLayer,
       this.ghostLayer,
       this.tokenLayer,
@@ -367,14 +382,42 @@ export class SceneStage {
   }
 
   /** Убрать последнюю стену, поставленную этим клиентом. */
-  undoWall() {
+  /** Ctrl+Z: последнее своё действие - стена или туман. Чужое не трогаем. */
+  undoMine() {
     if (this.destroyed) return;
-    while (this.myWalls.length) {
-      const id = this.myWalls.pop()!;
-      if (this.walls.has(id)) {
-        this.cb.onRemoveWall(id);
+    while (this.myActions.length) {
+      const kind = this.myActions.pop()!;
+      if (kind === "fog") {
+        this.cb.onFogUndo();
         return;
       }
+      while (this.myWalls.length) {
+        const id = this.myWalls.pop()!;
+        if (this.walls.has(id)) {
+          this.cb.onRemoveWall(id);
+          return;
+        }
+      }
+    }
+  }
+
+  /** Режим инструмента "Туман" - из панели (состояние интерфейса). */
+  setFogMode(mode: "cover" | "reveal") {
+    this.fogMode = mode;
+  }
+
+  /** Своя команда тумана, отправленная кнопкой ("скрыть всё") - для Ctrl+Z. */
+  noteMyFogCmd(cmdId: string) {
+    this.myFogCmds.add(cmdId);
+  }
+
+  private drawFog() {
+    const g = this.fogLayer;
+    g.clear();
+    // Мастер видит карту под туманом (полупрозрачно), игрок - нет.
+    for (const r of this.fog) {
+      g.rect(r.x, r.y, r.w, r.h).fill({ color: 0x07080b, alpha: this.gm ? 0.55 : 1 });
+      if (this.gm) g.rect(r.x, r.y, r.w, r.h).stroke({ width: 1, color: 0x6fa8dc, alpha: 0.5 });
     }
   }
 
@@ -396,6 +439,8 @@ export class SceneStage {
 
     for (const w of scene.walls) this.walls.set(w.id, w);
     this.drawWalls();
+    this.fog = scene.fog ?? [];
+    this.drawFog();
     for (const t of scene.tokens) this.addToken(t);
     this.setCurrentTurn(scene.combat);
 
@@ -424,6 +469,7 @@ export class SceneStage {
         if (cmdId && this.myWallCmds.has(cmdId)) {
           this.myWallCmds.delete(cmdId);
           this.myWalls.push(payload.wall.id);
+          this.myActions.push("wall");
         }
         this.drawWalls();
         break;
@@ -435,6 +481,20 @@ export class SceneStage {
         this.walls.delete(payload.id);
         this.myWalls = this.myWalls.filter((id) => id !== payload.id);
         this.drawWalls();
+        break;
+      case "fog.updated":
+        // Игроку сервер дописал, что вышло из тумана и что ушло под него.
+        for (const id of payload.remove_tokens ?? []) this.removeToken(id);
+        for (const t of payload.add_tokens ?? []) if (!this.tokens.has(t.id)) this.addToken(t);
+        for (const id of payload.remove_walls ?? []) this.walls.delete(id);
+        for (const w of payload.add_walls ?? []) this.walls.set(w.id, w);
+        if (payload.remove_walls?.length || payload.add_walls?.length) this.drawWalls();
+        this.fog = payload.fog ?? [];
+        this.drawFog();
+        if (cmdId && this.myFogCmds.has(cmdId)) {
+          this.myFogCmds.delete(cmdId);
+          this.myActions.push("fog");
+        }
         break;
       case "combat.updated":
         this.setCurrentTurn(payload.combat);
@@ -859,6 +919,11 @@ export class SceneStage {
       return;
     }
 
+    if (this.tool === "fog" && this.gm && e.button === 0) {
+      this.fogDrag = { x: p.x, y: p.y };
+      return;
+    }
+
     if (this.tool === "ruler" && e.button === 0) {
       // От центра клетки: меряют "отсюда туда", а не от пикселя.
       this.measuring = this.snapToken(p, 1);
@@ -944,7 +1009,7 @@ export class SceneStage {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
       e.preventDefault();
       if (this.wallStart) this.endChain();
-      else this.undoWall();
+      else this.undoMine();
       return;
     }
     // Backspace - для маков, где отдельной Delete нет.
@@ -959,6 +1024,16 @@ export class SceneStage {
     this.pointerScene = this.toScene(e);
     if (this.longPress && Math.hypot(e.global.x - this.longPress.x, e.global.y - this.longPress.y) > 10) {
       this.cancelLongPress(); // повёл пальцем - это панорама
+    }
+
+    if (this.fogDrag) {
+      const r = this.fogRect(this.fogDrag, this.pointerScene);
+      const g = this.ghostLayer;
+      g.clear();
+      g.rect(r.x, r.y, r.w, r.h)
+        .fill({ color: this.fogMode === "cover" ? 0x07080b : 0xf0b14a, alpha: 0.25 })
+        .stroke({ width: 2, color: this.fogMode === "cover" ? 0x6fa8dc : 0xf0b14a });
+      return;
     }
 
     if (this.panning) {
@@ -1000,7 +1075,18 @@ export class SceneStage {
     return w && w.kind === "door" ? w : null;
   }
 
+  private fogRect(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+  }
+
   private onPointerUp = () => {
+    if (this.fogDrag) {
+      const r = this.fogRect(this.fogDrag, this.pointerScene);
+      this.fogDrag = null;
+      this.ghostLayer.clear();
+      // Случайный клик без рамки - не команда.
+      if (r.w >= 4 && r.h >= 4) this.myFogCmds.add(this.cb.onFog(this.fogMode, r.x, r.y, r.w, r.h));
+    }
     this.cancelLongPress();
     this.panning = null;
     this.measuring = null;
