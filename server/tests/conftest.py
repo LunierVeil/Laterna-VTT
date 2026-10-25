@@ -20,4 +20,4 @@ os.environ["LANTERNA_GM_KEY"] = GM_KEY = secrets.token_urlsafe(18)
 os.environ.pop("LANTERNA_TRUST_PROXY", None)
 os.environ.pop("PUBLIC_URL", None)
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

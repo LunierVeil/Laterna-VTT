@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.importers import lss  # noqa: E402
 from app.richtext import clean_doc, safe_href  # noqa: E402

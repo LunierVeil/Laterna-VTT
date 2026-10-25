@@ -129,7 +129,7 @@ npm run dev
 ### Проверка
 
 ```
-server/.venv/bin/python -m pytest tests                         # без сервера
+cd server && .venv/bin/python -m pytest tests                # без сервера
 cd server && python smoke_test.py                             # при живом сервере
 ```
 

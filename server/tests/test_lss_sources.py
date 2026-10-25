@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import dice, sheet_data  # noqa: E402
 from app.importers import lss  # noqa: E402

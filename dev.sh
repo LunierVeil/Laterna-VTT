@@ -52,7 +52,7 @@ case "${1:-}" in
     echo "> тесты листа (node --test)"
     (cd "$ROOT/web" && npm test --silent)
     echo "> тесты (pytest: сервер на временной базе, без живого процесса)"
-    (cd "$ROOT" && "$PY" -m pytest tests -q -p no:warnings)
+    (cd "$ROOT/server" && "$PY" -m pytest tests -q -p no:warnings)
     echo "> smoke_test"
     # Не "порт открыт", а "сервер отвечает": uvicorn --reload держит порт
     # и тогда, когда рабочий процесс упал или ещё поднимается.

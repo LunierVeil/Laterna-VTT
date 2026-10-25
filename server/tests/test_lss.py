@@ -1,4 +1,4 @@
-"""Адаптер Long Story Short. Без сервера: python -m unittest discover -s tests -t ."""
+"""Адаптер Long Story Short. Без сервера: cd server && pytest tests"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app import sheet_data  # noqa: E402
 from app.importers import lss  # noqa: E402
