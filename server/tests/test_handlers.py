@@ -332,3 +332,42 @@ def test_reimport_keeps_player_text(sockets):
     finally:
         g.send_text(json.dumps({"type": "cmd", "id": "i4", "name": "character.delete", "payload": {"id": char["id"]}}))
         recv_until(g, lambda m: m.get("type") == "character_deleted")
+
+
+# --- операции листа: список и счётчик ----------------------------------------
+
+
+def test_spell_list_and_slot_commands(sockets, player):
+    g, p = sockets
+
+    def say(ws, cid, name, payload, until="character"):
+        ws.send_text(json.dumps({"type": "cmd", "id": cid, "name": name, "payload": payload}))
+        return recv_until(ws, lambda m: m.get("type") == until or (m.get("type") == "error" and m.get("cmd_id") == cid))
+
+    p.send_text(json.dumps({"type": "cmd", "id": "s1", "name": "character.create", "payload": {"name": "Маг"}}))
+    char = recv_until(p, lambda m: m.get("cmd_id") == "s1")["payload"]["character"]
+    recv_until(p, lambda m: m.get("type") == "character")  # рассылка нового листа владельцу
+    try:
+        say(p, "s2", "character.update", {"id": char["id"], "set": {"slots.1.total": 2}})
+        data = say(p, "s3", "character.list", {"id": char["id"], "path": "spells", "op": "add",
+                                               "item": {"name": "Заклинание А", "level": 1}})["character"]["data"]
+        spell_id = data["spells"][0]["id"]
+        data = say(p, "s4", "character.list", {"id": char["id"], "path": "spells", "op": "update",
+                                               "item_id": spell_id, "changes": {"prepared": True}})["character"]["data"]
+        assert data["spells"][0]["prepared"] is True
+        data = say(p, "s5", "character.counter", {"id": char["id"], "path": "slots.1.left", "delta": -1,
+                                                  "max_path": "slots.1.total"})["character"]["data"]
+        assert data["slots"]["1"]["left"] == 1
+        # Чужой лист игроку - "нет такого персонажа", в том числе для новых команд.
+        g.send_text(json.dumps({"type": "cmd", "id": "s6", "name": "character.create", "payload": {"name": "Чужой"}}))
+        other = recv_until(g, lambda m: m.get("cmd_id") == "s6")["payload"]["character"]
+        recv_until(g, lambda m: m.get("type") == "character" and m["character"]["id"] == other["id"])
+        err = say(p, "s7", "character.counter", {"id": other["id"], "path": "x", "delta": -1}, until="__none__")
+        assert err["type"] == "error"
+        err = say(p, "s8", "character.list", {"id": other["id"], "path": "spells", "op": "add", "item": {"name": "x"}}, until="__none__")
+        assert err["type"] == "error"
+        g.send_text(json.dumps({"type": "cmd", "id": "s9", "name": "character.delete", "payload": {"id": other["id"]}}))
+        recv_until(g, lambda m: m.get("type") == "character_deleted")
+    finally:
+        p.send_text(json.dumps({"type": "cmd", "id": "s10", "name": "character.delete", "payload": {"id": char["id"]}}))
+        recv_until(p, lambda m: m.get("type") == "character_deleted")

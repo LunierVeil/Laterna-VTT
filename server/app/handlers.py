@@ -630,6 +630,50 @@ async def character_update(db: AsyncSession, campaign: Campaign, actor: Actor, p
     return "character.saved", {"character": character.to_dict()}
 
 
+async def character_list(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Элемент списка листа: {id, path, op: add|update|remove, item?, item_id?, changes?}.
+
+    Заклинания, карточки - по одному элементу, а не списком целиком: два
+    одновременных добавления не затирают друг друга. Что за элементы, сервер
+    не знает - проверяет только форму (sheet_data)."""
+    character = await _own_character(db, campaign, actor, payload.get("id"))
+    try:
+        data = sheet_data.apply_list(
+            json.loads(character.data_json or "{}"),
+            payload.get("path"),
+            payload.get("op"),
+            item=payload.get("item"),
+            item_id=payload.get("item_id"),
+            changes=payload.get("changes"),
+        )
+        character.data_json = sheet_data.dump(data)
+    except sheet_data.SheetError as exc:
+        raise CommandError(str(exc))
+    character.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return "character.saved", {"character": character.to_dict()}
+
+
+async def character_counter(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    """Счётчик листа на дельту: {id, path, delta, max_path?}. Потратить ячейку
+    заклинаний - delta -1 по "slots.N.left" с max_path "slots.N.total":
+    сколько осталось, считает сервер, а не клиент."""
+    character = await _own_character(db, campaign, actor, payload.get("id"))
+    try:
+        data = sheet_data.apply_counter(
+            json.loads(character.data_json or "{}"),
+            payload.get("path"),
+            payload.get("delta"),
+            payload.get("max_path"),
+        )
+        character.data_json = sheet_data.dump(data)
+    except sheet_data.SheetError as exc:
+        raise CommandError(str(exc))
+    character.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return "character.saved", {"character": character.to_dict()}
+
+
 async def character_copy(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     """Копия листа - «гоблин, но с луком». Владелец тот же; исходник
     импорта не копируем: копию правят руками."""
@@ -879,6 +923,8 @@ CAMPAIGN_HANDLERS = {
     "player.delete": player_delete,
     "character.create": character_create,
     "character.update": character_update,
+    "character.list": character_list,
+    "character.counter": character_counter,
     "character.copy": character_copy,
     "character.delete": character_delete,
     "character.import": character_import,
