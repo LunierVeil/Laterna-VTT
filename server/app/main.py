@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -23,6 +24,8 @@ from .config import (
     FRONTEND_URLS,
     LOGIN_MAX_FAILURES,
     LOGIN_MAX_FAILURES_PER_IP,
+    LOGIN_MAX_FAILURES_PER_NAME,
+    LOGIN_NAME_WINDOW,
     LOGIN_WINDOW,
     MAX_PLAYER_UPLOAD_BYTES,
     MAX_UPLOAD_BYTES,
@@ -339,10 +342,22 @@ async def me(request: Request, db: AsyncSession = Depends(get_session)) -> dict 
     return {"id": actor.id, "name": actor.name, "is_gm": actor.is_gm} if actor else None
 
 
-# Неудачные входы: по паре адрес+имя (подбор пароля к одному игроку) и
-# по адресу (перебор разных имён). Ключ ГМ - как имя "ключ ГМ".
+# Неудачные входы: по паре адрес+имя (подбор пароля к одному игроку), по
+# имени с любого адреса и по адресу (перебор разных имён) - кроме loopback.
+# Ключ ГМ - как имя "ключ ГМ".
 login_limiter = LoginLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW)
 ip_limiter = LoginLimiter(LOGIN_MAX_FAILURES_PER_IP, LOGIN_WINDOW)
+name_limiter = LoginLimiter(LOGIN_MAX_FAILURES_PER_NAME, LOGIN_NAME_WINDOW)
+
+
+def _is_loopback(ip: str) -> bool:
+    """127.0.0.1 и ::1 - не один человек, а все, кто пришёл через Porthole
+    или туннель без X-Forwarded-For. Счётчик по такому адресу заблокировал
+    бы весь стол из-за одного игрока, ошибшегося паролем."""
+    try:
+        return ipaddress.ip_address(ip).is_loopback
+    except ValueError:
+        return False
 
 
 def client_ip(request: Request) -> str:
@@ -359,7 +374,10 @@ def client_ip(request: Request) -> str:
 
 
 def _check_login_limit(ip: str, who: str) -> None:
-    wait = max(login_limiter.retry_after(f"{ip}|{who}") or 0, ip_limiter.retry_after(ip) or 0)
+    waits = [login_limiter.retry_after(f"{ip}|{who}"), name_limiter.retry_after(who)]
+    if not _is_loopback(ip):
+        waits.append(ip_limiter.retry_after(ip))
+    wait = max(w or 0 for w in waits)
     if wait:
         minutes = max(1, round(wait / 60))
         raise HTTPException(
@@ -369,7 +387,9 @@ def _check_login_limit(ip: str, who: str) -> None:
 
 def _login_failed(ip: str, who: str) -> None:
     login_limiter.fail(f"{ip}|{who}")
-    ip_limiter.fail(ip)
+    name_limiter.fail(who)
+    if not _is_loopback(ip):
+        ip_limiter.fail(ip)
 
 
 @app.post("/api/login")

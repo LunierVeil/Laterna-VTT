@@ -45,6 +45,10 @@ MAX_SCENE_SIDE = 8192
 LOGIN_MAX_FAILURES = 5
 LOGIN_MAX_FAILURES_PER_IP = 20
 LOGIN_WINDOW = 600
+# По имени, с любого адреса: подбор пароля к одному игроку с разных адресов
+# или через Porthole, где все приходят с 127.0.0.1.
+LOGIN_MAX_FAILURES_PER_NAME = 30
+LOGIN_NAME_WINDOW = 3600
 
 # Адрес клиента из X-Forwarded-For - только если включено. Заголовок
 # подделывает кто угодно; верить ему можно, лишь когда перед сервером

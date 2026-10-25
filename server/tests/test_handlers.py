@@ -294,6 +294,7 @@ def test_gm_key_rate_limit(client, gm):
     assert r.status_code == 429 and "retry-after" in r.headers
     main.login_limiter.reset("testclient|ключ ГМ")
     main.ip_limiter.reset("testclient")
+    main.name_limiter.reset("ключ ГМ")
 
 
 def test_forwarded_for_only_when_trusted(monkeypatch):
@@ -371,3 +372,75 @@ def test_spell_list_and_slot_commands(sockets, player):
     finally:
         p.send_text(json.dumps({"type": "cmd", "id": "s10", "name": "character.delete", "payload": {"id": char["id"]}}))
         recv_until(p, lambda m: m.get("type") == "character_deleted")
+
+
+# --- вход через Porthole: все с 127.0.0.1 ---------------------------------------
+
+
+def _invite(client, gm, scene_id) -> str:
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=gm) as ws:
+        ws.receive_json()
+        ws.send_text(json.dumps({"type": "cmd", "id": "inv", "name": "invite.create", "payload": {}}))
+        token = recv_until(ws, lambda m: m.get("type") == "reply")["payload"]["token"]
+        recv_until(ws, lambda m: m.get("type") == "campaign")  # см. фикстуру player
+    return token
+
+
+def test_porthole_players_share_loopback_but_not_lockout(client, gm, scene_id):
+    """Десять игроков приходят с 127.0.0.1 (так их видит сервер мастера через
+    Porthole). Один шесть раз ошибается паролем - блокируется только он."""
+    names = [f"Портхол {i}" for i in range(10)]
+    for name in names:
+        token = _invite(client, gm, scene_id)
+        r = client.post("/api/invite/accept", json={"token": token, "name": name, "password": "pass-" + name})
+        assert r.status_code == 200, r.text
+        client.cookies.clear()
+    loop = TestClient(app, client=("127.0.0.1", 40000))
+    try:
+        unlucky = names[0]
+        for attempt in range(6):
+            r = loop.post("/api/login", json={"name": unlucky, "password": "неверный"})
+            assert r.status_code == (429 if attempt == 5 else 401), (attempt, r.status_code)
+            # Остальные входят между его попытками - с того же адреса.
+            other = names[1 + attempt % 9]
+            ok = loop.post("/api/login", json={"name": other, "password": "pass-" + other})
+            assert ok.status_code == 200, (other, ok.text)
+            loop.cookies.clear()
+        for other in names[1:]:
+            assert loop.post("/api/login", json={"name": other, "password": "pass-" + other}).status_code == 200
+            loop.cookies.clear()
+        # Даже с верным паролем ошибавшийся ждёт - счётчик "имя+адрес".
+        assert loop.post("/api/login", json={"name": unlucky, "password": "pass-" + unlucky}).status_code == 429
+    finally:
+        for key in [f"127.0.0.1|{n.casefold()}" for n in names]:
+            main.login_limiter.reset(key)
+        for n in names:
+            main.name_limiter.reset(n.casefold())
+
+
+def test_name_limit_across_addresses(client):
+    """30 неудач за час по одному имени с разных адресов - вход по имени закрыт."""
+    who = "кто-то-без-аккаунта"
+    try:
+        for i in range(main.LOGIN_MAX_FAILURES_PER_NAME):
+            main.name_limiter.fail(who)
+        r = client.post("/api/login", json={"name": who, "password": "x"})
+        assert r.status_code == 429
+    finally:
+        main.name_limiter.reset(who)
+        client.cookies.clear()
+
+
+def test_gm_key_is_the_only_way_to_gm(client, player):
+    """Через Porthole игрок - 127.0.0.1, как и мастер. Адрес прав не даёт:
+    без ключа - не мастер, и X-Forwarded-For по умолчанию не учитывается."""
+    loop = TestClient(app, client=("127.0.0.1", 40001))
+    me = loop.get("/api/me", headers=player["headers"]).json()
+    assert me["is_gm"] is False
+    assert loop.post("/api/gm/login", json={"key": ""}).status_code == 403
+    assert loop.post("/api/gm/login", json={"key": "127.0.0.1"}).status_code == 403
+    assert loop.get("/api/me").json() is None  # без сессии - никто
+    req = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"x-forwarded-for": "8.8.8.8"})
+    assert main.client_ip(req) == "127.0.0.1"
+    main.login_limiter.reset("127.0.0.1|ключ ГМ")
+    main.name_limiter.reset("ключ ГМ")
