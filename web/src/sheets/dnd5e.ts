@@ -1,5 +1,18 @@
-import type { SheetSchema } from "./schema";
-import { mob } from "./mob";
+import type { CheckBonus, SheetSchema } from "./schema";
+import { mob } from "./mob.ts";
+
+const D20 = { normal: "1d20", advantage: "2d20kh1", disadvantage: "2d20kl1" };
+
+// Бонус = модификатор + мастерство при владении; "свой бонус" главнее.
+// Это подсказка формы, не правило: экспертизу и предметы игрок вписывает сам.
+const SKILL_BONUS: CheckBonus = {
+  flag: "prof",
+  manual: "bonus",
+  abilities: "abilities",
+  score: "score",
+  proficiency: "proficiency",
+};
+const SAVE_BONUS: CheckBonus = { ...SKILL_BONUS, flag: "save", manual: "save_bonus" };
 
 /**
  * Лист D&D 5e. Только поля: никаких классов, расчётов и проверок правил.
@@ -126,31 +139,53 @@ export const dnd5e: SheetSchema = {
       blocks: [
         {
           kind: "checklist",
+          title: "Спасброски",
+          // Флаг владения - тот же abilities.<key>.save, что и в характеристиках.
+          path: "abilities",
+          fields: [
+            { key: "save", label: "влад.", kind: "checkbox" },
+            { key: "save_bonus", label: "свой бонус", kind: "number", width: 3, min: -10, max: 30 },
+          ],
+          bonus: SAVE_BONUS,
+          roll: { label: "спасбросок", d20: D20 },
+          items: [
+            { key: "str", label: "Сила", ability: "str" },
+            { key: "dex", label: "Ловкость", ability: "dex" },
+            { key: "con", label: "Телосложение", ability: "con" },
+            { key: "int", label: "Интеллект", ability: "int" },
+            { key: "wis", label: "Мудрость", ability: "wis" },
+            { key: "cha", label: "Харизма", ability: "cha" },
+          ],
+        },
+        {
+          kind: "checklist",
           title: "Навыки",
           path: "skills",
           fields: [
             { key: "prof", label: "влад.", kind: "checkbox" },
-            { key: "bonus", label: "бонус", kind: "number", width: 3, min: -10, max: 30 },
+            { key: "bonus", label: "свой бонус", kind: "number", width: 3, min: -10, max: 30 },
           ],
+          bonus: SKILL_BONUS,
+          roll: { label: "навык", d20: D20 },
           items: [
-            { key: "acrobatics", label: "Акробатика", hint: "Лов" },
-            { key: "animal_handling", label: "Уход за животными", hint: "Мдр" },
-            { key: "arcana", label: "Магия", hint: "Инт" },
-            { key: "athletics", label: "Атлетика", hint: "Сил" },
-            { key: "deception", label: "Обман", hint: "Хар" },
-            { key: "history", label: "История", hint: "Инт" },
-            { key: "insight", label: "Проницательность", hint: "Мдр" },
-            { key: "intimidation", label: "Запугивание", hint: "Хар" },
-            { key: "investigation", label: "Анализ", hint: "Инт" },
-            { key: "medicine", label: "Медицина", hint: "Мдр" },
-            { key: "nature", label: "Природа", hint: "Инт" },
-            { key: "perception", label: "Внимательность", hint: "Мдр" },
-            { key: "performance", label: "Выступление", hint: "Хар" },
-            { key: "persuasion", label: "Убеждение", hint: "Хар" },
-            { key: "religion", label: "Религия", hint: "Инт" },
-            { key: "sleight_of_hand", label: "Ловкость рук", hint: "Лов" },
-            { key: "stealth", label: "Скрытность", hint: "Лов" },
-            { key: "survival", label: "Выживание", hint: "Мдр" },
+            { key: "acrobatics", label: "Акробатика", hint: "Лов", ability: "dex" },
+            { key: "animal_handling", label: "Уход за животными", hint: "Мдр", ability: "wis" },
+            { key: "arcana", label: "Магия", hint: "Инт", ability: "int" },
+            { key: "athletics", label: "Атлетика", hint: "Сил", ability: "str" },
+            { key: "deception", label: "Обман", hint: "Хар", ability: "cha" },
+            { key: "history", label: "История", hint: "Инт", ability: "int" },
+            { key: "insight", label: "Проницательность", hint: "Мдр", ability: "wis" },
+            { key: "intimidation", label: "Запугивание", hint: "Хар", ability: "cha" },
+            { key: "investigation", label: "Анализ", hint: "Инт", ability: "int" },
+            { key: "medicine", label: "Медицина", hint: "Мдр", ability: "wis" },
+            { key: "nature", label: "Природа", hint: "Инт", ability: "int" },
+            { key: "perception", label: "Внимательность", hint: "Мдр", ability: "wis" },
+            { key: "performance", label: "Выступление", hint: "Хар", ability: "cha" },
+            { key: "persuasion", label: "Убеждение", hint: "Хар", ability: "cha" },
+            { key: "religion", label: "Религия", hint: "Инт", ability: "int" },
+            { key: "sleight_of_hand", label: "Ловкость рук", hint: "Лов", ability: "dex" },
+            { key: "stealth", label: "Скрытность", hint: "Лов", ability: "dex" },
+            { key: "survival", label: "Выживание", hint: "Мдр", ability: "wis" },
           ],
         },
       ],

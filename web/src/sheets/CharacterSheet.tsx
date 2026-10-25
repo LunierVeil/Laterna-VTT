@@ -6,6 +6,7 @@ import type { Block, Counter, Field, RollSpec, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { safeUpload, uploadImage } from "../net/upload";
+import { checkBonus, computedBonus } from "./bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -204,6 +205,7 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
                 ))}
                 <span>{item.label}</span>
                 {item.hint && <span className="muted">({item.hint})</span>}
+                {block.bonus && <ComputedHint block={block} item={item} data={data} />}
               </div>
             ))}
           </div>
@@ -300,6 +302,7 @@ function rowIndex(raw: unknown, row: unknown): number {
 }
 
 const EDGE_LABEL: Record<Edge, string> = { normal: "", advantage: " (преим.)", disadvantage: " (помеха)" };
+const edgeOf = (e: React.MouseEvent): Edge => (e.shiftKey ? "advantage" : e.altKey ? "disadvantage" : "normal");
 
 /** Значение для чтения: число со знаком там, где это бонус, подпись select. */
 function show(field: Field, value: unknown): React.ReactNode {
@@ -308,6 +311,21 @@ function show(field: Field, value: unknown): React.ReactNode {
   if (field.kind === "select") return field.options?.find((o) => o.value === value)?.label ?? String(value);
   if (field.kind === "link") return <SafeLink href={value}>открыть ↗</SafeLink>;
   return String(value);
+}
+
+/** В режиме правки: сколько посчитано без ручного поля - видно, что оно перекрывает. */
+function ComputedHint({
+  block,
+  item,
+  data,
+}: {
+  block: Extract<Block, { kind: "checklist" }>;
+  item: { key: string; ability?: string };
+  data: unknown;
+}) {
+  if (!block.bonus) return null;
+  const value = computedBonus(block.bonus, `${block.path}.${item.key}`, item.ability, data);
+  return value === undefined ? null : <span className="muted">посчитано {signed(value)}</span>;
 }
 
 const signed = (v: unknown) => (typeof v === "number" ? (v >= 0 ? `+${v}` : `${v}`) : "");
@@ -429,18 +447,50 @@ function ViewBlock({
           <h3>{block.title}</h3>
           <div className="view-checklist">
             {block.items.map((item) => {
-              const on = flag ? get(data, `${block.path}.${item.key}.${flag.key}`) === true : false;
-              const bonus = num ? get(data, `${block.path}.${item.key}.${num.key}`) : undefined;
+              const rowPath = `${block.path}.${item.key}`;
+              const on = flag ? get(data, `${rowPath}.${flag.key}`) === true : false;
+              // Схема умеет считать - модификатор + мастерство, ручное главнее;
+              // не умеет - только ручное поле, как раньше.
+              const manualValue = num ? get(data, `${rowPath}.${num.key}`) : undefined;
+              const b = block.bonus
+                ? checkBonus(block.bonus, rowPath, item.ability, data)
+                : { value: typeof manualValue === "number" ? manualValue : undefined, manual: true };
+              const rollSpec = block.roll;
+              const title = (
+                <>
+                  <span>{item.label}</span>
+                  {item.hint && <span className="muted">{item.hint}</span>}
+                </>
+              );
               return (
                 <div key={item.key} className={on ? "view-check view-check-on" : "view-check"}>
                   <span className={on ? "dot dot-on" : "dot"} aria-label={on ? "владение" : undefined} />
-                  <span>{item.label}</span>
-                  {item.hint && <span className="muted">{item.hint}</span>}
-                  <span className="view-bonus">{signed(bonus)}</span>
+                  {rollSpec && b.value !== undefined ? (
+                    <button
+                      className="roll-name view-check-name"
+                      title="бросить; Shift - с преимуществом, Alt - с помехой"
+                      onClick={(e) => {
+                        const edge = edgeOf(e);
+                        roll(`${rollSpec.d20[edge]}${signed(b.value)}`, `${item.label} - ${rollSpec.label}${EDGE_LABEL[edge]}`);
+                      }}
+                    >
+                      {title}
+                    </button>
+                  ) : (
+                    title
+                  )}
+                  <span
+                    className="view-bonus"
+                    title={block.bonus ? (b.manual ? "свой бонус" : "модификатор + мастерство при владении") : undefined}
+                  >
+                    {signed(b.value)}
+                    {block.bonus && b.manual && <span className="view-manual">*</span>}
+                  </span>
                 </div>
               );
             })}
           </div>
+          {block.bonus && <p className="muted view-note">Клик по названию - бросок. * - свой бонус вместо посчитанного.</p>}
         </section>
       );
     }
@@ -493,8 +543,6 @@ function ViewBlock({
                       if (f) roll(f, `${name} - ${it.label}${it.d20 ? EDGE_LABEL[edge] : ""}`);
                     }
                   };
-                  const edgeOf = (e: React.MouseEvent): Edge =>
-                    e.shiftKey ? "advantage" : e.altKey ? "disadvantage" : "normal";
                   const counter = block.counter;
                   if (counter && isCounter(counter, row)) {
                     // Строка-счётчик: вместо "Есть" и "Макс." - −/+ и "3 / 4".

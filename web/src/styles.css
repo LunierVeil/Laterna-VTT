@@ -634,3 +634,7 @@ button.portrait:hover { filter: brightness(1.15); }
 .portrait-edit .tool { padding: 1px 8px; font-size: 12px; }
 .rest-chip { font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #22263a; color: #b9c4ef; white-space: nowrap; }
 .rest-short { background: #2a2416; color: #f2c879; }
+.view-check-name { display: inline-flex; gap: 10px; align-items: baseline; color: inherit; }
+.view-check-name:hover span:first-child { color: var(--accent); }
+.view-manual { color: var(--accent); margin-left: 2px; }
+.view-note { margin: 12px 0 0; font-size: 12px; }

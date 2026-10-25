@@ -52,6 +52,20 @@ export interface Counter {
   rests: { label: string; restores: string[] }[];
 }
 
+/**
+ * Бонус строки списка: модификатор характеристики + мастерство при
+ * владении. Это арифметика формы, а не правило: ручное поле (manual)
+ * главнее - экспертизу, предметы и хоумбрю вписывает игрок.
+ * Пути flag и manual - внутри строки, остальные - от корня data.
+ */
+export interface CheckBonus {
+  flag: string;
+  manual: string;
+  abilities: string;
+  score: string;
+  proficiency: string;
+}
+
 export type Block =
   /** Обычные поля. */
   | { kind: "fields"; title: string; fields: Field[] }
@@ -73,8 +87,13 @@ export type Block =
       kind: "checklist";
       title: string;
       path: string;
-      items: { key: string; label: string; hint?: string }[];
+      /** ability - чья характеристика у строки (для bonus). */
+      items: { key: string; label: string; hint?: string; ability?: string }[];
       fields: Field[];
+      /** Как посчитать бонус строки, если ручного нет. */
+      bonus?: CheckBonus;
+      /** Бросок по клику на строку (режим "игра"): d20 + бонус, подпись - label + название. */
+      roll?: { label: string; d20: { normal: string; advantage: string; disadvantage: string } };
     }
   /** Таблица, строки добавляет игрок: оружие, ресурсы. data[path] = [{...}, ...]. */
   | {

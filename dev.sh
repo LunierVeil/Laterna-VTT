@@ -49,6 +49,8 @@ case "${1:-}" in
     need_deps
     echo "> tsc"
     (cd "$ROOT/web" && npx --no-install tsc --noEmit -p .)
+    echo "> тесты листа (node --test)"
+    (cd "$ROOT/web" && npm test --silent)
     echo "> тесты (pytest: сервер на временной базе, без живого процесса)"
     (cd "$ROOT" && "$PY" -m pytest tests -q -p no:warnings)
     echo "> smoke_test"
