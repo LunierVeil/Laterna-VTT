@@ -223,7 +223,9 @@ def _slots(spells: object) -> dict:
         m = re.fullmatch(r"slots-([1-9])", str(key))
         value = _int(node, 0, 99) if m else None
         if value is not None:
-            out[m.group(1)] = value
+            # Всего ячеек круга; "осталось" пусто - значит все (так считает
+            # и character.counter, когда ячейку тратят).
+            out[m.group(1)] = {"total": value}
     return out
 
 
@@ -328,7 +330,7 @@ def _bad_links(node: object, depth: int = 0) -> int:
     return count + sum(_bad_links(c, depth + 1) for c in node.get("content") or [])
 
 
-def _report(data: dict, deleted: int, avatar: bool, bad_links: int, prepared: bool = False) -> dict:
+def _report(data: dict, deleted: int, avatar: bool, bad_links: int, prepared: int = 0) -> dict:
     """Что перенесено и что нет - одной строкой в интерфейсе после загрузки."""
     items = [c for c in data["equipment"] if c.get("qty") is not None]
     texts = len(data["features"]) + len(data["lore"]) + len(data["equipment"]) - len(items)
@@ -351,7 +353,7 @@ def _report(data: dict, deleted: int, avatar: bool, bad_links: int, prepared: bo
         skipped.append(f"ссылки не https: {bad_links}")
     if prepared:
         # Там только id из базы LSS без названий - переносить нечего.
-        skipped.append("подготовленные заклинания не перенесены")
+        skipped.append(f"подготовленные заклинания не перенесены: {prepared}")
     return {"done": done, "skipped": skipped}
 
 
@@ -500,9 +502,9 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
         if isinstance(e, dict)
     )
     outer_spells = outer.get("spells") if isinstance(outer.get("spells"), dict) else {}
-    prepared = bool(outer_spells.get("prepared")) or bool(
-        isinstance(inner.get("spells"), dict) and inner["spells"].get("prepared")
-    )
+    # Только считаем: там id из базы LSS без названий - добавлять нечего.
+    lists = [outer_spells.get("prepared"), inner["spells"].get("prepared") if isinstance(inner.get("spells"), dict) else None]
+    prepared = max((len(x) for x in lists if isinstance(x, list)), default=0)
     return name, data, _report(data, deleted, has_avatar, bad_links, prepared)
 
 
@@ -551,7 +553,8 @@ def _merge_dict(old: dict, new: dict) -> dict:
 
 # Где своё игрока главнее файла: "О персонаже" импорт заполняет только
 # пустое (история из длинной предыстории), вписанное игроком не трогает.
-_PLAYER_FIRST = ("about",)
+# Ячейки заклинаний - тоже: сколько всего и сколько осталось, ведёт лист.
+_PLAYER_FIRST = ("about", "slots")
 
 
 def merge_reimport(old: object, new: dict) -> dict:

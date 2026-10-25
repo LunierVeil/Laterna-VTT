@@ -352,10 +352,20 @@ def test_hit_dice_inspiration_slots():
     assert (lucius["vitals"]["hit_dice"], lucius["vitals"]["hit_dice_current"]) == ("d10", 3)
     assert lucius["inspiration"] is False
     lapland, report = lss.parse_report(ALL["lss_lapland"])[1:]
-    assert lapland["slots"] == {"1": 2}
-    # Подготовленные - id из базы LSS без названий: не переносим, говорим.
-    assert "подготовленные заклинания не перенесены" in report["skipped"]
-    assert "подготовленные заклинания не перенесены" not in lss.parse_report(SAD)[2]["skipped"]
+    assert lapland["slots"] == {"1": {"total": 2}}
+    # Подготовленные - id из базы LSS без названий: не переносим, говорим сколько.
+    assert "подготовленные заклинания не перенесены: 8" in report["skipped"]
+    assert not any("подготовленные" in x for x in lss.parse_report(SAD)[2]["skipped"])
+    assert "spells" not in lapland  # ничего не добавили
+
+
+def test_reimport_keeps_spells_and_slots():
+    played = parse(ALL["lss_lapland"])
+    played["spells"] = [{"id": "i-1", "name": "Своё заклинание", "level": 1, "prepared": True}]
+    played["slots"] = {"1": {"total": 3, "left": 1}, "2": {"total": 1}}
+    merged = lss.merge_reimport(played, parse(ALL["lss_lapland"]))
+    assert merged["spells"] == played["spells"]
+    assert merged["slots"] == {"1": {"total": 3, "left": 1}, "2": {"total": 1}}
 
 
 def test_inspiration_true():
@@ -378,6 +388,7 @@ def test_reimport_keeps_own_edits_all_fixtures():
         played["skills"].setdefault("stealth", {})["bonus"] = 11
         played["equipment"].append({"id": "own-1", "name": "Свой предмет", "qty": 1, "weight": 2})
         played["coins"]["gp"] = 999  # в файле есть - из файла, это ожидаемо
+        played["spells"] = [{"id": "i-own", "name": "Своё", "level": 0}]
         merged = lss.merge_reimport(played, parse(raw))
         assert merged["about"]["flaws"] == "своя слабость", stem
         assert merged["notes"] == "свои заметки", stem
@@ -385,3 +396,4 @@ def test_reimport_keeps_own_edits_all_fixtures():
         assert merged["skills"]["stealth"]["bonus"] == 11, stem
         assert "Свой предмет" in [c["name"] for c in merged["equipment"]], stem
         assert merged["coins"] == parse(raw)["coins"], stem
+        assert merged["spells"] == played["spells"], stem
