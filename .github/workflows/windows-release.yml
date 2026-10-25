@@ -1,0 +1,111 @@
+# Архив для Windows: встроенный Python со всеми пакетами и собранная
+# страница - мастеру ничего не ставить, распаковал и запустил laterna.bat.
+# По тегу v* архив прикладывается к релизу (pre-release); вручную
+# (workflow_dispatch) - только собирается и проверяется.
+name: Windows release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      # Встроенный Python - тот же минор, что и pip ниже (колёса cp312).
+      PY_EMBED: "3.12.10"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Собрать страницу
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Собрать архив
+        shell: pwsh
+        run: |
+          $ref = "${{ github.ref_name }}" -replace '[^A-Za-z0-9._-]', '-'
+          $name = "Laterna-VTT-$ref-windows"
+          $out = "dist\$name"
+          New-Item -ItemType Directory -Force $out | Out-Null
+
+          # Встроенный Python с python.org. В ._pth - где искать модули:
+          # без "import site" и Lib\site-packages пакеты не найдутся.
+          Invoke-WebRequest "https://www.python.org/ftp/python/$env:PY_EMBED/python-$env:PY_EMBED-embed-amd64.zip" -OutFile python-embed.zip
+          Expand-Archive python-embed.zip "$out\python"
+          $pth = Get-ChildItem "$out\python\python*._pth" | Select-Object -First 1
+          $zip = $pth.BaseName + ".zip"
+          Set-Content $pth.FullName "$zip`r`n.`r`nLib\site-packages`r`nimport site" -Encoding ascii
+          python -m pip install --no-cache-dir --target "$out\python\Lib\site-packages" -r server\requirements.txt
+
+          New-Item -ItemType Directory -Force "$out\server", "$out\web", "$out\docs" | Out-Null
+          Copy-Item server\app "$out\server\app" -Recurse
+          Get-ChildItem "$out\server\app" -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+          Copy-Item web\dist "$out\web\dist" -Recurse
+          Copy-Item windows\laterna.bat, windows\laterna.ps1 $out
+          Copy-Item docs\FIRST_SESSION.md "$out\docs\"
+          Copy-Item LICENSE, README.md $out
+
+          Compress-Archive "$out\*" "dist\$name.zip"
+          "NAME=$name" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Проверить архив на Windows
+        shell: pwsh
+        run: |
+          # Запускаем ровно то, что получит мастер: распакованный архив.
+          Expand-Archive "dist\$env:NAME.zip" smoke
+          $env:LANTERNA_GM_KEY = "ci-smoke-key-0123456789"
+          $env:LANTERNA_TRUST_PROXY = "0"
+          $env:PYTHONUTF8 = "1"
+          $server = (Resolve-Path smoke\server).Path
+          $p = Start-Process -FilePath smoke\python\python.exe -PassThru -NoNewWindow `
+            -WorkingDirectory $server `
+            -ArgumentList "-m", "uvicorn", "app.main:app", "--app-dir", $server, "--host", "127.0.0.1", "--port", "8000", "--no-proxy-headers"
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try { $r = Invoke-WebRequest http://127.0.0.1:8000/api/health -UseBasicParsing; if ($r.StatusCode -eq 200) { $ok = $true; break } } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $ok) { throw "сервер из архива не поднялся" }
+            $page = Invoke-WebRequest http://127.0.0.1:8000/ -UseBasicParsing
+            if ($page.Content -notmatch "Laterna") { throw "страница не отдаётся" }
+            $login = Invoke-WebRequest http://127.0.0.1:8000/api/gm/login -Method Post -ContentType "application/json" `
+              -Body '{"key":"ci-smoke-key-0123456789"}' -UseBasicParsing
+            if ($login.Content -notmatch "needs_setup") { throw "вход мастера по ключу не работает" }
+            Write-Host "архив работает: сервер, страница, вход по ключу"
+          } finally {
+            Stop-Process -Id $p.Id -Force
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: dist/${{ env.NAME }}.zip
+
+      - name: Приложить к релизу
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --prerelease --title "Laterna VTT $tag" --notes-file docs\RELEASE_ALPHA.md
+          }
+          gh release upload $tag "dist\$env:NAME.zip" --clobber
