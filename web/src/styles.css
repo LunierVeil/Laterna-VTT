@@ -602,23 +602,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .seg-group { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: var(--surface); }
 .seg-group .seg { flex: 1; justify-content: center; }
 .side-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.mob-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.mob-row {
-  display: flex; align-items: center; gap: 10px; padding: 8px;
-  border-radius: 10px; background: var(--surface); border: 1px solid var(--line-soft);
-}
 .mob-avatar {
   width: 36px; height: 36px; flex: none; border-radius: 50%; overflow: hidden;
   display: grid; place-items: center; background: var(--danger); color: #200b0b; font-weight: 600;
 }
 .mob-avatar img, .portrait img { width: 100%; height: 100%; object-fit: cover; }
-.mob-main {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
-  background: none; border: none; padding: 0; color: var(--text); cursor: pointer; text-align: left; font: inherit;
-}
-.mob-main:hover .mob-name { color: var(--accent); }
-.mob-name { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mob-stats { font-size: 12px; }
 .mob-actions { display: flex; flex-direction: column; gap: 4px; flex: none; }
 .mob-actions .tool { padding: 3px 8px; font-size: 12px; }
 
@@ -641,4 +629,37 @@ button.portrait:hover { filter: brightness(1.15); }
 .toast-notice {
   background: var(--panel); border-color: var(--line); color: var(--text-2);
   max-width: min(720px, calc(100vw - var(--sidebar) - 40px)); z-index: 30; cursor: pointer;
+}
+
+/* строка листа в списке: персонаж, моб, NPC */
+.sheet-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sheet-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px;
+  border-radius: 10px; background: var(--surface); border: 1px solid var(--line-soft);
+}
+.sheet-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sheet-row-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-row-sub { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-row-actions { display: flex; gap: 4px; flex: none; }
+.sheet-row-actions .icon-btn { width: 36px; height: 36px; }
+.icon-btn-danger:hover, .icon-btn-danger:focus-visible { color: #f0a3a3; border-color: var(--danger); background: #2a1f1f; }
+.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* диалог подтверждения */
+.dialog-overlay {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.dialog {
+  width: min(380px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 18px 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.dialog-title { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.dialog-text { font-size: 14px; color: var(--text-2); }
+.dialog-text p { margin: 0 0 4px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.btn-danger:hover { filter: brightness(1.1); }
+@media (pointer: coarse) {
+  .sheet-row-actions .icon-btn { width: 44px; height: 44px; }
 }

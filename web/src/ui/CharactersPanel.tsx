@@ -5,6 +5,7 @@ import type { SceneStage } from "../scene/stage";
 import type { Character } from "../types";
 import { safeUpload } from "../net/upload";
 import { at } from "../sheets/tokenStats";
+import { SheetRow } from "./SheetRow";
 
 /** Листы персонажей: свои; у ГМ - все, с подписью, чей. */
 function PlayerSheets({ socket, list }: { socket: SceneSocket; list: Character[] }) {
@@ -22,21 +23,15 @@ function PlayerSheets({ socket, list }: { socket: SceneSocket; list: Character[]
   return (
     <>
       {list.length === 0 && <p className="muted side-note">Пока ни одного листа.</p>}
-      <ul className="scene-list">
+      <ul className="sheet-list">
         {list.map((c) => (
-          <li key={c.id} className="scene-row">
-            <span className="scene-row-name" title={c.name}>
-              {c.name}
-            </span>
+          <SheetRow key={c.id} character={c} socket={socket}>
             {isGm && (
-              <span className="muted">{accounts.find((a) => a.id === c.owner_id)?.name ?? "без владельца"}</span>
+              <span className="muted sheet-row-sub">
+                {accounts.find((a) => a.id === c.owner_id)?.name ?? "без владельца"}
+              </span>
             )}
-            <span className="scene-row-actions">
-              <button className="tool" onClick={() => useUi.getState().openCharacter(c.id)}>
-                Открыть
-              </button>
-            </span>
-          </li>
+          </SheetRow>
         ))}
       </ul>
       <button className="tool" onClick={() => socket.send("character.create", { name: "Новый персонаж" })}>
@@ -90,30 +85,39 @@ function MobSheets({
   return (
     <>
       {list.length === 0 && <p className="muted side-note">Мобов пока нет. Заведи шаблон - и ставь на карту сколько нужно.</p>}
-      <ul className="mob-list">
+      <ul className="sheet-list">
         {list.map((c) => {
           const portrait = safeUpload(at(c.data, "portrait"));
           return (
-            <li key={c.id} className="mob-row">
-              <span className="mob-avatar">
-                {portrait ? <img src={portrait} alt="" /> : c.name.trim().charAt(0).toUpperCase() || "?"}
-              </span>
-              <button className="mob-main" title="открыть лист" onClick={() => useUi.getState().openCharacter(c.id)}>
-                <span className="mob-name">{c.name}</span>
-                <span className="muted mob-stats">
-                  хиты {num(c, "hp.max")} · КД {num(c, "ac")}
-                  {typeof at(c.data, "cr") === "string" && at(c.data, "cr") !== "" && ` · опасность ${at(c.data, "cr")}`}
+            <SheetRow
+              key={c.id}
+              character={c}
+              socket={socket}
+              avatar={
+                <span className="mob-avatar">
+                  {portrait ? <img src={portrait} alt="" /> : c.name.trim().charAt(0).toUpperCase() || "?"}
                 </span>
-              </button>
-              <span className="mob-actions">
-                <button className="tool" title="поставить в центр экрана" onClick={() => place(c)}>
-                  На карту
-                </button>
-                <button className="tool" title="копия листа - другой вариант моба" onClick={() => socket.send("character.copy", { id: c.id })}>
-                  Копия
-                </button>
+              }
+              extra={
+                <span className="mob-actions">
+                  <button className="tool" title="поставить в центр экрана" onClick={() => place(c)}>
+                    На карту
+                  </button>
+                  <button
+                    className="tool"
+                    title="копия листа - другой вариант моба"
+                    onClick={() => socket.send("character.copy", { id: c.id })}
+                  >
+                    Копия
+                  </button>
+                </span>
+              }
+            >
+              <span className="muted sheet-row-sub">
+                хиты {num(c, "hp.max")} · КД {num(c, "ac")}
+                {typeof at(c.data, "cr") === "string" && at(c.data, "cr") !== "" && ` · опасность ${at(c.data, "cr")}`}
               </span>
-            </li>
+            </SheetRow>
           );
         })}
       </ul>
