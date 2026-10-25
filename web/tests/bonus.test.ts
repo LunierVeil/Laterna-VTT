@@ -74,3 +74,17 @@ test("деньги: всего в зм - подсказка по курсам и
   assert.equal(blockTotal(money.total, { coins: { pp: 1, ep: 3, sp: 7 } }), 12.2);
   assert.equal(blockTotal(money.total, {}), 0);
 });
+
+test("лечение с 0 сбрасывает спасброски от смерти, обычное лечение - нет", async () => {
+  const { hpChanges } = await import("../src/sheets/bonus.ts");
+  const down = { vitals: { hp: { current: 0, max: 20 } }, death: { successes: 2, fails: 1, dying: true } };
+  assert.deepEqual(hpChanges(dnd5e, down, 5), {
+    "vitals.hp.current": 5,
+    "death.successes": 0,
+    "death.fails": 0,
+    "death.dying": false,
+  });
+  const hurt = { vitals: { hp: { current: 7, max: 20 } }, death: { successes: 0, fails: 0 } };
+  assert.deepEqual(hpChanges(dnd5e, hurt, 9), { "vitals.hp.current": 9 });
+  assert.deepEqual(hpChanges(dnd5e, down, 0), { "vitals.hp.current": 0 });
+});

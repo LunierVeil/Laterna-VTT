@@ -124,6 +124,20 @@ export type Block =
       counter?: Counter;
     }
   /**
+   * Спасброски от смерти: две строки по max отметок (успехи, провалы),
+   * бросок d20 (бросает сервер). Достигли max - подпись "стабилизирован"
+   * или "мёртв"; что это значит в игре, решает стол, лист только пишет.
+   */
+  | {
+      kind: "deathSaves";
+      title: string;
+      successes: string;
+      fails: string;
+      dying?: string;
+      max: number;
+      roll: { label: string; formula: string };
+    }
+  /**
    * Карточки: умения, предметы, заклинания. data[path] = [{ id, [titleKey],
    * ...fields, doc }]. Описание (doc) - документ TipTap. Добавлять и править
    * можно и в режиме "игра": предмет нашли посреди сессии - не надо искать
@@ -147,7 +161,11 @@ export type Block =
 export interface Summary {
   /** Пути, значения которых через пробел образуют подзаголовок: "Воин 5". */
   subtitle: string[];
-  hp?: { current: string; max: string; temp?: string };
+  /**
+   * resetOnHeal - пути, которые обнуляются, когда хиты поднялись с 0 и
+   * ниже выше нуля (спасброски от смерти сбрасываются при лечении).
+   */
+  hp?: { current: string; max: string; temp?: string; resetOnHeal?: string[] };
   /** Короткие значения рядом с хитами. */
   stats: Field[];
 }

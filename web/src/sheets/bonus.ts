@@ -8,7 +8,7 @@
  *
  * Без зависимостей от React - чтобы гонять тестом прямо в node.
  */
-import type { CheckBonus, RollSpec, Total } from "./schema";
+import type { CheckBonus, RollSpec, SheetSchema, Total } from "./schema";
 
 function at(data: unknown, path: string): unknown {
   let node = data as any;
@@ -73,4 +73,21 @@ export function blockTotal(total: Total, data: unknown): number {
     return acc + (typeof v === "number" ? v * t.factor : 0);
   }, 0);
   return Math.round(sum * 100) / 100;
+}
+
+/**
+ * Новые хиты одной правкой: вылечили с 0 и ниже - заодно сбросить то, что
+ * схема велит (resetOnHeal: отметки спасбросков от смерти). Одной командой,
+ * чтобы хиты и отметки не разъехались.
+ */
+export function hpChanges(schema: SheetSchema, data: unknown, next: number): Record<string, unknown> {
+  const hp = schema.summary.hp;
+  if (!hp) return {};
+  const changes: Record<string, unknown> = { [hp.current]: next };
+  const raw = at(data, hp.current);
+  const cur = typeof raw === "number" ? raw : undefined;
+  if (next > 0 && cur !== undefined && cur <= 0) {
+    for (const path of hp.resetOnHeal ?? []) changes[path] = typeof at(data, path) === "boolean" ? false : 0;
+  }
+  return changes;
 }

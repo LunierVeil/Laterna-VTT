@@ -368,6 +368,13 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
             "initiative": _int(vit.get("initiative"), -10, 30),
             "hit_dice": _str(vit.get("hit-die"), 40),
         },
+        # Спасброски от смерти - как в файле; правила (3 успеха, 3 провала)
+        # знает лист-форма, а не импорт.
+        "death": {
+            "successes": _int(vit.get("deathSuccesses"), 0, 3) or 0,
+            "fails": _int(vit.get("deathFails"), 0, 3) or 0,
+            "dying": bool(vit.get("isDying")),
+        },
         "proficiency": _int(inner.get("proficiency"), 0, 10),
         "abilities": {
             key: {

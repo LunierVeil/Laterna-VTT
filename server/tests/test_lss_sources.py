@@ -263,3 +263,13 @@ def test_coins():
     assert parse(ALL["lss_lucius"])["coins"] == {"cp": 22, "sp": 0, "ep": 0, "gp": 205, "pp": 0}
     # Пустое coins - нули, а не пусто.
     assert parse(ALL["lss_lapland"])["coins"] == {"cp": 0, "sp": 0, "ep": 0, "gp": 0, "pp": 0}
+
+
+def test_death_saves():
+    assert parse(ALL["lss_lucius"])["death"] == {"successes": 0, "fails": 0, "dying": False}
+    raw = json.loads(ALL["lss_lucius"])
+    inner = json.loads(raw["data"])
+    inner["vitality"].update({"deathSuccesses": 2, "deathFails": 5, "isDying": True})
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    # Больше трёх провалов в файле - до границы схемы, как и прочие числа.
+    assert parse(json.dumps(raw, ensure_ascii=False))["death"] == {"successes": 2, "fails": 3, "dying": True}

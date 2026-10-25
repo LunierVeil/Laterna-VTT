@@ -6,6 +6,7 @@ import type { SceneStage } from "../scene/stage";
 import { SHEETS } from "../sheets/dnd5e";
 import { at, characterStats } from "../sheets/tokenStats";
 import { HpControls } from "../sheets/CharacterSheet";
+import { hpChanges } from "../sheets/bonus";
 import { Icon } from "./icons";
 
 const PALETTE = [
@@ -116,7 +117,7 @@ export function TokenCard({
               onSet={(v) =>
                 isMob
                   ? socket.send("token.update", { id: selected.id, hp: v })
-                  : socket.send("character.update", { id: character.id, set: { [schema!.token!.bar.current]: v } })
+                  : socket.send("character.update", { id: character.id, set: hpChanges(schema!, character.data, v) })
               }
             />
           )}

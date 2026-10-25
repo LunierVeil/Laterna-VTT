@@ -27,7 +27,13 @@ export const dnd5e: SheetSchema = {
   portrait: "portrait",
   summary: {
     subtitle: ["info.class", "info.level"],
-    hp: { current: "vitals.hp.current", max: "vitals.hp.max", temp: "vitals.hp.temp" },
+    hp: {
+      current: "vitals.hp.current",
+      max: "vitals.hp.max",
+      temp: "vitals.hp.temp",
+      // Вылечили с 0 - отметки спасбросков от смерти сбрасываются.
+      resetOnHeal: ["death.successes", "death.fails", "death.dying"],
+    },
     stats: [
       { key: "vitals.ac", label: "КД", kind: "number" },
       { key: "vitals.speed", label: "Скорость", kind: "text" },
@@ -75,6 +81,15 @@ export const dnd5e: SheetSchema = {
             { key: "vitals.hit_dice", label: "Кости хитов", kind: "text", width: 6 },
             { key: "proficiency", label: "Бонус мастерства", kind: "number", width: 4, min: 0, max: 10 },
           ],
+        },
+        {
+          kind: "deathSaves",
+          title: "Спасброски от смерти",
+          successes: "death.successes",
+          fails: "death.fails",
+          dying: "death.dying",
+          max: 3,
+          roll: { label: "спасбросок от смерти", formula: "1d20" },
         },
         {
           kind: "table",

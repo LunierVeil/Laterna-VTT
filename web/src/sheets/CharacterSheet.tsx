@@ -6,7 +6,7 @@ import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./sche
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { safeUpload, uploadImage } from "../net/upload";
-import { blockTotal, checkBonus, computedBonus, computedRowBonus } from "./bonus";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges } from "./bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -216,6 +216,9 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
     case "cards":
       return <Cards block={block} data={data} set={set} />;
 
+    case "deathSaves":
+      return <DeathSaves block={block} data={data} set={set} />;
+
     case "table": {
       const raw = get(data, block.path);
       const rows: Record<string, unknown>[] = Array.isArray(raw) ? raw : [];
@@ -332,6 +335,60 @@ function show(field: Field, value: unknown): React.ReactNode {
   if (field.kind === "select") return field.options?.find((o) => o.value === value)?.label ?? String(value);
   if (field.kind === "link") return <SafeLink href={value}>открыть ↗</SafeLink>;
   return String(value);
+}
+
+/**
+ * Спасброски от смерти: отметки ставит игрок (клик по кружку - столько
+ * отметок; по последнему - на одну меньше), d20 бросает сервер.
+ */
+function DeathSaves({
+  block,
+  data,
+  set,
+  roll,
+}: {
+  block: Extract<Block, { kind: "deathSaves" }>;
+  data: unknown;
+  set: (path: string, value: unknown) => void;
+  roll?: RollFn;
+}) {
+  const count = (path: string) => Math.max(0, Math.min(block.max, num(get(data, path)) ?? 0));
+  const ok = count(block.successes);
+  const bad = count(block.fails);
+  const row = (label: string, path: string, n: number, cls: string) => (
+    <div className="death-row">
+      <span className="death-label">{label}</span>
+      {Array.from({ length: block.max }, (_, i) => (
+        <button
+          key={i}
+          className={i < n ? `death-mark ${cls}` : "death-mark"}
+          aria-label={`${label}: ${i + 1}`}
+          aria-pressed={i < n}
+          onClick={() => set(path, n === i + 1 ? i : i + 1)}
+        />
+      ))}
+    </div>
+  );
+  const status = bad >= block.max ? "мёртв" : ok >= block.max ? "стабилизирован" : block.dying && get(data, block.dying) === true ? "при смерти" : "";
+  return (
+    <section className="sheet-block death-block">
+      <h3>{block.title}</h3>
+      <div className="death-body">
+        <div>
+          {row("Успехи", block.successes, ok, "death-ok")}
+          {row("Провалы", block.fails, bad, "death-bad")}
+        </div>
+        <div className="death-side">
+          {status && <span className={bad >= block.max ? "death-status death-status-bad" : "death-status"}>{status}</span>}
+          {roll && (
+            <button className="btn" onClick={() => roll(block.roll.formula, block.roll.label)}>
+              Бросить d20
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /** Итог блока (всего в зм) - подсказка, не хранится. */
@@ -677,6 +734,10 @@ function ViewBlock({
       // Карточки одинаковы в обоих режимах: добавить предмет посреди сессии
       // можно без "Редактировать". И они никогда не "пусто" - есть кнопка "+".
       return <Cards block={block} data={data} set={set} />;
+
+    case "deathSaves":
+      // Всегда на виду, как карточки: отмечают посреди боя, без "Редактировать".
+      return <DeathSaves block={block} data={data} set={set} roll={roll} />;
   }
 }
 
@@ -800,15 +861,17 @@ export function HpControls({ current, max, onSet }: { current?: number; max?: nu
 
 const num = (v: unknown) => (typeof v === "number" ? v : undefined);
 
+
+
 /** Плитка хитов в шапке листа: число, полоска, урон и лечение. */
 function HpTile({
   schema,
   data,
-  set,
+  setMany,
 }: {
   schema: SheetSchema;
   data: unknown;
-  set: (path: string, value: unknown) => void;
+  setMany: (changes: Record<string, unknown>) => void;
 }) {
   const hp = schema.summary.hp;
   if (!hp) return null;
@@ -830,7 +893,7 @@ function HpTile({
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
-      <HpControls current={cur} max={max} onSet={(v) => set(hp.current, v)} />
+      <HpControls current={cur} max={max} onSet={(v) => setMany(hpChanges(schema, data, v))} />
     </div>
   );
 }
@@ -915,6 +978,8 @@ export function CharacterSheet({ character, socket }: { character: Character; so
 
   const set = (path: string, value: unknown) =>
     socket.send("character.update", { id: character.id, set: { [path]: value } });
+  const setMany = (changes: Record<string, unknown>) =>
+    socket.send("character.update", { id: character.id, set: changes });
   // Бросок из листа: формула и подпись - на сервер, число выпадает там.
   // У ГМ галочка "скрыто" в панели кубов действует и на броски из листа:
   // атака монстра не должна светить игрокам бонус и урон.
@@ -992,7 +1057,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
 
         {schema && (
           <div className="sheet-tiles">
-            <HpTile schema={schema} data={character.data} set={set} />
+            <HpTile schema={schema} data={character.data} setMany={setMany} />
             {schema.summary.stats.map((f) => (
               <div key={f.key} className="tile">
                 <span className="tile-label">{f.label}</span>

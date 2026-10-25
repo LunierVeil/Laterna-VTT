@@ -665,3 +665,18 @@ button.portrait:hover { filter: brightness(1.15); }
 }
 .sheet-total { margin: 0 0 10px; font-size: 13px; }
 .sheet-total b { color: var(--text); font-family: var(--mono); }
+
+/* спасброски от смерти */
+.death-body { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.death-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.death-label { width: 72px; font-size: 13px; color: var(--text-2); }
+.death-mark {
+  width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: none; border: 2px solid #8f8c85;
+}
+.death-mark:hover { border-color: var(--text); }
+.death-ok { background: var(--ok); border-color: var(--ok); }
+.death-bad { background: var(--danger); border-color: var(--danger); }
+.death-side { display: flex; align-items: center; gap: 10px; }
+.death-status { font-size: 13px; font-weight: 600; color: var(--ok); }
+.death-status-bad { color: #f0a3a3; }
