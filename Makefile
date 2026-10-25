@@ -12,7 +12,7 @@ start:
 
 # Локальный запуск без docker (SQLite)
 server:
-	cd server && uvicorn app.main:app --reload --port 8000
+	cd server && uvicorn app.main:app --reload --port 8000 --no-proxy-headers
 
 web:
 	cd web && npm run dev

@@ -444,3 +444,18 @@ def test_gm_key_is_the_only_way_to_gm(client, player):
     assert main.client_ip(req) == "127.0.0.1"
     main.login_limiter.reset("127.0.0.1|ключ ГМ")
     main.name_limiter.reset("ключ ГМ")
+
+
+def test_origin_loopback_any_port():
+    def ws(origin, host):
+        return SimpleNamespace(headers={"origin": origin, "host": host})
+
+    # Porthole: страница игрока на своём порту, сервер мастера на 8000.
+    assert main.origin_allowed(ws("http://127.0.0.1:54321", "127.0.0.1:54321"))
+    assert main.origin_allowed(ws("http://127.0.0.1:54321", "127.0.0.1:8000"))
+    assert main.origin_allowed(ws("http://localhost:3000", "127.0.0.1:8000"))
+    assert main.origin_allowed(ws("http://[::1]:9000", "[::1]:8000"))
+    # Чужой сайт - нет, в том числе к loopback-серверу.
+    assert not main.origin_allowed(ws("https://evil.example", "127.0.0.1:8000"))
+    assert not main.origin_allowed(ws("http://127.0.0.1.evil.example", "127.0.0.1:8000"))
+    assert not main.origin_allowed(ws("http://127.0.0.1:5000", "192.168.1.5:8000"))

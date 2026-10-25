@@ -7,6 +7,8 @@
 #   TUNNEL_VIA=ssh ./laterna.sh tunnel
 #                         туннель через ssh (localhost.run) - если провайдер
 #                         режет туннели Cloudflare; ставить ничего не нужно
+#   ./laterna.sh porthole стол для игры через Porthole (Steam): сервер только
+#                         на 127.0.0.1, печатает шаги для мастера и игроков
 #   ./laterna.sh gm       напечатать ссылку ГМ
 #
 # PORT=9000 ./laterna.sh - другой порт.
@@ -38,8 +40,10 @@ if [ "${1:-}" = gm ]; then
   exit 0
 elif [ "${1:-}" = tunnel ]; then
   TUNNEL=1
+elif [ "${1:-}" = porthole ]; then
+  PORTHOLE=1
 elif [ -n "${1:-}" ]; then
-  echo "неизвестная команда: $1 (есть: tunnel, gm)"
+  echo "неизвестная команда: $1 (есть: porthole, tunnel, gm)"
   exit 1
 fi
 
@@ -139,16 +143,39 @@ LAN="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if (
 [ -z "$LAN" ] && LAN="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
 
 echo
-echo "  Стол:   http://localhost:$PORT"
-[ -n "$LAN" ] && echo "  Игрокам в этой сети: http://$LAN:$PORT"
-if [ -n "$PUBLIC" ]; then
-  echo "  Игрокам из интернета: $PUBLIC"
-  echo "          Приглашения во вкладке «Игроки» сразу с этим адресом."
-  echo "          Ссылка открыта всему интернету, а ограничения попыток входа пока нет -"
-  echo "          пароли игрокам посложнее. Адрес новый при каждом запуске."
+if [ "${PORTHOLE:-}" = 1 ]; then
+  cat <<BANNER
+  Стол для игры через Porthole: http://127.0.0.1:$PORT (слушает только эту машину)
+
+  Мастеру:
+    1. Открой Porthole в Steam и создай лобби.
+    2. Отдай в лобби порт $PORT (TCP).
+    3. Передай игрокам код лобби.
+    4. Сам заходи на http://127.0.0.1:$PORT; ссылка ГМ - ./laterna.sh gm в другом терминале.
+    5. Вкладка «Игроки» -> «Пригласить игрока» -> отправь ссылку. В ней замени
+       127.0.0.1:$PORT на адрес, который Porthole показал игроку.
+
+  Игрокам:
+    1. Поставь Porthole из Steam (бесплатно).
+    2. Введи код лобби от мастера.
+    3. Открой в браузере http://127.0.0.1:<порт>, который показал Porthole.
+    4. Первый раз - по ссылке-приглашению от мастера (с тем же адресом),
+       дальше - имя и пароль.
+
+  Ctrl+C - остановить
+BANNER
+else
+  echo "  Стол:   http://localhost:$PORT"
+  [ -n "$LAN" ] && echo "  Игрокам в этой сети: http://$LAN:$PORT"
+  if [ -n "$PUBLIC" ]; then
+    echo "  Игрокам из интернета: $PUBLIC"
+    echo "          Приглашения во вкладке «Игроки» сразу с этим адресом."
+    echo "          Ссылка открыта всему интернету - пароли игрокам посложнее."
+    echo "          Адрес новый при каждом запуске."
+  fi
+  echo "  ГМ:     ./laterna.sh gm в другом терминале - напечатает ссылку"
+  echo "  Ctrl+C - остановить"
 fi
-echo "  ГМ:     ./laterna.sh gm в другом терминале - напечатает ссылку"
-echo "  Ctrl+C - остановить"
 echo
 
 cd "$ROOT/server"
@@ -161,6 +188,20 @@ ORIGINS="http://localhost:$PORT${PUBLIC:+,$PUBLIC}"
 # X-Forwarded-For, который дописывает туннель (и только для запросов с
 # этой машины - снаружи заголовок не подделать).
 [ -n "$PUBLIC" ] && export LANTERNA_TRUST_PROXY="${LANTERNA_TRUST_PROXY:-1}"
+HOST=0.0.0.0
+if [ "${PORTHOLE:-}" = 1 ]; then
+  # Porthole отдаёт игрокам порт этой машины - снаружи слушать незачем.
+  HOST=127.0.0.1
+  # И X-Forwarded-For - никогда: через Porthole игроки сами приходят с
+  # 127.0.0.1 и могли бы подделать заголовок, обходя лимит попыток входа.
+  export LANTERNA_TRUST_PROXY=0
+  ORIGINS="http://127.0.0.1:$PORT,http://localhost:$PORT"
+fi
+# --no-proxy-headers: uvicorn по умолчанию верит X-Forwarded-For от 127.0.0.1
+# и подменяет им адрес клиента. Через Porthole (и туннель) все игроки
+# приходят с 127.0.0.1 - любой мог бы назваться чужим адресом и обойти
+# лимит попыток входа. Заголовок учитывает только наш client_ip, и только
+# при LANTERNA_TRUST_PROXY.
 # Без exec: после сервера trap гасит туннель.
 FRONTEND_URL="${FRONTEND_URL:-$ORIGINS}" WEB_DIST="$DIST" PUBLIC_URL="$PUBLIC" \
-  "$VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port "$PORT"
+  "$VENV/bin/uvicorn" app.main:app --host "$HOST" --port "$PORT" --no-proxy-headers

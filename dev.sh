@@ -96,7 +96,8 @@ fi
 # Оба процесса в одной группе: Ctrl+C гасит и сервер, и vite.
 trap 'kill 0' EXIT
 
-(cd "$ROOT/server" && "$VENV/bin/uvicorn" app.main:app --reload --port 8000) &
+# --no-proxy-headers - см. laterna.sh: X-Forwarded-For от 127.0.0.1 не верим.
+(cd "$ROOT/server" && "$VENV/bin/uvicorn" app.main:app --reload --port 8000 --no-proxy-headers) &
 
 # Фронт после сервера, иначе первые запросы прокси падают с ECONNREFUSED.
 for _ in $(seq 50); do port_busy 8000 && break; sleep 0.2; done

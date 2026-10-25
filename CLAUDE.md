@@ -6,7 +6,7 @@ Laterna VTT - открытый self-hosted VTT. Ранний прототип. �
 ## Запуск
 
 ```
-cd server && uvicorn app.main:app --reload --port 8000   # SQLite, без настройки
+cd server && uvicorn app.main:app --reload --port 8000 --no-proxy-headers   # SQLite, без настройки
 cd web && npm run dev                                     # http://localhost:5173
 ```
 

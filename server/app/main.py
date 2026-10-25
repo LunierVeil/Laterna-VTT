@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+from urllib.parse import urlsplit
 from contextlib import asynccontextmanager
 
 import uuid
@@ -554,7 +555,24 @@ def origin_allowed(websocket: WebSocket) -> bool:
         return True
     origin = origin.rstrip("/")
     host = websocket.headers.get("host", "")
-    return origin in FRONTEND_URLS or origin in (f"http://{host}", f"https://{host}")
+    if origin in FRONTEND_URLS or origin in (f"http://{host}", f"https://{host}"):
+        return True
+    # Porthole: игрок открывает http://127.0.0.1:<свой порт>, мастер слушает
+    # 127.0.0.1:8000. Порты могут не совпасть, если что-то по дороге перепишет
+    # Host, - loopback-страница к loopback-серверу пускается с любым портом.
+    # Прав это не даёт: кто подключился, решает только сессия.
+    return _loopback_host(urlsplit(origin).hostname) and _loopback_host(host.rsplit(":", 1)[0].strip("[]"))
+
+
+def _loopback_host(name: str | None) -> bool:
+    if not name:
+        return False
+    if name == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
 
 
 @app.websocket("/ws/scene/{scene_id}")

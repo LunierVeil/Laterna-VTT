@@ -55,6 +55,7 @@ localhost - его печатает `./laterna.sh` при запуске.
 
 ```
 ./laterna.sh          # стол на http://localhost:8000 - и страница, и API
+./laterna.sh porthole # игра через Porthole (Steam): только 127.0.0.1 и инструкция
 ./laterna.sh tunnel   # то же + ссылка для игроков из интернета
 TUNNEL_VIA=ssh ./laterna.sh tunnel   # если провайдер режет туннели Cloudflare
 ./laterna.sh gm       # ссылка ГМ
@@ -115,7 +116,7 @@ docker compose up --build
 ```
 cd server
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --no-proxy-headers
 ```
 
 Фронт:
