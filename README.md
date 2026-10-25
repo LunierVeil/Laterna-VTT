@@ -51,6 +51,9 @@ localhost - его печатает `./laterna.sh` при запуске.
 
 ## Запуск
 
+Первая игра через Porthole - [docs/FIRST_SESSION.md](docs/FIRST_SESSION.md).
+
+
 ### Играть: одной командой
 
 ```
