@@ -299,3 +299,14 @@ def test_tools_not_parsed_but_kept_on_reimport():
     played = dict(data, tools=[{"name": "Воровские инструменты", "ability": "dex", "level": 2}])
     merged = lss.merge_reimport(played, parse(SAD))
     assert merged["tools"] == played["tools"]
+
+
+def test_item_weight_from_notes():
+    assert lss._weight("Вес: 3 фнт.") == 3
+    assert lss._weight("ВЕС 0,5 ФНТ") == 0.5
+    assert lss._weight("вес: 20 фунт") is None  # только "фнт" - не выдумываем
+    assert lss._weight(None) is None
+    items = {c["name"]: c for c in parse(NILON)["equipment"]}
+    assert items["Кольчуга"]["weight"] == 55 and items["Кольчуга"]["qty"] == 2
+    assert items["Кираса"]["weight"] is None
+    assert items["Ладан"]["weight"] is None

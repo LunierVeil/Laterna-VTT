@@ -139,6 +139,19 @@ def _text_doc(text: str | None) -> dict | None:
     return clean_doc({"type": "doc", "content": paragraphs})
 
 
+# Вес предмета из его заметок: "Вес: 3 фнт.", "вес 55 фнт". Только этот
+# шаблон: нет совпадения - веса нет, ничего не выдумываем ("20 фунт" - мимо).
+_WEIGHT = re.compile(r"вес[:\s]*(\d+(?:[.,]\d+)?)\s*фнт", re.IGNORECASE)
+
+
+def _weight(notes: str | None) -> float | int | None:
+    m = _WEIGHT.search(notes or "")
+    if not m:
+        return None
+    value = float(m.group(1).replace(",", "."))
+    return int(value) if value.is_integer() else round(value, 2)
+
+
 # Где ресурс лежит в LSS: снаряжение - это предметы, а не счётчики.
 _ITEM_LOCATIONS = {"equipment", "items"}
 
@@ -168,7 +181,8 @@ def _resources(raw: object) -> tuple[list, list, int]:
         rid = r.get("id") if isinstance(r.get("id"), str) and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", r["id"]) else None
         if r.get("location") in _ITEM_LOCATIONS:
             qty = _int(r.get("current"), 0, 99999)
-            doc = _text_doc(_str(r.get("notes"), 20_000))
+            notes = _str(r.get("notes"), 20_000)
+            doc = _text_doc(notes)
             if key in items:
                 same = items[key]
                 if qty is not None:
@@ -182,6 +196,7 @@ def _resources(raw: object) -> tuple[list, list, int]:
                 "id": rid or f"lss-item-{len(items) + 1}",
                 "name": name,
                 "qty": qty,
+                "weight": _weight(notes),
                 "doc": doc,
                 "source": "lss",
             }

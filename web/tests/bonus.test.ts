@@ -111,3 +111,10 @@ test("инструменты: бонус из характеристики и у
   assert.equal(computedRowBonus(check, { name: "Воровские инструменты", ability: "dex", level: 1 }, data), 5);
   assert.equal(computedRowBonus(check, { name: "Без характеристики", level: 1 }, data), undefined);
 });
+
+test("вес снаряжения: вес × количество, без количества - 1", async () => {
+  const { totalWeight } = await import("../src/sheets/bonus.ts");
+  const cards = [{ weight: 55, qty: 2 }, { weight: 3, qty: 4 }, { weight: 0.5 }, { name: "без веса", qty: 9 }];
+  assert.equal(totalWeight(cards, "weight", "qty"), 122.5);
+  assert.equal(totalWeight(undefined, "weight", "qty"), 0);
+});

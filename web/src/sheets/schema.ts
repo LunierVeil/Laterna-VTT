@@ -28,6 +28,8 @@ export interface Field {
    */
   min?: number;
   max?: number;
+  /** Дробное число (вес 0,5 фнт). Без этого - только целые. */
+  decimal?: boolean;
 }
 
 /**
@@ -156,6 +158,11 @@ export type Block =
       fields: Field[];
       addLabel: string;
       resourcesPath: string;
+      /**
+       * Итог веса под карточками: вес × количество (без количества - 1).
+       * capacity - подсказка "грузоподъёмность": значение × factor, без штрафов.
+       */
+      weight?: { weight: string; qty: string; capacity?: { score: string; factor: number; label: string } };
     };
 
 /**

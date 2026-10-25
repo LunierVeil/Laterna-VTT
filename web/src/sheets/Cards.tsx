@@ -2,6 +2,7 @@ import { lazy, Suspense, useRef, useState } from "react";
 import type { Block, Field } from "./schema";
 import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent, docText } from "./richDoc";
+import { totalWeight } from "./bonus";
 
 // Редактор (TipTap) - отдельным куском кода: грузится, только когда правят.
 const DocEditor = lazy(() => import("./DocEditor"));
@@ -41,14 +42,40 @@ export function cardMatches(card: Card, block: CardsBlock, q: string): boolean {
 function fieldError(f: Field, raw: string): string | null {
   if (!raw.trim()) return null;
   if (f.kind === "number") {
-    const n = Number(raw.trim().replace(/^\+/, ""));
-    if (!Number.isInteger(n)) return `${f.label}: целое число`;
+    const n = Number(raw.trim().replace(",", ".").replace(/^\+/, ""));
+    if (f.decimal ? !Number.isFinite(n) : !Number.isInteger(n)) return `${f.label}: ${f.decimal ? "число" : "целое число"}`;
     if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) {
       return `${f.label}: от ${f.min ?? "…"} до ${f.max ?? "…"}`;
     }
   }
   if (f.kind === "link" && !safeHttps(raw)) return `${f.label}: только https://...`;
   return null;
+}
+
+/** Итог веса и подсказка грузоподъёмности - считаются здесь, не хранятся. */
+function WeightLine({
+  spec,
+  cards,
+  data,
+}: {
+  spec: NonNullable<Extract<Block, { kind: "cards" }>["weight"]>;
+  cards: Card[];
+  data: unknown;
+}) {
+  const total = totalWeight(cards, spec.weight, spec.qty);
+  const score = spec.capacity ? get(data, spec.capacity.score) : undefined;
+  const capacity = spec.capacity && typeof score === "number" ? score * spec.capacity.factor : undefined;
+  return (
+    <p className="muted sheet-total">
+      вес: <b>{total.toLocaleString("ru-RU")}</b> фнт
+      {capacity !== undefined && (
+        <>
+          {" "}
+          · грузоподъёмность <b>{capacity}</b> фнт ({spec.capacity!.label})
+        </>
+      )}
+    </p>
+  );
 }
 
 function newId(): string {
@@ -122,7 +149,8 @@ export function Cards({
     const card: Card = { id: editingId!, [block.titleKey]: title };
     for (const f of block.fields) {
       const v = (draft[f.key] ?? "").trim();
-      card[f.key] = v === "" ? null : f.kind === "number" ? Number(v.replace(/^\+/, "")) : v;
+      card[f.key] =
+        v === "" ? null : f.kind === "number" ? Math.round(Number(v.replace(",", ".").replace(/^\+/, "")) * 100) / 100 : v;
     }
     const old = cards.find((c) => c.id === editingId);
     card.doc = doc.current ?? old?.doc ?? null;
@@ -245,6 +273,7 @@ export function Cards({
           {block.addLabel}
         </button>
       )}
+      {block.weight && <WeightLine spec={block.weight} cards={cards} data={data} />}
     </section>
   );
 }

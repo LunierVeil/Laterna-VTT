@@ -99,3 +99,14 @@ export function hpChanges(schema: SheetSchema, data: unknown, next: number): Rec
   }
   return changes;
 }
+
+/** Вес снаряжения: сумма вес × количество (нет количества - 1 штука). */
+export function totalWeight(cards: unknown, weightKey: string, qtyKey: string): number {
+  if (!Array.isArray(cards)) return 0;
+  const sum = cards.reduce((acc: number, c) => {
+    const w = (c as Record<string, unknown>)?.[weightKey];
+    const q = (c as Record<string, unknown>)?.[qtyKey];
+    return acc + (typeof w === "number" ? w * (typeof q === "number" ? q : 1) : 0);
+  }, 0);
+  return Math.round(sum * 100) / 100;
+}

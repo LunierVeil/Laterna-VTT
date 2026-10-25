@@ -110,13 +110,13 @@ function FieldInput({ field, value, onCommit }: { field: Field; value: unknown; 
       }
       // Не сохраняем, а подсвечиваем: черновик остаётся, чтобы поправить.
       const n = Number(draft.trim().replace(",", ".").replace(/^\+/, ""));
-      if (!Number.isInteger(n)) return setBad("целое число");
+      if (field.decimal ? !Number.isFinite(n) : !Number.isInteger(n)) return setBad(field.decimal ? "число" : "целое число");
       const { min, max } = field;
       if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
         return setBad(`от ${min ?? "…"} до ${max ?? "…"}`);
       }
       setBad(null);
-      return onCommit(n);
+      return onCommit(field.decimal ? Math.round(n * 100) / 100 : n);
     }
     if (field.kind === "link" && draft.trim() && !safeHttps(draft)) {
       // Не сохраняем: ссылка только https. Черновик оставляем, чтобы поправить.
