@@ -198,9 +198,18 @@ def test_report_nilon():
     report = lss.parse_report(NILON)[2]
     assert "оружие 2" in report["done"] and "предметы 23" in report["done"]
     assert "удалённое в LSS: 2" in report["skipped"]
+
+
+def test_avatar_reported_not_stored():
+    """Аватар - внешний адрес: не скачивается и в лист не попадает. В
+    образцах его нет (вычищен санитайзером) - подставляем."""
+    raw = json.loads(NILON)
+    inner = json.loads(raw["data"])
+    inner["avatar"] = {"jpeg": "https://hotbox.longstoryshort.app/avatar/x.jpeg"}
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    name, data, report = lss.parse_report(json.dumps(raw, ensure_ascii=False))
     assert "портрет не перенесён, загрузите вручную" in report["skipped"]
-    # Аватар - внешний адрес: не скачивается и в лист не попадает.
-    assert "longstoryshort.app/avatar" not in json.dumps(lss.parse(NILON)[1])
+    assert "longstoryshort.app/avatar" not in json.dumps(data)
 
 
 def test_report_sad_clean():

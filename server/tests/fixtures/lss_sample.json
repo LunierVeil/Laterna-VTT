@@ -1,205 +1,203 @@
 {
-  "tags": [],
-  "rooms": [],
-  "disabledBlocks": {
-    "info-left": [],
-    "info-right": [],
-    "subinfo-left": [],
-    "subinfo-right": [],
-    "notes-left": [],
-    "notes-right": [],
-    "_id": "fa5edb46ad40b80000000000"
+ "tags": [],
+ "rooms": [],
+ "disabledBlocks": {
+  "info-left": [],
+  "info-right": [],
+  "subinfo-left": [],
+  "subinfo-right": [],
+  "notes-left": [],
+  "notes-right": []
+ },
+ "edition": "2024",
+ "sheetEdition": "2024",
+ "spells": {
+  "mode": "cards",
+  "prepared": [],
+  "book": [],
+  "granted": [],
+  "slotless": [],
+  "edition": "2024"
+ },
+ "linkAccess": "none",
+ "dndBratislavaBuilder": {
+  "schemaVersion": 1,
+  "builderVersion": "5.50",
+  "fields": {
+   "campaignSetting": "eberron",
+   "characterName": "sad",
+   "level": "17",
+   "background": "Дворянин",
+   "speciesFilter": "eberron",
+   "race": "Халфлинг (Полурослик)",
+   "subrace": "",
+   "className": "Воин",
+   "subclass": "Мастер боевых искусств",
+   "classDecision0": "Метательное оружие",
+   "classDecision1": "Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака",
+   "weaponMastery0": "Алебарда",
+   "weaponMastery1": "Боевой молот",
+   "weaponMastery2": "Дубинка",
+   "levelFeat4": "Крушитель",
+   "levelFeat-4-ability": "str",
+   "levelFeat6": "Борец",
+   "levelFeat-6-ability": "dex",
+   "levelFeat8": "Верховой боец",
+   "levelFeat-8-ability": "dex",
+   "levelFeat12": "Мастер боя двумя оружиями",
+   "levelFeat-12-ability": "dex",
+   "levelFeat14": "Аберрантная метка",
+   "levelFeat16": "Мастер средних доспехов",
+   "levelFeat-16-ability": "dex",
+   "advancedAbilities": false,
+   "abilityMethod": "best",
+   "str": "15",
+   "strRolled": "",
+   "dex": "13",
+   "dexRolled": "",
+   "con": "14",
+   "conRolled": "",
+   "int": "10",
+   "intRolled": "",
+   "wis": "12",
+   "wisRolled": "",
+   "cha": "8",
+   "chaRolled": "",
+   "backgroundBonusMode": "2+1",
+   "backgroundPlus2": "str",
+   "backgroundPlus1": "cha",
+   "classSkill0": "Уход за животными",
+   "classSkill1": "Акробатика",
+   "originSkilled0": "skill:Проницательность",
+   "originSkilled1": "skill:Обман",
+   "originSkilled2": "skill:Ловкость рук",
+   "language0": "Эльфийский",
+   "tool0": "Драконьи шахматы",
+   "equipmentMode": "package",
+   "equipmentPackageChoice": "Набор А",
+   "extraEquipment": "",
+   "characterHook": "",
+   "characterReason": "",
+   "characterPast": "",
+   "characterWeakness": "",
+   "appearance": "",
+   "preview": ""
   },
-  "edition": "2024",
-  "sheetEdition": "2024",
-  "spells": {
-    "mode": "cards",
+  "state": {
+   "abilityApplied": true,
+   "baseAbilities": {
+    "str": 15,
+    "dex": 13,
+    "con": 14,
+    "int": 10,
+    "wis": 12,
+    "cha": 8
+   },
+   "finalAbilities": {
+    "str": 18,
+    "dex": 17,
+    "con": 14,
+    "int": 10,
+    "wis": 12,
+    "cha": 9
+   },
+   "backgroundBonuses": {
+    "str": 2,
+    "dex": 0,
+    "con": 0,
+    "int": 0,
+    "wis": 0,
+    "cha": 1
+   },
+   "equipmentPackage": "Набор А",
+   "spellClass": "",
+   "spells": {
+    "cantrips": [],
     "prepared": [],
-    "book": [],
-    "granted": [],
-    "slotless": [],
-    "edition": "2024"
-  },
-  "linkAccess": "none",
-  "dndBratislavaBuilder": {
-    "schemaVersion": 1,
-    "builderVersion": "5.50",
-    "fields": {
-      "campaignSetting": "eberron",
-      "characterName": "sad",
-      "level": "17",
-      "background": "Дворянин",
-      "speciesFilter": "eberron",
-      "race": "Халфлинг (Полурослик)",
-      "subrace": "",
-      "className": "Воин",
-      "subclass": "Мастер боевых искусств",
-      "classDecision0": "Метательное оружие",
-      "classDecision1": "Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака",
-      "weaponMastery0": "Алебарда",
-      "weaponMastery1": "Боевой молот",
-      "weaponMastery2": "Дубинка",
-      "levelFeat4": "Крушитель",
-      "levelFeat-4-ability": "str",
-      "levelFeat6": "Борец",
-      "levelFeat-6-ability": "dex",
-      "levelFeat8": "Верховой боец",
-      "levelFeat-8-ability": "dex",
-      "levelFeat12": "Мастер боя двумя оружиями",
-      "levelFeat-12-ability": "dex",
-      "levelFeat14": "Аберрантная метка",
-      "levelFeat16": "Мастер средних доспехов",
-      "levelFeat-16-ability": "dex",
-      "advancedAbilities": false,
-      "abilityMethod": "best",
-      "str": "15",
-      "strRolled": "",
-      "dex": "13",
-      "dexRolled": "",
-      "con": "14",
-      "conRolled": "",
-      "int": "10",
-      "intRolled": "",
-      "wis": "12",
-      "wisRolled": "",
-      "cha": "8",
-      "chaRolled": "",
-      "backgroundBonusMode": "2+1",
-      "backgroundPlus2": "str",
-      "backgroundPlus1": "cha",
-      "classSkill0": "Уход за животными",
-      "classSkill1": "Акробатика",
-      "originSkilled0": "skill:Проницательность",
-      "originSkilled1": "skill:Обман",
-      "originSkilled2": "skill:Ловкость рук",
-      "language0": "Эльфийский",
-      "tool0": "Драконьи шахматы",
-      "equipmentMode": "package",
-      "equipmentPackageChoice": "Набор А",
-      "extraEquipment": "",
-      "characterHook": "",
-      "characterReason": "",
-      "characterPast": "",
-      "characterWeakness": "",
-      "appearance": "",
-      "preview": ""
+    "spellbook": [],
+    "bardDiscoveries": []
+   },
+   "originMagic": {
+    "background": {
+     "source": "",
+     "ability": "",
+     "cantrips": [],
+     "spell": ""
     },
-    "state": {
-      "abilityApplied": true,
-      "baseAbilities": {
-        "str": 15,
-        "dex": 13,
-        "con": 14,
-        "int": 10,
-        "wis": 12,
-        "cha": 8
-      },
-      "finalAbilities": {
-        "str": 18,
-        "dex": 17,
-        "con": 14,
-        "int": 10,
-        "wis": 12,
-        "cha": 9
-      },
-      "backgroundBonuses": {
-        "str": 2,
-        "dex": 0,
-        "con": 0,
-        "int": 0,
-        "wis": 0,
-        "cha": 1
-      },
-      "equipmentPackage": "Набор А",
-      "spellClass": "",
-      "spells": {
-        "cantrips": [],
-        "prepared": [],
-        "spellbook": [],
-        "bardDiscoveries": []
-      },
-      "originMagic": {
-        "background": {
-          "source": "",
-          "ability": "",
-          "cantrips": [],
-          "spell": ""
-        },
-        "human": {
-          "source": "",
-          "ability": "",
-          "cantrips": [],
-          "spell": ""
-        }
-      },
-      "levelFeats": {
-        "Волшебник": {
-          "4": {
-            "name": "",
-            "choices": {}
-          },
-          "8": {
-            "name": "",
-            "choices": {}
-          },
-          "12": {
-            "name": "",
-            "choices": {}
-          },
-          "16": {
-            "name": "",
-            "choices": {}
-          }
-        },
-        "Воин": {
-          "4": {
-            "name": "Крушитель",
-            "choices": {
-              "ability": "str"
-            }
-          },
-          "6": {
-            "name": "Борец",
-            "choices": {
-              "ability": "dex"
-            }
-          },
-          "8": {
-            "name": "Верховой боец",
-            "choices": {
-              "ability": "dex"
-            }
-          },
-          "12": {
-            "name": "Мастер боя двумя оружиями",
-            "choices": {
-              "ability": "dex"
-            }
-          },
-          "14": {
-            "name": "Аберрантная метка",
-            "choices": {}
-          },
-          "16": {
-            "name": "Мастер средних доспехов",
-            "choices": {
-              "ability": "dex"
-            }
-          }
-        }
-      },
-      "wildShapeForms": [],
-      "customResources": [],
-      "customBonuses": [],
-      "customWeapons": [],
-      "subclassSelections": {
-        "Воин": "Мастер боевых искусств"
-      },
-      "activeSubclassClass": "Воин"
+    "human": {
+     "source": "",
+     "ability": "",
+     "cantrips": [],
+     "spell": ""
     }
-  },
-  "data": "{\"jsonType\":\"character\",\"template\":\"default\",\"name\":{\"value\":\"sad\"},\"info\":{\"charClass\":{\"name\":\"charClass\",\"value\":\"Воин\"},\"charSubclass\":{\"name\":\"charSubclass\",\"value\":\"Мастер боевых искусств\"},\"level\":{\"name\":\"level\",\"value\":17},\"background\":{\"name\":\"background\",\"value\":\"Дворянин\"},\"playerName\":{\"name\":\"playerName\",\"value\":\"\"},\"race\":{\"name\":\"race\",\"value\":\"Халфлинг (Полурослик)\"},\"alignment\":{\"name\":\"alignment\",\"value\":\"\"},\"experience\":{\"name\":\"experience\",\"value\":\"\"},\"size\":{\"value\":\"small\"}},\"subInfo\":{\"age\":{\"name\":\"age\",\"value\":\"\"},\"height\":{\"name\":\"height\",\"value\":\"\"},\"weight\":{\"name\":\"weight\",\"value\":\"\"},\"eyes\":{\"name\":\"eyes\",\"value\":\"\"},\"skin\":{\"name\":\"skin\",\"value\":\"\"},\"hair\":{\"name\":\"hair\",\"value\":\"\"}},\"spellsInfo\":{\"base\":{\"name\":\"base\",\"value\":\"\",\"code\":\"int\"},\"save\":{\"name\":\"save\",\"value\":\"\"},\"mod\":{\"name\":\"mod\",\"value\":\"\"},\"available\":{\"classes\":[]}},\"spells\":{},\"spellsPact\":{},\"bonuses\":[],\"proficiency\":6,\"stats\":{\"str\":{\"name\":\"str\",\"score\":18},\"dex\":{\"name\":\"dex\",\"score\":17},\"con\":{\"name\":\"con\",\"score\":14},\"int\":{\"name\":\"int\",\"score\":10},\"wis\":{\"name\":\"wis\",\"score\":12},\"cha\":{\"name\":\"cha\",\"score\":9}},\"saves\":{\"str\":{\"name\":\"str\",\"isProf\":true},\"dex\":{\"name\":\"dex\",\"isProf\":false},\"con\":{\"name\":\"con\",\"isProf\":true},\"int\":{\"name\":\"int\",\"isProf\":false},\"wis\":{\"name\":\"wis\",\"isProf\":false},\"cha\":{\"name\":\"cha\",\"isProf\":false}},\"skills\":{\"acrobatics\":{\"baseStat\":\"dex\",\"name\":\"acrobatics\",\"isProf\":1},\"investigation\":{\"baseStat\":\"int\",\"name\":\"investigation\"},\"athletics\":{\"baseStat\":\"str\",\"name\":\"athletics\"},\"perception\":{\"baseStat\":\"wis\",\"name\":\"perception\"},\"survival\":{\"baseStat\":\"wis\",\"name\":\"survival\"},\"performance\":{\"baseStat\":\"cha\",\"name\":\"performance\"},\"intimidation\":{\"baseStat\":\"cha\",\"name\":\"intimidation\"},\"history\":{\"baseStat\":\"int\",\"name\":\"history\",\"isProf\":1},\"sleight of hand\":{\"baseStat\":\"dex\",\"name\":\"sleight of hand\",\"isProf\":1},\"arcana\":{\"baseStat\":\"int\",\"name\":\"arcana\"},\"medicine\":{\"baseStat\":\"wis\",\"name\":\"medicine\"},\"deception\":{\"baseStat\":\"cha\",\"name\":\"deception\",\"isProf\":1},\"nature\":{\"baseStat\":\"int\",\"name\":\"nature\"},\"insight\":{\"baseStat\":\"wis\",\"name\":\"insight\",\"isProf\":1},\"religion\":{\"baseStat\":\"int\",\"name\":\"religion\"},\"stealth\":{\"baseStat\":\"dex\",\"name\":\"stealth\"},\"persuasion\":{\"baseStat\":\"cha\",\"name\":\"persuasion\",\"isProf\":1},\"animal handling\":{\"baseStat\":\"wis\",\"name\":\"animal handling\",\"isProf\":1}},\"vitality\":{\"hp-dice-current\":{\"value\":17},\"hp-dice-multi\":{},\"hp-max-con-bonus\":{\"value\":0},\"darkvision\":{\"value\":0},\"hp-current\":{\"value\":140},\"hp-temp\":{\"value\":0},\"isDying\":false,\"deathFails\":0,\"deathSuccesses\":0,\"hp-max\":{\"value\":140},\"speed\":{\"value\":\"30\"},\"initiative\":{\"value\":3},\"shield\":{\"value\":false},\"ac\":{\"value\":16},\"hit-die\":{\"value\":\"d10\"}},\"attunementsList\":[{\"id\":\"attunement-1792797256601-d84af1\",\"checked\":false,\"value\":\"\"}],\"weaponsList\":[{\"id\":\"weapon-1792797256601-fd035d\",\"name\":{\"value\":\"Цеп\"},\"mod\":{\"value\":\"+10\"},\"dmg\":{\"value\":\"1к8+4\"},\"ability\":\"str\",\"isProf\":true,\"dmgType\":{\"value\":\"дробящ.\"}},{\"id\":\"weapon-1792797256601-9d8929\",\"name\":{\"value\":\"Двуручный меч\"},\"mod\":{\"value\":\"+10\"},\"dmg\":{\"value\":\"2к6+4\"},\"ability\":\"str\",\"isProf\":true,\"dmgType\":{\"value\":\"рубящ.\"}},{\"id\":\"weapon-1792797256601-f20db9\",\"name\":{\"value\":\"Метательное копьё\"},\"mod\":{\"value\":\"+10\"},\"dmg\":{\"value\":\"1к6+4\"},\"ability\":\"str\",\"isProf\":true,\"dmgType\":{\"value\":\"колющ.\"}}],\"text\":{\"prof\":{\"value\":{\"id\":\"hover-toolbar-prof-1792797256601-129244\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Инструменты:\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" Драконьи шахматы\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Языки:\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" Общий, Полуросликов, Эльфийский\"}]}]}},\"size\":9},\"equipment\":{\"value\":{\"id\":\"hover-toolbar-equipment-1792797256601-4d275b\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Кольчуга\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Двуручный меч\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Цеп\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"8 метательных копий\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Набор исследователя подземелий: Рюкзак, Калтропы, Ломик, 2 фляги масла, Рационы на 10 дней, Верёвка, Трутница, 10 факелов, Бурдюк\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Предыстория: Игровой набор, отличная одежда, духи\"}]}]}},\"size\":9},\"features\":{\"value\":{\"id\":\"hover-toolbar-features-1792797256600-48e8c0\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Боевой стиль.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Выбранный стиль: Метательное оружие. Усиливает бой метательным оружием и позволяет удобнее доставать его во время атак.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Тактическое перемещение.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"После Второго дыхания можешь переместиться на половину Скорости без Провоцированных атак. Это помогает вылечиться и сразу сменить позицию.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Тактический мастер.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Когда атакуешь оружием, для которого знаешь Мастерство, можешь использовать более универсальный вариант мастерства вместо обычного свойства, если ситуация этого требует.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Изучающий войну.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Получаешь владение одним видом Ремесленных инструментов и ещё одним навыком из списка Воина.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Улучшенное боевое превосходство.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Ваши Кости превосходства становятся к10.\"}]}]}},\"size\":9,\"customLabel\":\"ДОПОЛНИТЕЛЬНЫЕ СПОСОБНОСТИ И УМЕНИЯ\"},\"attacks\":{\"value\":{\"id\":\"hover-toolbar-attacks-1792797256601-9de5dd\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Мастерство Алебарда: Прорубающее.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"После попадания рукопашной атакой можно \"},{\"type\":\"text\",\"text\":\"один раз за ход\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" атаковать второе существо рядом с первой целью, если оно тоже в досягаемости. При попадании по второй цели положительный модификатор характеристики к урону не добавляется.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Мастерство Боевой молот: Отталкивающее.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"При попадании по существу Большого размера или меньше его можно оттолкнуть до 10 футов прямо от себя.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Мастерство Дубинка: Замедляющее.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"После попадания и нанесения урона Скорость цели можно уменьшить на 10 футов до начала вашего следующего хода.\"}]}]}},\"size\":9},\"traits\":{\"value\":{\"id\":\"hover-toolbar-traits-1792797256600-92e02b\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"resource\",\"attrs\":{\"id\":\"resource-1792797256597-a830a6\",\"textName\":\"traits\"}},{\"type\":\"resource\",\"attrs\":{\"id\":\"resource-1792797256598-7f1ee3\",\"textName\":\"traits\"}},{\"type\":\"resource\",\"attrs\":{\"id\":\"resource-1792797256598-b610bc\",\"textName\":\"traits\"}},{\"type\":\"resource\",\"attrs\":{\"id\":\"resource-1792797256598-c870a1\",\"textName\":\"features\"}},{\"type\":\"resource\",\"attrs\":{\"id\":\"resource-1792797256598-423863\",\"textName\":\"features\"}},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Бонусным действием\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" тратишь одно использование и восстанавливаешь 1к10 + уровень Воина Хитов. Это твоя быстрая личная аптечка в бою.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"В свой ход можете совершить 1 дополнительное действие, кроме Магии. Использование восстанавливается после Короткого или \"},{\"type\":\"text\",\"text\":\"Долгого отдыха\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\".\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Тактическое мышление.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Когда проваливаете проверку характеристики, можете потратить Второе дыхание, чтобы добавить 1к10 к броску. Если проверка всё равно провалена, использование не тратится.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Дополнительная атака.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"При действии Атака совершаешь две атаки вместо одной.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Если проваливаете спасбросок, можете перебросить его с бонусом = уровень Воина. Новый результат обязателен. 1 раз за \"},{\"type\":\"text\",\"text\":\"Долгий отдых\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\".\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Две дополнительные атаки.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"При действии Атака совершаешь три атаки вместо одной.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Изучающие выпады.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Если промахнулся атакой по существу, следующую атаку по этой же цели до конца следующего хода совершаешь с \"},{\"type\":\"text\",\"text\":\"Преимуществом\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\".\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Боевое превосходство.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Вы изучаете 3 боевых приёма и получаете 4 кости превосходства к8. На одну атаку можно применить только 1 приём. Все кости восстанавливаются после Короткого или \"},{\"type\":\"text\",\"text\":\"Долгого отдыха\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\". Если приём требует спасброска, его Сл равна 8 + \"},{\"type\":\"text\",\"text\":\"Бонус владения\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" + модификатор Силы или Ловкости (на ваш выбор).\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Бонусным действием\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" выберите видимое существо в 30 футах и узнайте все его Иммунитеты, Сопротивления и Уязвимости. 1 раз за \"},{\"type\":\"text\",\"text\":\"Долгий отдых\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\"; можно восстановить использование, потратив Кость превосходства.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Неутомимость.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Один раз за ход\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" при использовании приёма можете бросить 1к8 вместо траты Кости превосходства.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Боевые приёмы: Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Выбраны: Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака. Краткая механика каждого приёма показана во встроенной таблице выше.\"}]}]}},\"size\":9},\"personality\":{\"value\":{\"id\":\"hover-toolbar-personality-1792797256601-3f363e\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":10},\"ideals\":{\"value\":{\"id\":\"hover-toolbar-ideals-1792797256601-f6b24f\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9},\"flaws\":{\"value\":{\"id\":\"hover-toolbar-flaws-1792797256601-166d1f\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":10},\"bonds\":{\"value\":{\"id\":\"hover-toolbar-bonds-1792797256601-5ffe71\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9},\"allies\":{\"value\":{\"id\":\"hover-toolbar-allies-1792797256600-02eb3c\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Храбрый.\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Ты совершаешь с \"},{\"type\":\"text\",\"text\":\"Преимуществом\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" спасброски, чтобы избежать состояния Испуганный или прекратить его действие.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Проворство полуросликов.\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Ты можешь проходить через пространство существа, которое больше тебя по размеру. Закончить движение в занятой клетке всё равно нельзя, если другое правило не говорит обратного.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Удача.\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Когда при Тесте к20 на кубике выпадает 1, ты можешь перебросить этот кубик и должен использовать новый результат.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Естественная скрытность.\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Ты можешь попытаться Затаиться, даже если единственное укрытие – существо, которое как минимум на один размер больше тебя.\"}]}]}},\"size\":9,\"customLabel\":\"СПОСОБНОСТИ РАСЫ\"},\"quests\":{\"value\":{\"id\":\"hover-toolbar-quests-1792797256601-587512\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9,\"customLabel\":\"Цели и квесты\"},\"items\":{\"value\":{\"id\":\"hover-toolbar-items-1792797256600-1ffe82\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9,\"customLabel\":\"ДОПОЛНИТЕЛЬНЫЕ СПОСОБНОСТИ И УМЕНИЯ\"},\"feats\":{\"value\":{\"id\":\"hover-toolbar-feats-1792797256600-d0dfce\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Одарённый:\",\"marks\":[{\"type\":\"bold\"}]}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Повторяемость.\",\"marks\":[{\"type\":\"bold\"},{\"type\":\"italic\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"эту черту можно брать более одного раза.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Крушитель (4-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"+1 к Силе или Телосложению, максимум 20. Раз за ход при попадании Дробящим уроном можешь переместить цель на 5 футов, если она не более чем на 1 категорию размера больше тебя. После Критического попадания Дробящим уроном атаки по цели имеют \"},{\"type\":\"text\",\"text\":\"Преимущество\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" до начала твоего следующего хода.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Борец (6-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"+1 к Силе или Ловкости, максимум 20. \"},{\"type\":\"text\",\"text\":\"Один раз за ход\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\", когда попадаешь Безоружным ударом частью действия Атака, можешь одновременно применить варианты Урон и Захват. Атаки по Схваченной тобой цели совершаются с \"},{\"type\":\"text\",\"text\":\"Преимуществом\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\". Не тратишь дополнительное перемещение при перемещении Схваченного существа своего размера или меньше.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Верховой боец (8-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"+1 к Силе, Ловкости или Мудрости, максимум 20. Верхом получаешь \"},{\"type\":\"text\",\"text\":\"Преимущество\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" на атаки по пешим существам в пределах 5 футов от скакуна, если они хотя бы на 1 категорию размера меньше него. Если скакун проходит спасбросок Ловкости на половину урона, при успехе не получает урон, при провале получает половину. Пока ты верхом и не Недееспособен, можешь перенаправить попавшую по скакуну атаку на себя.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Мастер боя двумя оружиями (12-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"+1 к Силе или Ловкости, максимум 20. После атаки Лёгким оружием \"},{\"type\":\"text\",\"text\":\"действием\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" Атака можешь \"},{\"type\":\"text\",\"text\":\"Бонусным действием\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" атаковать другим Рукопашным оружием без свойства Двуручное. Не добавляй модификатор характеристики к урону, если он не отрицательный. Можешь вынуть или убрать два оружия без свойства Двуручное вместо одного.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Аберрантная метка (14-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"Получаешь нестабильную аберрантную драконью метку: магию Чародея и особый всплеск силы.\"}]},{\"type\":\"paragraph\"},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Мастер средних доспехов (16-й уровень).\",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\" \"},{\"type\":\"text\",\"text\":\"+1 к Силе или Ловкости, максимум 20. Пока носишь Средний доспех и Ловкость 16+, можешь добавлять к КЗ до +3 от Ловкости вместо +2.\"}]}]}},\"size\":9},\"background\":{\"value\":{\"id\":\"hover-toolbar-background-1792797256601-e322a1\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9},\"appearance\":{\"value\":{\"id\":\"hover-toolbar-appearance-1792797256601-1d26f1\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":10},\"notes-1\":{\"value\":{\"id\":\"hover-toolbar-notes-1-1792797256601-fdfb78\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9},\"notes-2\":{\"value\":{\"id\":\"hover-toolbar-notes-2-1792797256601-3df6fc\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9},\"notes-3\":{\"value\":{\"id\":\"hover-toolbar-notes-3-1792797256601-cd40b5\",\"data\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}},\"size\":9}},\"coins\":{\"cp\":{\"value\":0},\"sp\":{\"value\":0},\"ep\":{\"value\":0},\"gp\":{\"value\":33},\"pp\":{\"value\":0},\"total\":{\"value\":33}},\"resources\":{\"resource-1792797256597-a830a6\":{\"id\":\"resource-1792797256597-a830a6\",\"name\":\"Второе дыхание\",\"current\":4,\"resolvedMax\":4,\"location\":\"traits\",\"notes\":\"\",\"notesVisibility\":false,\"maxExpr\":\"4\",\"isLongRest\":true,\"icon\":\"long-rest\"},\"resource-1792797256598-7f1ee3\":{\"id\":\"resource-1792797256598-7f1ee3\",\"name\":\"Всплеск действий\",\"current\":2,\"resolvedMax\":2,\"location\":\"traits\",\"notes\":\"\",\"notesVisibility\":false,\"maxExpr\":\"2\",\"isShortRest\":true,\"icon\":\"short-rest\"},\"resource-1792797256598-b610bc\":{\"id\":\"resource-1792797256598-b610bc\",\"name\":\"Неукротимый\",\"current\":3,\"resolvedMax\":3,\"location\":\"traits\",\"notes\":\"\",\"notesVisibility\":false,\"maxExpr\":\"3\",\"isLongRest\":true,\"icon\":\"long-rest\"},\"resource-1792797256598-c870a1\":{\"id\":\"resource-1792797256598-c870a1\",\"name\":\"Кости превосходства (к10)\",\"current\":6,\"resolvedMax\":6,\"location\":\"features\",\"notes\":\"\",\"notesVisibility\":false,\"maxExpr\":\"6\",\"isShortRest\":true,\"icon\":\"short-rest\"},\"resource-1792797256598-423863\":{\"id\":\"resource-1792797256598-423863\",\"name\":\"Познай врага\",\"current\":1,\"resolvedMax\":1,\"location\":\"features\",\"notes\":\"\",\"notesVisibility\":false,\"maxExpr\":\"1\",\"isLongRest\":true,\"icon\":\"long-rest\"}},\"bonusesSkills\":{},\"bonusesStats\":{},\"conditions\":[],\"wizardStep\":\"initial\",\"isDefault\":true,\"inspiration\":false,\"prof\":{\"armor-light\":{\"value\":true},\"armor-medium\":{\"value\":true},\"armor-heavy\":{\"value\":true},\"armor-label\":{\"value\":true},\"weapon-simple\":{\"value\":true},\"weapon-martial\":{\"value\":true}},\"weapons\":{},\"createdAt\":\"2026-10-23T23:14:16.602Z\"}",
-  "lastWriterSessionId": "fixture-session",
-  "jsonType": "character",
-  "version": "2"
+   },
+   "levelFeats": {
+    "Волшебник": {
+     "4": {
+      "name": "",
+      "choices": {}
+     },
+     "8": {
+      "name": "",
+      "choices": {}
+     },
+     "12": {
+      "name": "",
+      "choices": {}
+     },
+     "16": {
+      "name": "",
+      "choices": {}
+     }
+    },
+    "Воин": {
+     "4": {
+      "name": "Крушитель",
+      "choices": {
+       "ability": "str"
+      }
+     },
+     "6": {
+      "name": "Борец",
+      "choices": {
+       "ability": "dex"
+      }
+     },
+     "8": {
+      "name": "Верховой боец",
+      "choices": {
+       "ability": "dex"
+      }
+     },
+     "12": {
+      "name": "Мастер боя двумя оружиями",
+      "choices": {
+       "ability": "dex"
+      }
+     },
+     "14": {
+      "name": "Аберрантная метка",
+      "choices": {}
+     },
+     "16": {
+      "name": "Мастер средних доспехов",
+      "choices": {
+       "ability": "dex"
+      }
+     }
+    }
+   },
+   "wildShapeForms": [],
+   "customResources": [],
+   "customBonuses": [],
+   "customWeapons": [],
+   "subclassSelections": {
+    "Воин": "Мастер боевых искусств"
+   },
+   "activeSubclassClass": "Воин"
+  }
+ },
+ "data": "{\"jsonType\": \"character\", \"template\": \"default\", \"name\": {\"value\": \"sad\"}, \"info\": {\"charClass\": {\"name\": \"charClass\", \"value\": \"Воин\"}, \"charSubclass\": {\"name\": \"charSubclass\", \"value\": \"Мастер боевых искусств\"}, \"level\": {\"name\": \"level\", \"value\": 17}, \"background\": {\"name\": \"background\", \"value\": \"Дворянин\"}, \"playerName\": {\"name\": \"playerName\", \"value\": \"\"}, \"race\": {\"name\": \"race\", \"value\": \"Халфлинг (Полурослик)\"}, \"alignment\": {\"name\": \"alignment\", \"value\": \"\"}, \"experience\": {\"name\": \"experience\", \"value\": \"\"}, \"size\": {\"value\": \"small\"}}, \"subInfo\": {\"age\": {\"name\": \"age\", \"value\": \"\"}, \"height\": {\"name\": \"height\", \"value\": \"\"}, \"weight\": {\"name\": \"weight\", \"value\": \"\"}, \"eyes\": {\"name\": \"eyes\", \"value\": \"\"}, \"skin\": {\"name\": \"skin\", \"value\": \"\"}, \"hair\": {\"name\": \"hair\", \"value\": \"\"}}, \"spellsInfo\": {\"base\": {\"name\": \"base\", \"value\": \"\", \"code\": \"int\"}, \"save\": {\"name\": \"save\", \"value\": \"\"}, \"mod\": {\"name\": \"mod\", \"value\": \"\"}, \"available\": {\"classes\": []}}, \"spells\": {}, \"spellsPact\": {}, \"bonuses\": [], \"proficiency\": 6, \"stats\": {\"str\": {\"name\": \"str\", \"score\": 18}, \"dex\": {\"name\": \"dex\", \"score\": 17}, \"con\": {\"name\": \"con\", \"score\": 14}, \"int\": {\"name\": \"int\", \"score\": 10}, \"wis\": {\"name\": \"wis\", \"score\": 12}, \"cha\": {\"name\": \"cha\", \"score\": 9}}, \"saves\": {\"str\": {\"name\": \"str\", \"isProf\": true}, \"dex\": {\"name\": \"dex\", \"isProf\": false}, \"con\": {\"name\": \"con\", \"isProf\": true}, \"int\": {\"name\": \"int\", \"isProf\": false}, \"wis\": {\"name\": \"wis\", \"isProf\": false}, \"cha\": {\"name\": \"cha\", \"isProf\": false}}, \"skills\": {\"acrobatics\": {\"baseStat\": \"dex\", \"name\": \"acrobatics\", \"isProf\": 1}, \"investigation\": {\"baseStat\": \"int\", \"name\": \"investigation\"}, \"athletics\": {\"baseStat\": \"str\", \"name\": \"athletics\"}, \"perception\": {\"baseStat\": \"wis\", \"name\": \"perception\"}, \"survival\": {\"baseStat\": \"wis\", \"name\": \"survival\"}, \"performance\": {\"baseStat\": \"cha\", \"name\": \"performance\"}, \"intimidation\": {\"baseStat\": \"cha\", \"name\": \"intimidation\"}, \"history\": {\"baseStat\": \"int\", \"name\": \"history\", \"isProf\": 1}, \"sleight of hand\": {\"baseStat\": \"dex\", \"name\": \"sleight of hand\", \"isProf\": 1}, \"arcana\": {\"baseStat\": \"int\", \"name\": \"arcana\"}, \"medicine\": {\"baseStat\": \"wis\", \"name\": \"medicine\"}, \"deception\": {\"baseStat\": \"cha\", \"name\": \"deception\", \"isProf\": 1}, \"nature\": {\"baseStat\": \"int\", \"name\": \"nature\"}, \"insight\": {\"baseStat\": \"wis\", \"name\": \"insight\", \"isProf\": 1}, \"religion\": {\"baseStat\": \"int\", \"name\": \"religion\"}, \"stealth\": {\"baseStat\": \"dex\", \"name\": \"stealth\"}, \"persuasion\": {\"baseStat\": \"cha\", \"name\": \"persuasion\", \"isProf\": 1}, \"animal handling\": {\"baseStat\": \"wis\", \"name\": \"animal handling\", \"isProf\": 1}}, \"vitality\": {\"hp-dice-current\": {\"value\": 17}, \"hp-dice-multi\": {}, \"hp-max-con-bonus\": {\"value\": 0}, \"darkvision\": {\"value\": 0}, \"hp-current\": {\"value\": 140}, \"hp-temp\": {\"value\": 0}, \"isDying\": false, \"deathFails\": 0, \"deathSuccesses\": 0, \"hp-max\": {\"value\": 140}, \"speed\": {\"value\": \"30\"}, \"initiative\": {\"value\": 3}, \"shield\": {\"value\": false}, \"ac\": {\"value\": 16}, \"hit-die\": {\"value\": \"d10\"}}, \"attunementsList\": [{\"id\": \"attunement-1792797256601-d84af1\", \"checked\": false, \"value\": \"\"}], \"weaponsList\": [{\"id\": \"weapon-1792797256601-fd035d\", \"name\": {\"value\": \"Цеп\"}, \"mod\": {\"value\": \"+10\"}, \"dmg\": {\"value\": \"1к8+4\"}, \"ability\": \"str\", \"isProf\": true, \"dmgType\": {\"value\": \"дробящ.\"}}, {\"id\": \"weapon-1792797256601-9d8929\", \"name\": {\"value\": \"Двуручный меч\"}, \"mod\": {\"value\": \"+10\"}, \"dmg\": {\"value\": \"2к6+4\"}, \"ability\": \"str\", \"isProf\": true, \"dmgType\": {\"value\": \"рубящ.\"}}, {\"id\": \"weapon-1792797256601-f20db9\", \"name\": {\"value\": \"Метательное копьё\"}, \"mod\": {\"value\": \"+10\"}, \"dmg\": {\"value\": \"1к6+4\"}, \"ability\": \"str\", \"isProf\": true, \"dmgType\": {\"value\": \"колющ.\"}}], \"text\": {\"prof\": {\"value\": {\"id\": \"hover-toolbar-prof-1792797256601-129244\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Инструменты:\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" Драконьи шахматы\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Языки:\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" Общий, Полуросликов, Эльфийский\"}]}]}}, \"size\": 9}, \"equipment\": {\"value\": {\"id\": \"hover-toolbar-equipment-1792797256601-4d275b\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Кольчуга\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Двуручный меч\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Цеп\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"8 метательных копий\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Набор исследователя подземелий: Рюкзак, Калтропы, Ломик, 2 фляги масла, Рационы на 10 дней, Верёвка, Трутница, 10 факелов, Бурдюк\"}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Предыстория: Игровой набор, отличная одежда, духи\"}]}]}}, \"size\": 9}, \"features\": {\"value\": {\"id\": \"hover-toolbar-features-1792797256600-48e8c0\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Боевой стиль.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Выбранный стиль: Метательное оружие. Усиливает бой метательным оружием и позволяет удобнее доставать его во время атак.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Тактическое перемещение.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"После Второго дыхания можешь переместиться на половину Скорости без Провоцированных атак. Это помогает вылечиться и сразу сменить позицию.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Тактический мастер.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Когда атакуешь оружием, для которого знаешь Мастерство, можешь использовать более универсальный вариант мастерства вместо обычного свойства, если ситуация этого требует.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Изучающий войну.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Получаешь владение одним видом Ремесленных инструментов и ещё одним навыком из списка Воина.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Улучшенное боевое превосходство.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Ваши Кости превосходства становятся к10.\"}]}]}}, \"size\": 9, \"customLabel\": \"ДОПОЛНИТЕЛЬНЫЕ СПОСОБНОСТИ И УМЕНИЯ\"}, \"attacks\": {\"value\": {\"id\": \"hover-toolbar-attacks-1792797256601-9de5dd\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Мастерство Алебарда: Прорубающее.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"После попадания рукопашной атакой можно \"}, {\"type\": \"text\", \"text\": \"один раз за ход\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" атаковать второе существо рядом с первой целью, если оно тоже в досягаемости. При попадании по второй цели положительный модификатор характеристики к урону не добавляется.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Мастерство Боевой молот: Отталкивающее.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"При попадании по существу Большого размера или меньше его можно оттолкнуть до 10 футов прямо от себя.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Мастерство Дубинка: Замедляющее.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"После попадания и нанесения урона Скорость цели можно уменьшить на 10 футов до начала вашего следующего хода.\"}]}]}}, \"size\": 9}, \"traits\": {\"value\": {\"id\": \"hover-toolbar-traits-1792797256600-92e02b\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"resource\", \"attrs\": {\"id\": \"resource-1792797256597-a830a6\", \"textName\": \"traits\"}}, {\"type\": \"resource\", \"attrs\": {\"id\": \"resource-1792797256598-7f1ee3\", \"textName\": \"traits\"}}, {\"type\": \"resource\", \"attrs\": {\"id\": \"resource-1792797256598-b610bc\", \"textName\": \"traits\"}}, {\"type\": \"resource\", \"attrs\": {\"id\": \"resource-1792797256598-c870a1\", \"textName\": \"features\"}}, {\"type\": \"resource\", \"attrs\": {\"id\": \"resource-1792797256598-423863\", \"textName\": \"features\"}}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Бонусным действием\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" тратишь одно использование и восстанавливаешь 1к10 + уровень Воина Хитов. Это твоя быстрая личная аптечка в бою.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"В свой ход можете совершить 1 дополнительное действие, кроме Магии. Использование восстанавливается после Короткого или \"}, {\"type\": \"text\", \"text\": \"Долгого отдыха\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \".\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Тактическое мышление.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Когда проваливаете проверку характеристики, можете потратить Второе дыхание, чтобы добавить 1к10 к броску. Если проверка всё равно провалена, использование не тратится.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Дополнительная атака.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"При действии Атака совершаешь две атаки вместо одной.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Если проваливаете спасбросок, можете перебросить его с бонусом = уровень Воина. Новый результат обязателен. 1 раз за \"}, {\"type\": \"text\", \"text\": \"Долгий отдых\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \".\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Две дополнительные атаки.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"При действии Атака совершаешь три атаки вместо одной.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Изучающие выпады.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Если промахнулся атакой по существу, следующую атаку по этой же цели до конца следующего хода совершаешь с \"}, {\"type\": \"text\", \"text\": \"Преимуществом\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \".\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Боевое превосходство.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Вы изучаете 3 боевых приёма и получаете 4 кости превосходства к8. На одну атаку можно применить только 1 приём. Все кости восстанавливаются после Короткого или \"}, {\"type\": \"text\", \"text\": \"Долгого отдыха\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \". Если приём требует спасброска, его Сл равна 8 + \"}, {\"type\": \"text\", \"text\": \"Бонус владения\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" + модификатор Силы или Ловкости (на ваш выбор).\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Бонусным действием\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" выберите видимое существо в 30 футах и узнайте все его Иммунитеты, Сопротивления и Уязвимости. 1 раз за \"}, {\"type\": \"text\", \"text\": \"Долгий отдых\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \"; можно восстановить использование, потратив Кость превосходства.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Неутомимость.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Один раз за ход\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" при использовании приёма можете бросить 1к8 вместо траты Кости превосходства.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Боевые приёмы: Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Выбраны: Активное уклонение; Атака с выпадом; Атака с манёвром; Атака с угрозой; Атака с финтом; Засада; Командирский напор; Обезоруживающая атака; Опрокидывающая атака. Краткая механика каждого приёма показана во встроенной таблице выше.\"}]}]}}, \"size\": 9}, \"personality\": {\"value\": {\"id\": \"hover-toolbar-personality-1792797256601-3f363e\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 10}, \"ideals\": {\"value\": {\"id\": \"hover-toolbar-ideals-1792797256601-f6b24f\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}, \"flaws\": {\"value\": {\"id\": \"hover-toolbar-flaws-1792797256601-166d1f\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 10}, \"bonds\": {\"value\": {\"id\": \"hover-toolbar-bonds-1792797256601-5ffe71\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}, \"allies\": {\"value\": {\"id\": \"hover-toolbar-allies-1792797256600-02eb3c\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Храбрый.\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Ты совершаешь с \"}, {\"type\": \"text\", \"text\": \"Преимуществом\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" спасброски, чтобы избежать состояния Испуганный или прекратить его действие.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Проворство полуросликов.\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Ты можешь проходить через пространство существа, которое больше тебя по размеру. Закончить движение в занятой клетке всё равно нельзя, если другое правило не говорит обратного.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Удача.\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Когда при Тесте к20 на кубике выпадает 1, ты можешь перебросить этот кубик и должен использовать новый результат.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Естественная скрытность.\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Ты можешь попытаться Затаиться, даже если единственное укрытие – существо, которое как минимум на один размер больше тебя.\"}]}]}}, \"size\": 9, \"customLabel\": \"СПОСОБНОСТИ РАСЫ\"}, \"quests\": {\"value\": {\"id\": \"hover-toolbar-quests-1792797256601-587512\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9, \"customLabel\": \"Цели и квесты\"}, \"items\": {\"value\": {\"id\": \"hover-toolbar-items-1792797256600-1ffe82\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9, \"customLabel\": \"ДОПОЛНИТЕЛЬНЫЕ СПОСОБНОСТИ И УМЕНИЯ\"}, \"feats\": {\"value\": {\"id\": \"hover-toolbar-feats-1792797256600-d0dfce\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Одарённый:\", \"marks\": [{\"type\": \"bold\"}]}]}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Повторяемость.\", \"marks\": [{\"type\": \"bold\"}, {\"type\": \"italic\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"эту черту можно брать более одного раза.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Крушитель (4-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"+1 к Силе или Телосложению, максимум 20. Раз за ход при попадании Дробящим уроном можешь переместить цель на 5 футов, если она не более чем на 1 категорию размера больше тебя. После Критического попадания Дробящим уроном атаки по цели имеют \"}, {\"type\": \"text\", \"text\": \"Преимущество\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" до начала твоего следующего хода.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Борец (6-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"+1 к Силе или Ловкости, максимум 20. \"}, {\"type\": \"text\", \"text\": \"Один раз за ход\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \", когда попадаешь Безоружным ударом частью действия Атака, можешь одновременно применить варианты Урон и Захват. Атаки по Схваченной тобой цели совершаются с \"}, {\"type\": \"text\", \"text\": \"Преимуществом\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \". Не тратишь дополнительное перемещение при перемещении Схваченного существа своего размера или меньше.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Верховой боец (8-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"+1 к Силе, Ловкости или Мудрости, максимум 20. Верхом получаешь \"}, {\"type\": \"text\", \"text\": \"Преимущество\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" на атаки по пешим существам в пределах 5 футов от скакуна, если они хотя бы на 1 категорию размера меньше него. Если скакун проходит спасбросок Ловкости на половину урона, при успехе не получает урон, при провале получает половину. Пока ты верхом и не Недееспособен, можешь перенаправить попавшую по скакуну атаку на себя.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Мастер боя двумя оружиями (12-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"+1 к Силе или Ловкости, максимум 20. После атаки Лёгким оружием \"}, {\"type\": \"text\", \"text\": \"действием\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" Атака можешь \"}, {\"type\": \"text\", \"text\": \"Бонусным действием\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" атаковать другим Рукопашным оружием без свойства Двуручное. Не добавляй модификатор характеристики к урону, если он не отрицательный. Можешь вынуть или убрать два оружия без свойства Двуручное вместо одного.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Аберрантная метка (14-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"Получаешь нестабильную аберрантную драконью метку: магию Чародея и особый всплеск силы.\"}]}, {\"type\": \"paragraph\"}, {\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"Мастер средних доспехов (16-й уровень).\", \"marks\": [{\"type\": \"bold\"}]}, {\"type\": \"text\", \"text\": \" \"}, {\"type\": \"text\", \"text\": \"+1 к Силе или Ловкости, максимум 20. Пока носишь Средний доспех и Ловкость 16+, можешь добавлять к КЗ до +3 от Ловкости вместо +2.\"}]}]}}, \"size\": 9}, \"background\": {\"value\": {\"id\": \"hover-toolbar-background-1792797256601-e322a1\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}, \"appearance\": {\"value\": {\"id\": \"hover-toolbar-appearance-1792797256601-1d26f1\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 10}, \"notes-1\": {\"value\": {\"id\": \"hover-toolbar-notes-1-1792797256601-fdfb78\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}, \"notes-2\": {\"value\": {\"id\": \"hover-toolbar-notes-2-1792797256601-3df6fc\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}, \"notes-3\": {\"value\": {\"id\": \"hover-toolbar-notes-3-1792797256601-cd40b5\", \"data\": {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\"}]}}, \"size\": 9}}, \"coins\": {\"cp\": {\"value\": 0}, \"sp\": {\"value\": 0}, \"ep\": {\"value\": 0}, \"gp\": {\"value\": 33}, \"pp\": {\"value\": 0}, \"total\": {\"value\": 33}}, \"resources\": {\"resource-1792797256597-a830a6\": {\"id\": \"resource-1792797256597-a830a6\", \"name\": \"Второе дыхание\", \"current\": 4, \"resolvedMax\": 4, \"location\": \"traits\", \"notes\": \"\", \"notesVisibility\": false, \"maxExpr\": \"4\", \"isLongRest\": true, \"icon\": \"long-rest\"}, \"resource-1792797256598-7f1ee3\": {\"id\": \"resource-1792797256598-7f1ee3\", \"name\": \"Всплеск действий\", \"current\": 2, \"resolvedMax\": 2, \"location\": \"traits\", \"notes\": \"\", \"notesVisibility\": false, \"maxExpr\": \"2\", \"isShortRest\": true, \"icon\": \"short-rest\"}, \"resource-1792797256598-b610bc\": {\"id\": \"resource-1792797256598-b610bc\", \"name\": \"Неукротимый\", \"current\": 3, \"resolvedMax\": 3, \"location\": \"traits\", \"notes\": \"\", \"notesVisibility\": false, \"maxExpr\": \"3\", \"isLongRest\": true, \"icon\": \"long-rest\"}, \"resource-1792797256598-c870a1\": {\"id\": \"resource-1792797256598-c870a1\", \"name\": \"Кости превосходства (к10)\", \"current\": 6, \"resolvedMax\": 6, \"location\": \"features\", \"notes\": \"\", \"notesVisibility\": false, \"maxExpr\": \"6\", \"isShortRest\": true, \"icon\": \"short-rest\"}, \"resource-1792797256598-423863\": {\"id\": \"resource-1792797256598-423863\", \"name\": \"Познай врага\", \"current\": 1, \"resolvedMax\": 1, \"location\": \"features\", \"notes\": \"\", \"notesVisibility\": false, \"maxExpr\": \"1\", \"isLongRest\": true, \"icon\": \"long-rest\"}}, \"bonusesSkills\": {}, \"bonusesStats\": {}, \"conditions\": [], \"wizardStep\": \"initial\", \"isDefault\": true, \"inspiration\": false, \"prof\": {\"armor-light\": {\"value\": true}, \"armor-medium\": {\"value\": true}, \"armor-heavy\": {\"value\": true}, \"armor-label\": {\"value\": true}, \"weapon-simple\": {\"value\": true}, \"weapon-martial\": {\"value\": true}}, \"weapons\": {}}",
+ "jsonType": "character",
+ "version": "2"
 }
