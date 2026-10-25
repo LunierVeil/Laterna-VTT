@@ -8,7 +8,7 @@
  *
  * Без зависимостей от React - чтобы гонять тестом прямо в node.
  */
-import type { CheckBonus } from "./schema";
+import type { CheckBonus, RollSpec } from "./schema";
 
 function at(data: unknown, path: string): unknown {
   let node = data as any;
@@ -53,4 +53,15 @@ export function checkBonus(
   const manual = at(data, `${rowPath}.${bonus.manual}`);
   if (typeof manual === "number") return { value: manual, manual: true };
   return { value: computedBonus(bonus, rowPath, ability, data), manual: false };
+}
+
+/** Бонус атаки строки оружия, если ячейка пустая: модификатор + мастерство при владении. */
+export function computedRowBonus(spec: RollSpec, row: Record<string, unknown>, data: unknown): number | undefined {
+  const c = spec.computed;
+  const ability = c ? row[c.ability] : undefined;
+  if (!c || typeof ability !== "string") return undefined;
+  const mod = abilityMod(at(data, `${c.abilities}.${ability}.${c.score}`));
+  if (mod === undefined) return undefined;
+  const prof = at(data, c.proficiency);
+  return mod + (row[c.flag] === true && typeof prof === "number" ? prof : 0);
 }

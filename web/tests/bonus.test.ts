@@ -54,3 +54,14 @@ test("нет характеристики - бонуса нет (не ноль)"
 test("каждый навык схемы знает свою характеристику", () => {
   for (const item of skills.items) assert.ok(item.ability, item.key);
 });
+
+test("оружие без атаки (LSS без mod): посчитано из ability строки и владения", async () => {
+  const { computedRowBonus } = await import("../src/sheets/bonus.ts");
+  const weapons = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "table" && b.path === "weapons");
+  assert.ok(weapons && weapons.kind === "table" && weapons.rolls);
+  const attack = weapons.rolls.items.find((i) => i.key === "attack")!;
+  const data = { proficiency: 2, abilities: { str: { score: 16 } } };
+  assert.equal(computedRowBonus(attack, { ability: "str", prof: true }, data), 5);
+  assert.equal(computedRowBonus(attack, { ability: "str", prof: false }, data), 3);
+  assert.equal(computedRowBonus(attack, { name: "без характеристики" }, data), undefined);
+});

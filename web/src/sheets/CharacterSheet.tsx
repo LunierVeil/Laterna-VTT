@@ -6,7 +6,7 @@ import type { Block, Counter, Field, RollSpec, SheetSchema } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { safeUpload, uploadImage } from "../net/upload";
-import { checkBonus, computedBonus } from "./bonus";
+import { checkBonus, computedBonus, computedRowBonus } from "./bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -277,17 +277,24 @@ export type RollFn = (formula: string, label: string) => void;
  * Формула броска по строке. Бросает сервер - здесь только запись: какие
  * кубы и какое число к ним прибавить. null - бросать нечего.
  */
-export function rollFormula(spec: RollSpec, row: Record<string, unknown>, edge: Edge = "normal"): string | null {
+export function rollFormula(
+  spec: RollSpec,
+  row: Record<string, unknown>,
+  edge: Edge = "normal",
+  data?: unknown,
+): string | null {
   const v = row[spec.key];
   if (!spec.d20) return typeof v === "string" && v.trim() ? v.trim() : null;
-  // Бонус - число в начале ячейки: "+10", "5", "-1 (магия)". Нет числа - просто d20.
+  // Бонус - число в начале ячейки: "+10", "5", "-1 (магия)". Пустая ячейка -
+  // посчитанный бонус строки, если схема умеет; иначе просто d20.
   const m =
     typeof v === "number"
       ? String(v)
       : String(v ?? "")
           .trim()
           .match(/^[+-]?\d+/)?.[0];
-  const bonus = m ? Number(m) : 0;
+  const empty = v == null || String(v).trim() === "";
+  const bonus = m ? Number(m) : empty && data !== undefined ? (computedRowBonus(spec, row, data) ?? 0) : 0;
   const dice = spec.d20[edge];
   return bonus ? `${dice}${bonus > 0 ? "+" : ""}${bonus}` : dice;
 }
@@ -299,6 +306,19 @@ function isCounter(counter: Counter, row: Record<string, unknown>): boolean {
 
 function rowIndex(raw: unknown, row: unknown): number {
   return Array.isArray(raw) ? raw.indexOf(row) : -1;
+}
+
+/**
+ * Ячейка таблицы в игре. Пустая ячейка броска с computed (атака оружия из
+ * LSS без mod) - подсказка "посчитано +5", как у навыков; ручное главнее.
+ */
+function cellView(c: Field, row: Record<string, unknown>, rolls: RollSpec[] | undefined, data: unknown): React.ReactNode {
+  const spec = rolls?.find((r) => r.key === c.key && r.computed);
+  if (spec && isEmpty(row[c.key])) {
+    const value = computedRowBonus(spec, row, data);
+    if (value !== undefined) return <span className="muted" title="модификатор + мастерство при владении">посчитано {signed(value)}</span>;
+  }
+  return show(c, row[c.key]);
 }
 
 const EDGE_LABEL: Record<Edge, string> = { normal: "", advantage: " (преим.)", disadvantage: " (помеха)" };
@@ -539,7 +559,7 @@ function ViewBlock({
                   const name = spec ? String(row[spec.titleKey] ?? "") || block.title : "";
                   const fire = (items: RollSpec[], edge: Edge) => {
                     for (const it of items) {
-                      const f = rollFormula(it, row, edge);
+                      const f = rollFormula(it, row, edge, data);
                       if (f) roll(f, `${name} - ${it.label}${it.d20 ? EDGE_LABEL[edge] : ""}`);
                     }
                   };
@@ -604,17 +624,17 @@ function ViewBlock({
                               </button>
                             </td>
                           ) : (
-                            <td key={c.key}>{show(c, row[c.key])}</td>
+                            <td key={c.key}>{cellView(c, row, spec?.items, data)}</td>
                           ),
                         )}
                       {spec && (
                         <td className="roll-buttons">
                           {spec.items.map((it) =>
-                            rollFormula(it, row) ? (
+                            rollFormula(it, row, "normal", data) ? (
                               <button
                                 key={it.key}
                                 className="tool"
-                                title={it.d20 ? "Shift - с преимуществом, Alt - с помехой" : rollFormula(it, row)!}
+                                title={it.d20 ? "Shift - с преимуществом, Alt - с помехой" : rollFormula(it, row, "normal", data)!}
                                 onClick={(e) => fire([it], edgeOf(e))}
                               >
                                 {it.label}

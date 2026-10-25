@@ -73,7 +73,11 @@ class Sample(unittest.TestCase):
         w = self.data["weapons"]
         self.assertEqual(len(w), 3)
         self.assertEqual(
-            w[0], {"name": "Цеп", "attack": "+10", "damage": "1к8+4", "type": "дробящ.", "source": "lss"}
+            w[0],
+            {
+                "name": "Цеп", "attack": "+10", "damage": "1к8+4", "type": "дробящ.", "notes": None,
+                "ability": "str", "prof": True, "source": "lss",
+            },
         )
 
     def test_resources(self):

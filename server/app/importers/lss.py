@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 
+from .. import dice
 from ..richtext import clean_doc, has_text
 
 FORMAT = "lss-2"
@@ -54,6 +55,66 @@ def _int(node: object, lo: int, hi: int) -> int | None:
     if not isinstance(value, int):
         return None
     return max(lo, min(hi, value))
+
+
+def _prof(node: object) -> bool:
+    """isProf бывает 0/1, true/false, None. 2 - пока тоже владение: похоже на
+    мастерство (двойной бонус), но поля под него в листе нет - не выдумываем."""
+    value = _val(node) if isinstance(node, dict) else node
+    return bool(value) and value is not False
+
+
+# Урон из LSS - и формула, и слова: "1 д8 +4 рубящий +1д6 сияющий". Бросаемое
+# (кубы и числа) - в формулу, слова (типы урона) - в type. Это разбор записи,
+# а не правило: что бросать, решает текст игрока.
+_DMG_TERM = re.compile(
+    r"(?P<sign>[+\-−])?\s*(?P<term>\d*\s*[dDдДкКkK]\s*\d+|\d+)(?!\d)(?![a-zA-Zа-яА-ЯёЁ])"
+)
+
+
+def _split_damage(text: str | None) -> tuple[str | None, list[str]]:
+    """Строка урона -> (формула с "к" или None, слова-типы)."""
+    if not text:
+        return None, []
+    terms = []
+    for m in _DMG_TERM.finditer(text):
+        term = re.sub(r"\s+", "", m.group("term"))
+        term = re.sub(r"[dDдДкКkK]", "к", term)
+        sign = "-" if m.group("sign") in ("-", "−") else "+"
+        terms.append((sign, term))
+    rest = _DMG_TERM.sub(" ", text)
+    words = [w for w in re.split(r"[\s+,;/]+", rest) if re.search(r"[a-zA-Zа-яА-ЯёЁ]", w)]
+    if not terms:
+        return None, words
+    formula = "".join(f"{sign}{term}" for sign, term in terms).lstrip("+")
+    try:
+        dice.roll(formula)  # бросаемо ли - проверяет тот же парсер, что и бросок
+    except dice.DiceError:
+        return None, words
+    return formula, words
+
+
+def _weapon(w: dict) -> dict:
+    formula, words = _split_damage(_str(w.get("dmg"), 120))
+    types = [t for t in [_str(w.get("dmgType"), 60), *words] if t]
+    notes = _str(w.get("notes"), 2000)
+    raw_dmg = _str(w.get("dmg"), 120)
+    if raw_dmg and formula is None:
+        # Бросить нечего - текст остаётся заметкой, без кнопки броска.
+        notes = f"{raw_dmg}\n{notes}" if notes else raw_dmg
+    ability = w.get("ability") if w.get("ability") in _ABILITIES else None
+    return {
+        "name": _str(w.get("name")),
+        # Нет mod - атаку не выдумываем: лист покажет подсказку из ability и
+        # владения, ручное значение игрока главнее.
+        "attack": _str(w.get("mod"), 20),
+        "damage": formula,
+        "type": ", ".join(dict.fromkeys(types))[:120] or None,
+        "notes": notes,
+        "ability": ability,
+        "prof": _prof(w.get("isProf")),
+        "source": "lss",
+    }
 
 
 # Пределы - те же, что min/max в web/src/sheets/dnd5e.ts.
@@ -159,27 +220,17 @@ def parse(raw: object) -> tuple[str, dict]:
         "abilities": {
             key: {
                 "score": _int((stats.get(key) or {}).get("score"), 1, 30),
-                "save": bool((saves.get(key) or {}).get("isProf")),
+                "save": _prof((saves.get(key) or {}).get("isProf")),
             }
             for key in _ABILITIES
         },
         # Только владение. Бонус навыка не считаем: это уже правило.
         "skills": {
-            re.sub(r"[^a-z0-9]+", "_", key.lower()).strip("_"): {"prof": bool(s.get("isProf"))}
+            re.sub(r"[^a-z0-9]+", "_", key.lower()).strip("_"): {"prof": _prof(s.get("isProf"))}
             for key, s in skills.items()
             if isinstance(s, dict)
         },
-        "weapons": [
-            {
-                "name": _str(w.get("name")),
-                "attack": _str(w.get("mod"), 20),
-                "damage": _str(w.get("dmg"), 60),
-                "type": _str(w.get("dmgType"), 60),
-                "source": "lss",
-            }
-            for w in inner.get("weaponsList") or []
-            if isinstance(w, dict)
-        ],
+        "weapons": [_weapon(w) for w in inner.get("weaponsList") or [] if isinstance(w, dict)],
         "resources": [
             {
                 # id - чтобы узлы resource в текстах находили свой счётчик.

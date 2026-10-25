@@ -37,6 +37,12 @@ export interface RollSpec {
   label: string;
   key: string;
   d20?: { normal: string; advantage: string; disadvantage: string };
+  /**
+   * Ячейка пустая - бонус из характеристики строки: модификатор +
+   * мастерство при владении (как у навыков). Ручное значение главнее.
+   * ability и flag - ключи внутри строки, остальное - от корня data.
+   */
+  computed?: { ability: string; flag: string; abilities: string; score: string; proficiency: string };
 }
 
 /**

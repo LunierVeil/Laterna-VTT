@@ -86,6 +86,8 @@ export const dnd5e: SheetSchema = {
             { key: "attack", label: "Атака", kind: "text", width: 5 },
             { key: "damage", label: "Урон", kind: "text", width: 8 },
             { key: "type", label: "Тип", kind: "text", width: 8 },
+            // Свойства и то, что не бросается (урон текстом без формулы из LSS).
+            { key: "notes", label: "Заметки", kind: "text", width: 16 },
           ],
           rolls: {
             titleKey: "name",
@@ -93,7 +95,9 @@ export const dnd5e: SheetSchema = {
               {
                 label: "атака",
                 key: "attack",
-                d20: { normal: "1d20", advantage: "2d20kh1", disadvantage: "2d20kl1" },
+                d20: D20,
+                // Пустая "Атака" (LSS без mod) - бонус из ability и владения строки.
+                computed: { ability: "ability", flag: "prof", abilities: "abilities", score: "score", proficiency: "proficiency" },
               },
               { label: "урон", key: "damage" },
             ],
