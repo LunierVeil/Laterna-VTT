@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from . import auth, protocol
+from . import auth, fog, protocol
 from .config import (
     FRONTEND_URL,
     FRONTEND_URLS,
@@ -201,7 +201,7 @@ def token_for(token: dict, actor: Actor) -> dict:
 def event_for(actor: Actor, name: str, seq: int, payload: dict, hidden, cmd_id: str | None) -> dict:
     """Событие сцены глазами получателя.
 
-    Токены слоя ГМ игроку не уходят. Но seq сцены у всех один, и если
+    Токены слоя ГМ и то, что под туманом, игроку не уходят. Но seq сцены у всех один, и если
     просто не отправить событие, клиент увидит разрыв нумерации и
     перезапросит весь снапшот. Поэтому - пустое событие с тем же seq:
     порядок сохранён, содержимого нет.
@@ -210,17 +210,47 @@ def event_for(actor: Actor, name: str, seq: int, payload: dict, hidden, cmd_id: 
         payload = {"combat": combat_for(payload["combat"], actor)}
     if isinstance(payload.get("token"), dict):
         payload = {**payload, "token": token_for(payload["token"], actor)}
-    if actor.is_gm or hidden is None:
+    if hidden is None:
         return protocol.event(name, seq, payload, cmd_id)
-    before, after = hidden
-    if before and after:
+    if hidden["kind"] == "fog":
+        # Туман: мастеру - только сам туман; игроку - ещё что у него
+        # появилось (вышло из тумана) и что исчезло (ушло под туман).
+        if actor.is_gm:
+            return protocol.event(name, seq, payload, cmd_id)
+        extra: dict = {"add_tokens": [], "remove_tokens": [], "add_walls": [], "remove_walls": []}
+        for c in hidden["changes"]:
+            b, a = _visible(c, actor, 0), _visible(c, actor, 1)
+            if b == a:
+                continue
+            if c["kind"] == "token":
+                extra["add_tokens" if a else "remove_tokens"].append(token_for(c["full"], actor) if a else c["id"])
+            else:
+                extra["add_walls" if a else "remove_walls"].append(c["full"] if a else c["id"])
+        return protocol.event(name, seq, {**payload, **extra}, cmd_id)
+    if actor.is_gm:
+        return protocol.event(name, seq, payload, cmd_id)
+    kind = hidden["kind"]
+    before, after = _visible(hidden, actor, 0), _visible(hidden, actor, 1)
+    if not before and not after:
         return protocol.event("noop", seq, {}, None)
-    token_id = payload.get("id") or payload.get("token", {}).get("id")
-    if after:  # был виден - спрятали
-        return protocol.event("token.removed", seq, {"id": token_id}, cmd_id)
-    if before:  # был скрыт - показали
-        return protocol.event("token.added", seq, {"token": payload["token"]}, cmd_id)
+    obj_id = payload.get("id") or payload.get(kind, {}).get("id")
+    if before and not after:  # был виден - спрятали (слой ГМ или туман)
+        return protocol.event(f"{kind}.removed", seq, {"id": obj_id}, cmd_id)
+    if after and not before:  # был скрыт - показали
+        full = hidden["full"]
+        return protocol.event(f"{kind}.added", seq, {kind: token_for(full, actor) if kind == "token" else full}, cmd_id)
     return protocol.event(name, seq, payload, cmd_id)
+
+
+def _visible(mark: dict, actor: Actor, index: int) -> bool:
+    """Видит ли игрок объект до (0) или после (1) команды. Слой ГМ прячет от
+    всех игроков; туман - от всех, кроме владельца токена (свой персонаж в
+    закрытой комнате не пропадает)."""
+    if (mark.get("layer") or (False, False))[index]:
+        return False
+    if (mark.get("fog") or (False, False))[index] and (mark.get("owner") is None or mark.get("owner") != actor.id):
+        return False
+    return True
 
 
 async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
@@ -247,6 +277,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         .all()
     )
 
+    fog_rects = json.loads(scene.fog_json) if scene.fog_json else []
     return {
         "id": scene.id,
         "seq": scene.seq,
@@ -257,10 +288,20 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         "grid_type": scene.grid_type,
         "background_url": scene.background_url,
         "combat": combat_for(json.loads(scene.combat_json) if scene.combat_json else None, actor),
-        # Токены слоя ГМ игроку не отдаём вовсе: прятать на клиенте
-        # бесполезно, всё пришедшее видно в DevTools.
-        "tokens": [token_for(t.to_dict(), actor) for t in scene.tokens if actor.is_gm or t.layer != "gm"],
-        "walls": [w.to_dict() for w in scene.walls],
+        # Токены слоя ГМ и то, что под туманом, игроку не отдаём вовсе:
+        # прятать на клиенте бесполезно, всё пришедшее видно в DevTools.
+        "tokens": [
+            token_for(t.to_dict(), actor)
+            for t in scene.tokens
+            if actor.is_gm
+            or (t.layer != "gm" and (t.owner_id == actor.id or not fog.contains_point(fog_rects, t.x, t.y)))
+        ],
+        "walls": [
+            w.to_dict()
+            for w in scene.walls
+            if actor.is_gm or not fog.covers_segment(fog_rects, w.x1, w.y1, w.x2, w.y2)
+        ],
+        "fog": fog_rects,
         "messages": [message_for(m.to_dict(), actor) for m in reversed(messages)],
     }
 

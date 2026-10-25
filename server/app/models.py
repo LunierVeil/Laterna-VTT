@@ -115,6 +115,9 @@ class Scene(Base):
     # Бой (трекер инициативы): {"round", "current", "entries": [...]}.
     # null - боя нет. Меняется только командами combat.* в handlers.py.
     combat_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ручной туман: [{id, x, y, w, h}] в пикселях сцены, меняет только ГМ.
+    # null - тумана нет. Под туманом игроку не уходят токены и стены.
+    fog_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Монотонный счётчик событий сцены. Основа дедупликации на клиенте.
     seq: Mapped[int] = mapped_column(Integer, default=0)

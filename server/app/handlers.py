@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import datetime, timezone
 
-from . import auth, dice, sheet_data
+from . import auth, dice, fog, sheet_data
 from .importers import lss
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
@@ -88,15 +88,25 @@ def _upload_url(value, what: str) -> str | None:
 HIDDEN = "hidden"  # ключ видимости в payload, см. _with_hidden
 
 
-def _with_hidden(payload: dict, before: bool, after: bool) -> dict:
-    """Пометить событие токена: был ли он скрыт от игроков до и после.
+def _scene_fog(scene: Scene) -> list[dict]:
+    return json.loads(scene.fog_json) if scene.fog_json else []
 
-    main.py снимает пометку и решает, что отправить игроку: событие как есть,
-    пустое (скрыт и был скрыт), token.added (показали) или token.removed
-    (спрятали). Хендлер знает слой токена, main.py - кто получатель.
-    """
-    payload[HIDDEN] = (before, after)
+
+def _mark_token(payload: dict, token: Token, layer: tuple, fog_state: tuple) -> dict:
+    """Пометка для токена: слой ГМ и туман до и после. Под туманом токен
+    не видят игроки, кроме владельца; полный токен - чтобы показать его,
+    если он вышел из тумана."""
+    payload[HIDDEN] = {"kind": "token", "layer": layer, "fog": fog_state, "owner": token.owner_id, "full": token.to_dict()}
     return payload
+
+
+def _mark_wall(payload: dict, wall: Wall, fog_state: tuple) -> dict:
+    payload[HIDDEN] = {"kind": "wall", "fog": fog_state, "full": wall.to_dict()}
+    return payload
+
+
+def _wall_fogged(fog_rects: list[dict], wall: Wall) -> bool:
+    return fog.covers_segment(fog_rects, wall.x1, wall.y1, wall.x2, wall.y2)
 
 
 def _require_gm(actor: Actor, message: str = "это может только ГМ") -> None:
@@ -226,7 +236,8 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
     db.add(token)
     await db.flush()
     hidden = token.layer == "gm"
-    return "token.added", _with_hidden({"token": token.to_dict()}, hidden, hidden)
+    fogged = fog.contains_point(_scene_fog(scene), token.x, token.y)
+    return "token.added", _mark_token({"token": token.to_dict()}, token, (hidden, hidden), (fogged, fogged))
 
 
 async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -244,10 +255,15 @@ async def token_move(db: AsyncSession, scene: Scene, actor: Actor, payload: dict
     if path_blocked(token.x, token.y, nx, ny, walls):
         raise CommandError("стена на пути")
 
+    fog_rects = _scene_fog(scene)
+    fog_before = fog.contains_point(fog_rects, token.x, token.y)
     token.x, token.y = nx, ny
     await db.flush()
     hidden = token.layer == "gm"
-    return "token.moved", _with_hidden({"id": token.id, "x": token.x, "y": token.y}, hidden, hidden)
+    fog_after = fog.contains_point(fog_rects, token.x, token.y)
+    return "token.moved", _mark_token(
+        {"id": token.id, "x": token.x, "y": token.y}, token, (hidden, hidden), (fog_before, fog_after)
+    )
 
 
 async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -256,6 +272,8 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         raise CommandError("токен не найден")
     # Без этой проверки чужой игрок переписал бы владельца на себя и удалил токен.
     _require_owner(token, actor, "нельзя менять чужой токен")
+    fog_rects = _scene_fog(scene)
+    fog_before = fog.contains_point(fog_rects, token.x, token.y)
     if "name" in payload:
         name = str(payload["name"] or "").strip()
         if not name:
@@ -300,7 +318,10 @@ async def token_update(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         _require_gm(actor, "скрывать и показывать токены может только ГМ")
         token.layer = "gm" if payload["layer"] == "gm" else "tokens"
     await db.flush()
-    return "token.updated", _with_hidden({"token": token.to_dict()}, was_hidden, token.layer == "gm")
+    fog_after = fog.contains_point(fog_rects, token.x, token.y)
+    return "token.updated", _mark_token(
+        {"token": token.to_dict()}, token, (was_hidden, token.layer == "gm"), (fog_before, fog_after)
+    )
 
 
 async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -309,9 +330,11 @@ async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: di
         raise CommandError("токен не найден")
     _require_owner(token, actor, "нельзя удалить чужой токен")
     hidden = token.layer == "gm"
+    fogged = fog.contains_point(_scene_fog(scene), token.x, token.y)
+    marked = _mark_token({"id": payload["id"]}, token, (hidden, hidden), (fogged, fogged))
     await db.delete(token)
     await db.flush()
-    return "token.removed", _with_hidden({"id": payload["id"]}, hidden, hidden)
+    return "token.removed", marked
 
 
 # Пока только стена и дверь. Тайная дверь, окно, невидимая стена есть в
@@ -352,7 +375,8 @@ async def wall_door(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         raise CommandError("дверь заперта")
     wall.door_state = state
     await db.flush()
-    return "wall.updated", {"wall": wall.to_dict()}
+    fogged = _wall_fogged(_scene_fog(scene), wall)
+    return "wall.updated", _mark_wall({"wall": wall.to_dict()}, wall, (fogged, fogged))
 
 
 async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -378,7 +402,8 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
         raise CommandError("стена нулевой длины")
     db.add(wall)
     await db.flush()
-    return "wall.added", {"wall": wall.to_dict()}
+    fogged = _wall_fogged(_scene_fog(scene), wall)
+    return "wall.added", _mark_wall({"wall": wall.to_dict()}, wall, (fogged, fogged))
 
 
 async def wall_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -386,9 +411,11 @@ async def wall_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dic
     if wall is None or wall.scene_id != scene.id:
         raise CommandError("стена не найдена")
     _require_owner(wall, actor, "нельзя удалить чужую стену")
+    fogged = _wall_fogged(_scene_fog(scene), wall)
+    marked = _mark_wall({"id": payload["id"]}, wall, (fogged, fogged))
     await db.delete(wall)
     await db.flush()
-    return "wall.removed", {"id": payload["id"]}
+    return "wall.removed", marked
 
 
 async def scene_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -897,6 +924,87 @@ async def combat_end(db: AsyncSession, scene: Scene, actor: Actor, payload: dict
     return _save_combat(scene, None)
 
 
+# --- ручной туман ---------------------------------------------------------
+#
+# Прямоугольники в пикселях сцены (fog.py). Меняет только ГМ. Под туманом
+# игрокам не уходят токены (кроме своих) и стены - так же, как токены слоя
+# ГМ. Событие одно - fog.updated с новым туманом; main для каждого игрока
+# дописывает, что у него появилось и что исчезло.
+#
+# Отмена (fog.undo) - только своего последнего действия: история в памяти
+# процесса, до 50 шагов на сцену. Если последним менял туман другой мастер -
+# отказ, иначе отмена стёрла бы и его правку.
+
+_fog_history: dict[str, list[tuple[str, list[dict]]]] = {}
+
+
+def _fog_rect(scene: Scene, payload: dict) -> dict:
+    x = _clamp(_num(payload, "x"), 0, scene.width)
+    y = _clamp(_num(payload, "y"), 0, scene.height)
+    x2 = _clamp(x + _num(payload, "w"), 0, scene.width)
+    y2 = _clamp(y + _num(payload, "h"), 0, scene.height)
+    if x2 - x <= 0 or y2 - y <= 0:
+        raise CommandError("прямоугольник тумана пустой")
+    return fog.make(x, y, x2 - x, y2 - y)
+
+
+async def _fog_set(db: AsyncSession, scene: Scene, actor: Actor, after: list[dict], undo: bool = False):
+    """Записать новый туман и собрать, что из-за него поменялось для игроков."""
+    if len(after) > fog.MAX_RECTS:
+        raise CommandError(f"тумана слишком много кусков (больше {fog.MAX_RECTS}) - закрой область целиком")
+    before = _scene_fog(scene)
+    if not undo:
+        history = _fog_history.setdefault(scene.id, [])
+        history.append((actor.id, before))
+        del history[:-50]
+    scene.fog_json = json.dumps(after) if after else None
+    changes = []
+    tokens = (await db.execute(select(Token).where(Token.scene_id == scene.id))).scalars().all()
+    for t in tokens:
+        b, a = fog.contains_point(before, t.x, t.y), fog.contains_point(after, t.x, t.y)
+        if b != a:
+            changes.append({"kind": "token", "id": t.id, "layer": t.layer == "gm", "fog": (b, a), "owner": t.owner_id, "full": t.to_dict()})
+    walls = (await db.execute(select(Wall).where(Wall.scene_id == scene.id))).scalars().all()
+    for w in walls:
+        b, a = _wall_fogged(before, w), _wall_fogged(after, w)
+        if b != a:
+            changes.append({"kind": "wall", "id": w.id, "fog": (b, a), "full": w.to_dict()})
+    await db.flush()
+    return "fog.updated", {"fog": after, HIDDEN: {"kind": "fog", "changes": changes}}
+
+
+async def fog_cover(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "туман меняет только ГМ")
+    return await _fog_set(db, scene, actor, [*_scene_fog(scene), _fog_rect(scene, payload)])
+
+
+async def fog_reveal(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "туман меняет только ГМ")
+    return await _fog_set(db, scene, actor, fog.reveal(_scene_fog(scene), _fog_rect(scene, payload)))
+
+
+async def fog_cover_all(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "туман меняет только ГМ")
+    return await _fog_set(db, scene, actor, [fog.make(0, 0, scene.width, scene.height)])
+
+
+async def fog_clear(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "туман меняет только ГМ")
+    return await _fog_set(db, scene, actor, [])
+
+
+async def fog_undo(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    _require_gm(actor, "туман меняет только ГМ")
+    history = _fog_history.get(scene.id) or []
+    if not history:
+        raise CommandError("отменять в тумане нечего")
+    owner, before = history[-1]
+    if owner != actor.id:
+        raise CommandError("последним туман менял другой мастер - отменить своё нельзя")
+    history.pop()
+    return await _fog_set(db, scene, actor, before, undo=True)
+
+
 # --- пинг: не состояние сцены ---------------------------------------------
 #
 # Кольцо на карте, чтобы показать место. Ничего не меняет: без seq, без
@@ -932,6 +1040,11 @@ HANDLERS = {
     "wall.add": wall_add,
     "wall.remove": wall_remove,
     "wall.door": wall_door,
+    "fog.cover": fog_cover,
+    "fog.reveal": fog_reveal,
+    "fog.cover_all": fog_cover_all,
+    "fog.clear": fog_clear,
+    "fog.undo": fog_undo,
     "scene.update": scene_update,
     "combat.add": combat_add,
     "combat.set": combat_set,

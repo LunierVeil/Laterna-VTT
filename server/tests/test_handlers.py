@@ -491,3 +491,121 @@ def test_ping_broadcast_without_seq(client, gm, sockets, scene_id):
             got.append(m)
     assert len(got) == 1 and (got[0]["x"], got[0]["y"]) == (100, 120) and got[0]["author"] == "Мастер"
     assert client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"] == seq_before  # состояние не менялось
+
+
+# --- ручной туман ----------------------------------------------------------------
+
+
+def _ev(ws, cid, name, payload):
+    """Команда и ответ на неё (событие или ошибка с тем же cmd_id)."""
+    return run(ws, cid, name, payload)
+
+
+def _next_event(ws):
+    return recv_until(ws, lambda m: m.get("type") == "event")
+
+
+def test_fog_hides_tokens_and_walls_from_player(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    run(g, "f0", "fog.clear", {})
+    _next_event(p)
+    tok = run(g, "f1", "token.add", {"x": 1505, "y": 1505, "name": "засада-в-тумане"})["payload"]["token"]
+    _next_event(p)  # игрок пока видит токен (тумана нет)
+    wall = run(g, "f2", "wall.add", {"x1": 1410, "y1": 1410, "x2": 1590, "y2": 1410})["payload"]["wall"]
+    _next_event(p)
+    try:
+        # Мастер закрывает комнату: игроку - туман и "исчезли" токен и стена.
+        ev = run(g, "f3", "fog.cover", {"x": 1400, "y": 1400, "w": 200, "h": 200})
+        assert ev["name"] == "fog.updated" and "remove_tokens" not in ev["payload"]  # мастеру - без списков
+        ev_p = _next_event(p)
+        assert ev_p["name"] == "fog.updated"
+        assert ev_p["payload"]["remove_tokens"] == [tok["id"]]
+        assert ev_p["payload"]["remove_walls"] == [wall["id"]]
+        assert len(ev_p["payload"]["fog"]) == 1
+        # Ни в снапшоте, ни в одном байте - имени токена нет.
+        snap = client.get(f"/api/scenes/{scene_id}", headers=player["headers"]).json()
+        assert tok["id"] not in [t["id"] for t in snap["tokens"]]
+        assert wall["id"] not in [w["id"] for w in snap["walls"]]
+        assert "засада-в-тумане" not in json.dumps(snap, ensure_ascii=False)
+        assert snap["fog"] and snap["fog"][0]["w"] == 200
+        # Что происходит в тумане - пустые события с тем же seq.
+        run(g, "f4", "token.move", {"id": tok["id"], "x": 1545, "y": 1505})
+        assert _next_event(p)["name"] == "noop"
+        # Мастер открывает - игрок получает недостающее целиком.
+        run(g, "f5", "fog.reveal", {"x": 1300, "y": 1300, "w": 400, "h": 400})
+        ev_p = _next_event(p)
+        assert [t["id"] for t in ev_p["payload"]["add_tokens"]] == [tok["id"]]
+        assert ev_p["payload"]["add_tokens"][0]["x"] == 1545  # где он теперь
+        assert [w["id"] for w in ev_p["payload"]["add_walls"]] == [wall["id"]]
+        assert ev_p["payload"]["fog"] == []
+    finally:
+        run(g, "f6", "token.remove", {"id": tok["id"]})
+        run(g, "f7", "wall.remove", {"id": wall["id"]})
+        run(g, "f8", "fog.clear", {})
+
+
+def test_token_walks_into_and_out_of_fog(sockets):
+    g, p = sockets
+    run(g, "w0", "fog.clear", {})
+    _next_event(p)
+    run(g, "w1", "fog.cover", {"x": 2000, "y": 0, "w": 500, "h": 500})
+    _next_event(p)
+    tok = run(g, "w2", "token.add", {"x": 1905, "y": 105, "name": "разведчик"})["payload"]["token"]
+    _next_event(p)
+    try:
+        run(g, "w3", "token.move", {"id": tok["id"], "x": 2105, "y": 105})  # в туман
+        ev = _next_event(p)
+        assert ev["name"] == "token.removed" and ev["payload"] == {"id": tok["id"]}
+        run(g, "w4", "token.move", {"id": tok["id"], "x": 1905, "y": 105})  # обратно
+        ev = _next_event(p)
+        assert ev["name"] == "token.added" and ev["payload"]["token"]["name"] == "разведчик"
+    finally:
+        run(g, "w5", "token.remove", {"id": tok["id"]})
+        run(g, "w6", "fog.clear", {})
+
+
+def test_own_token_visible_in_fog(client, player, sockets, scene_id):
+    g, p = sockets
+    run(g, "o0", "fog.clear", {})
+    mine = run(p, "o1", "token.add", {"x": 2705, "y": 105})["payload"]["token"]
+    try:
+        run(g, "o2", "fog.cover_all", {})
+        snap = client.get(f"/api/scenes/{scene_id}", headers=player["headers"]).json()
+        assert mine["id"] in [t["id"] for t in snap["tokens"]]  # свой персонаж не пропадает
+    finally:
+        run(p, "o3", "token.remove", {"id": mine["id"]})
+        run(g, "o4", "fog.clear", {})
+
+
+def test_fog_validation_and_rights(sockets, monkeypatch):
+    g, p = sockets
+    assert run(p, "v1", "fog.cover", {"x": 0, "y": 0, "w": 10, "h": 10})["type"] == "error"
+    assert run(p, "v2", "fog.clear", {})["type"] == "error"
+    for bad in ({"x": 0, "y": 0, "w": 0, "h": 10}, {"x": 0, "y": 0, "w": -5, "h": 10},
+                {"x": float("inf"), "y": 0, "w": 10, "h": 10}, {"x": 0, "y": 0, "w": float("nan"), "h": 1}):
+        assert run(g, "v3", "fog.cover", bad)["type"] == "error", bad
+    run(g, "v4", "fog.clear", {})
+    monkeypatch.setattr(handlers.fog, "MAX_RECTS", 2)
+    run(g, "v5", "fog.cover", {"x": 0, "y": 0, "w": 10, "h": 10})
+    run(g, "v6", "fog.cover", {"x": 20, "y": 0, "w": 10, "h": 10})
+    err = run(g, "v7", "fog.cover", {"x": 40, "y": 0, "w": 10, "h": 10})
+    assert err["type"] == "error" and "много" in err["message"]
+    monkeypatch.undo()
+    run(g, "v8", "fog.clear", {})
+
+
+def test_fog_undo_only_own(client, gm, sockets, scene_id):
+    g, p = sockets
+    run(g, "u0", "fog.clear", {})
+    run(g, "u1", "fog.cover", {"x": 0, "y": 0, "w": 100, "h": 100})
+    run(g, "u2", "fog.cover", {"x": 200, "y": 0, "w": 100, "h": 100})
+    assert len(client.get(f"/api/scenes/{scene_id}", headers=gm).json()["fog"]) == 2
+    assert run(g, "u3", "fog.undo", {})["payload"]["fog"][0]["x"] == 0  # снят последний
+    assert len(client.get(f"/api/scenes/{scene_id}", headers=gm).json()["fog"]) == 1
+    assert run(p, "u4", "fog.undo", {})["type"] == "error"  # игрок - нельзя
+    # Чужое последнее действие: подменяем историю, будто менял другой мастер.
+    handlers._fog_history[scene_id].append(("другой-мастер", []))
+    err = run(g, "u5", "fog.undo", {})
+    assert err["type"] == "error" and "другой мастер" in err["message"]
+    handlers._fog_history[scene_id].clear()
+    run(g, "u6", "fog.clear", {})
