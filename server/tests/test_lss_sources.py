@@ -78,10 +78,25 @@ def test_sad_weapons_unchanged():
     assert all(x["ability"] == "str" and x["prof"] is True for x in w)
 
 
-def test_is_prof_variants():
-    for value, expected in ((0, False), (1, True), (True, True), (False, False), (None, False), (2, True)):
-        assert lss._prof(value) is expected, value
-        assert lss._prof({"value": value}) is expected, value
+def test_is_prof_levels():
+    """isProf -> уровень: 2 - мастерство, а не владение."""
+    for value, expected in ((0, 0), (1, 1), (True, 1), (False, 0), (None, 0), (2, 2), ("x", 0)):
+        assert lss._prof(value) == expected, value
+        assert lss._prof({"value": value}) == expected, value
+
+
+def test_mastery_imported():
+    raw = json.loads(ALL["lss_vespira"])
+    inner = json.loads(raw["data"])
+    inner["skills"]["stealth"]["isProf"] = 2
+    inner["skills"]["acrobatics"]["isProf"] = 1
+    inner["saves"]["dex"]["isProf"] = 2
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    data = parse(json.dumps(raw, ensure_ascii=False))
+    assert data["skills"]["stealth"]["prof"] == 2
+    assert data["skills"]["acrobatics"]["prof"] == 1
+    assert data["skills"]["athletics"]["prof"] == 0
+    assert data["abilities"]["dex"]["save"] == 2
 
 
 # --- ресурсы ------------------------------------------------------------------

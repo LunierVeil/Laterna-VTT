@@ -58,13 +58,13 @@ class Sample(unittest.TestCase):
         self.assertEqual(set(a), {"str", "dex", "con", "int", "wis", "cha"})
         for ability in a.values():
             self.assertTrue(1 <= ability["score"] <= 30)
-            self.assertIsInstance(ability["save"], bool)
+            self.assertIn(ability["save"], (0, 1, 2))
 
     def test_skills_only_proficiency(self):
         s = self.data["skills"]
-        self.assertTrue(s["acrobatics"]["prof"])
-        self.assertTrue(s["history"]["prof"])
-        self.assertFalse(s["investigation"]["prof"])
+        self.assertEqual(s["acrobatics"]["prof"], 1)
+        self.assertEqual(s["history"]["prof"], 1)
+        self.assertEqual(s["investigation"]["prof"], 0)
         self.assertIn("sleight_of_hand", s)  # "sleight of hand" -> ключ схемы
         # Бонусы навыков адаптер не считает - это правило, а не перенос.
         self.assertTrue(all(set(v) == {"prof"} for v in s.values()))

@@ -88,3 +88,15 @@ test("лечение с 0 сбрасывает спасброски от сме�
   assert.deepEqual(hpChanges(dnd5e, hurt, 9), { "vitals.hp.current": 9 });
   assert.deepEqual(hpChanges(dnd5e, down, 0), { "vitals.hp.current": 0 });
 });
+
+test("мастерство: Плут 1 уровня, Ловкость 10, мастерство в Скрытности - +4 при бонусе +2", async () => {
+  const { checkBonus, profLevel } = await import("../src/sheets/bonus.ts");
+  const rogue = { proficiency: 2, abilities: { dex: { score: 10 } }, skills: { stealth: { prof: 2 }, acrobatics: { prof: 1 } } };
+  assert.equal(checkBonus(skills.bonus!, "skills.stealth", "dex", rogue).value, 4);
+  assert.equal(checkBonus(skills.bonus!, "skills.acrobatics", "dex", rogue).value, 2);
+  // Спасбросок с мастерством тоже удваивается.
+  const save = { proficiency: 2, abilities: { dex: { score: 14, save: 2 } } };
+  assert.equal(checkBonus(saves.bonus!, "abilities.dex", "dex", save).value, 6);
+  // Старые листы: true = владение, false = нет; "2" из выпадающего списка = мастерство.
+  assert.deepEqual([profLevel(true), profLevel(false), profLevel(undefined), profLevel("2"), profLevel(1)], [1, 0, 0, 2, 1]);
+});

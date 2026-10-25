@@ -57,11 +57,15 @@ def _int(node: object, lo: int, hi: int) -> int | None:
     return max(lo, min(hi, value))
 
 
-def _prof(node: object) -> bool:
-    """isProf бывает 0/1, true/false, None. 2 - пока тоже владение: похоже на
-    мастерство (двойной бонус), но поля под него в листе нет - не выдумываем."""
+def _prof(node: object) -> int:
+    """Уровень владения из isProf: 0 нет, 1 владение, 2 мастерство
+    (удвоенный бонус мастерства). В файле бывает 0/1/2, true/false, None."""
     value = _val(node) if isinstance(node, dict) else node
-    return bool(value) and value is not False
+    if value is True:
+        return 1
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return 2 if value >= 2 else 1 if value >= 1 else 0
 
 
 # Урон из LSS - и формула, и слова: "1 д8 +4 рубящий +1д6 сияющий". Бросаемое
@@ -112,7 +116,8 @@ def _weapon(w: dict) -> dict:
         "type": ", ".join(dict.fromkeys(types))[:120] or None,
         "notes": notes,
         "ability": ability,
-        "prof": _prof(w.get("isProf")),
+        # У оружия мастерства нет - только владеет или нет.
+        "prof": _prof(w.get("isProf")) > 0,
         "source": "lss",
     }
 
@@ -383,7 +388,8 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
             }
             for key in _ABILITIES
         },
-        # Только владение. Бонус навыка не считаем: это уже правило.
+        # Только уровень владения (0/1/2). Бонус навыка не считаем: это правило,
+        # его подсказывает лист (web/src/sheets/bonus.ts).
         "skills": {
             re.sub(r"[^a-z0-9]+", "_", key.lower()).strip("_"): {"prof": _prof(s.get("isProf"))}
             for key, s in skills.items()

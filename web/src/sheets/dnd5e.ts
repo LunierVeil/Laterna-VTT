@@ -162,7 +162,7 @@ export const dnd5e: SheetSchema = {
           // Флаг владения - тот же abilities.<key>.save, что и в характеристиках.
           path: "abilities",
           fields: [
-            { key: "save", label: "влад.", kind: "checkbox" },
+            { key: "save", label: "владение", kind: "prof" },
             { key: "save_bonus", label: "свой бонус", kind: "number", width: 3, min: -10, max: 30 },
           ],
           bonus: SAVE_BONUS,
@@ -181,7 +181,7 @@ export const dnd5e: SheetSchema = {
           title: "Навыки",
           path: "skills",
           fields: [
-            { key: "prof", label: "влад.", kind: "checkbox" },
+            { key: "prof", label: "владение", kind: "prof" },
             { key: "bonus", label: "свой бонус", kind: "number", width: 3, min: -10, max: 30 },
           ],
           bonus: SKILL_BONUS,

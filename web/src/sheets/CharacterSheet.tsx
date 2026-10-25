@@ -6,7 +6,7 @@ import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./sche
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { safeUpload, uploadImage } from "../net/upload";
-import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges } from "./bonus";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "./bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -72,6 +72,20 @@ function FieldInput({ field, value, onCommit }: { field: Field; value: unknown; 
         checked={value === true}
         onChange={(e) => onCommit(e.target.checked)}
       />
+    );
+  }
+  if (field.kind === "prof") {
+    return (
+      <select
+        aria-label={field.label}
+        className="prof-select"
+        value={String(profLevel(value))}
+        onChange={(e) => onCommit(Number(e.target.value))}
+      >
+        <option value="0">нет</option>
+        <option value="1">владение</option>
+        <option value="2">мастерство</option>
+      </select>
     );
   }
   if (field.kind === "select") {
@@ -176,7 +190,7 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
                   <span className="sheet-mod">{modText(score)}</span>
                   <label className="sheet-save">
                     <FieldInput
-                      field={{ key: "save", label: `${a.label}: спасбросок`, kind: "checkbox" }}
+                      field={{ key: "save", label: `${a.label}: спасбросок`, kind: "prof" }}
                       value={get(data, `${base}.save`)}
                       onCommit={(v) => set(`${base}.save`, v)}
                     />
@@ -509,14 +523,14 @@ function ViewBlock({
           <div className="view-abilities">
             {block.items.map((a) => {
               const score = get(data, `${block.path}.${a.key}.score`);
-              const save = get(data, `${block.path}.${a.key}.save`) === true;
+              const save = profLevel(get(data, `${block.path}.${a.key}.save`));
               return (
                 <div key={a.key} className="view-ability" title={save ? "владение спасброском" : undefined}>
                   <span className="muted">{a.label}</span>
                   <span className="view-mod">{modText(score) || "—"}</span>
                   <span className="view-score">
                     {typeof score === "number" ? score : ""}
-                    {save && <span className="view-dot"> ● спас.</span>}
+                    {save > 0 && <span className="view-dot"> {save === 2 ? "●● спас." : "● спас."}</span>}
                   </span>
                 </div>
               );
@@ -527,7 +541,7 @@ function ViewBlock({
 
     case "checklist": {
       const [flag, num] = [
-        block.fields.find((f) => f.kind === "checkbox"),
+        block.fields.find((f) => f.kind === "checkbox" || f.kind === "prof"),
         block.fields.find((f) => f.kind === "number"),
       ];
       return (
@@ -536,7 +550,8 @@ function ViewBlock({
           <div className="view-checklist">
             {block.items.map((item) => {
               const rowPath = `${block.path}.${item.key}`;
-              const on = flag ? get(data, `${rowPath}.${flag.key}`) === true : false;
+              const level = flag ? profLevel(get(data, `${rowPath}.${flag.key}`)) : 0;
+              const on = level > 0;
               // Схема умеет считать - модификатор + мастерство, ручное главнее;
               // не умеет - только ручное поле, как раньше.
               const manualValue = num ? get(data, `${rowPath}.${num.key}`) : undefined;
@@ -552,7 +567,11 @@ function ViewBlock({
               );
               return (
                 <div key={item.key} className={on ? "view-check view-check-on" : "view-check"}>
-                  <span className={on ? "dot dot-on" : "dot"} aria-label={on ? "владение" : undefined} />
+                  <span
+                    className={level === 2 ? "dot dot-on dot-expert" : on ? "dot dot-on" : "dot"}
+                    aria-label={level === 2 ? "мастерство" : on ? "владение" : undefined}
+                    title={level === 2 ? "мастерство" : on ? "владение" : undefined}
+                  />
                   {rollSpec && b.value !== undefined ? (
                     <button
                       className="roll-name view-check-name"
@@ -578,7 +597,11 @@ function ViewBlock({
               );
             })}
           </div>
-          {block.bonus && <p className="muted view-note">Клик по названию - бросок. * - свой бонус вместо посчитанного.</p>}
+          {block.bonus && (
+            <p className="muted view-note">
+              Клик по названию - бросок. ● владение, ◉ мастерство (бонус ×2). * - свой бонус вместо посчитанного.
+            </p>
+          )}
         </section>
       );
     }
@@ -785,11 +808,18 @@ function SearchResults({
           }
         } else if (b.kind === "checklist") {
           for (const item of b.items.filter((it) => has(it.label))) {
-            const on = get(data, `${b.path}.${item.key}.prof`) === true;
-            const bonus = get(data, `${b.path}.${item.key}.bonus`);
+            // Поиск показывает то же, что и вкладка: уровень и итоговый бонус.
+            const flag = b.fields.find((f) => f.kind === "prof" || f.kind === "checkbox");
+            const level = flag ? profLevel(get(data, `${b.path}.${item.key}.${flag.key}`)) : 0;
+            const manual = b.fields.find((f) => f.kind === "number");
+            const bonus = b.bonus
+              ? checkBonus(b.bonus, `${b.path}.${item.key}`, item.ability, data).value
+              : manual
+                ? get(data, `${b.path}.${item.key}.${manual.key}`)
+                : undefined;
             found.push(
-              <div key={item.key} className="search-hit">
-                <span className="muted">{b.title}:</span> {on ? "● " : "○ "}
+              <div key={`${b.path}.${item.key}`} className="search-hit">
+                <span className="muted">{b.title}:</span> {level === 2 ? "◉ " : level ? "● " : "○ "}
                 {item.label} {signed(bonus)}
               </div>,
             );

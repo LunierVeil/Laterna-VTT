@@ -7,7 +7,11 @@
  * уходят на сервер в character.update.
  */
 
-export type FieldKind = "text" | "number" | "longtext" | "checkbox" | "link" | "select";
+/**
+ * prof - уровень владения: 0 нет, 1 владение, 2 мастерство (удвоенный
+ * бонус). Старые листы с true/false читаются как 1/0.
+ */
+export type FieldKind = "text" | "number" | "longtext" | "checkbox" | "link" | "select" | "prof";
 
 export interface Field {
   /** Путь внутри data. В таблицах и списках - внутри строки. */

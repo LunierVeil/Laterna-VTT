@@ -19,6 +19,13 @@ function at(data: unknown, path: string): unknown {
   return node;
 }
 
+/** Уровень владения 0/1/2 из того, что лежит в листе: true/false старых листов, числа, "1" из select. */
+export function profLevel(value: unknown): 0 | 1 | 2 {
+  if (value === true) return 1;
+  const n = typeof value === "string" ? Number(value) : value;
+  return n === 2 ? 2 : n === 1 ? 1 : 0;
+}
+
 export const abilityMod = (score: unknown): number | undefined =>
   typeof score === "number" ? Math.floor((score - 10) / 2) : undefined;
 
@@ -39,8 +46,9 @@ export function computedBonus(
   const mod = ability ? abilityMod(at(data, `${bonus.abilities}.${ability}.${bonus.score}`)) : undefined;
   if (mod === undefined) return undefined;
   const prof = at(data, bonus.proficiency);
-  const owned = at(data, `${rowPath}.${bonus.flag}`) === true;
-  return mod + (owned && typeof prof === "number" ? prof : 0);
+  // Мастерство - удвоенный бонус: уровень 2 умножает мастерство на 2.
+  const level = profLevel(at(data, `${rowPath}.${bonus.flag}`));
+  return mod + (typeof prof === "number" ? prof * level : 0);
 }
 
 /** Что показывать и бросать: ручное поле, если заполнено, иначе посчитанное. */
@@ -63,7 +71,7 @@ export function computedRowBonus(spec: RollSpec, row: Record<string, unknown>, d
   const mod = abilityMod(at(data, `${c.abilities}.${ability}.${c.score}`));
   if (mod === undefined) return undefined;
   const prof = at(data, c.proficiency);
-  return mod + (row[c.flag] === true && typeof prof === "number" ? prof : 0);
+  return mod + (typeof prof === "number" ? prof * profLevel(row[c.flag]) : 0);
 }
 
 /** Итог блока полей (всего в зм): сумма значений с весами, до сотых. */

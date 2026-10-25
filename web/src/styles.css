@@ -680,3 +680,5 @@ button.portrait:hover { filter: brightness(1.15); }
 .death-side { display: flex; align-items: center; gap: 10px; }
 .death-status { font-size: 13px; font-weight: 600; color: var(--ok); }
 .death-status-bad { color: #f0a3a3; }
+.dot-expert { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--accent); }
+.prof-select { padding: 2px 4px; font-size: 12px; }
