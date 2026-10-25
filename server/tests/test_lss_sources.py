@@ -244,3 +244,22 @@ def test_nilon_reimport_keeps_own_edits():
     assert "Свой счётчик" in [r["name"] for r in merged["resources"]]
     names = [c["name"] for c in merged["equipment"]]
     assert len(names) == len(set(names))
+
+
+# --- все образцы, деньги ----------------------------------------------------------
+
+ALL = {p.stem: p.read_text(encoding="utf-8") for p in sorted(FIXTURES.glob("lss_*.json"))}
+
+
+def test_all_six_fixtures_import():
+    assert len(ALL) == 6, sorted(ALL)
+    for stem, raw in ALL.items():
+        name, data, report = lss.parse_report(raw)
+        sheet_data.check_value(data)
+        assert name and report["done"], stem
+
+
+def test_coins():
+    assert parse(ALL["lss_lucius"])["coins"] == {"cp": 22, "sp": 0, "ep": 0, "gp": 205, "pp": 0}
+    # Пустое coins - нули, а не пусто.
+    assert parse(ALL["lss_lapland"])["coins"] == {"cp": 0, "sp": 0, "ep": 0, "gp": 0, "pp": 0}

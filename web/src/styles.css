@@ -663,3 +663,5 @@ button.portrait:hover { filter: brightness(1.15); }
 @media (pointer: coarse) {
   .sheet-row-actions .icon-btn { width: 44px; height: 44px; }
 }
+.sheet-total { margin: 0 0 10px; font-size: 13px; }
+.sheet-total b { color: var(--text); font-family: var(--mono); }

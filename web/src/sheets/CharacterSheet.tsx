@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
 import type { Character } from "../types";
-import type { Block, Counter, Field, RollSpec, SheetSchema } from "./schema";
+import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { safeUpload, uploadImage } from "../net/upload";
-import { checkBonus, computedBonus, computedRowBonus } from "./bonus";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus } from "./bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -153,6 +153,7 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
               </label>
             ))}
           </div>
+          {block.total && <TotalLine total={block.total} data={data} />}
         </section>
       );
 
@@ -333,6 +334,15 @@ function show(field: Field, value: unknown): React.ReactNode {
   return String(value);
 }
 
+/** Итог блока (всего в зм) - подсказка, не хранится. */
+function TotalLine({ total, data }: { total: Total; data: unknown }) {
+  return (
+    <p className="muted sheet-total">
+      {total.label}: <b>{blockTotal(total, data).toLocaleString("ru-RU")}</b> {total.unit}
+    </p>
+  );
+}
+
 /** В режиме правки: сколько посчитано без ручного поля - видно, что оно перекрывает. */
 function ComputedHint({
   block,
@@ -416,6 +426,7 @@ function ViewBlock({
       return (
         <section className="sheet-block">
           <h3>{block.title}</h3>
+          {block.total && <TotalLine total={block.total} data={data} />}
           <dl className="view-fields">
             {filled.map((f) =>
               f.kind === "longtext" ? (

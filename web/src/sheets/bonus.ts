@@ -8,7 +8,7 @@
  *
  * Без зависимостей от React - чтобы гонять тестом прямо в node.
  */
-import type { CheckBonus, RollSpec } from "./schema";
+import type { CheckBonus, RollSpec, Total } from "./schema";
 
 function at(data: unknown, path: string): unknown {
   let node = data as any;
@@ -64,4 +64,13 @@ export function computedRowBonus(spec: RollSpec, row: Record<string, unknown>, d
   if (mod === undefined) return undefined;
   const prof = at(data, c.proficiency);
   return mod + (row[c.flag] === true && typeof prof === "number" ? prof : 0);
+}
+
+/** Итог блока полей (всего в зм): сумма значений с весами, до сотых. */
+export function blockTotal(total: Total, data: unknown): number {
+  const sum = total.terms.reduce((acc, t) => {
+    const v = at(data, t.key);
+    return acc + (typeof v === "number" ? v * t.factor : 0);
+  }, 0);
+  return Math.round(sum * 100) / 100;
 }

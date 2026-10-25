@@ -65,3 +65,12 @@ test("оружие без атаки (LSS без mod): посчитано из a
   assert.equal(computedRowBonus(attack, { ability: "str", prof: false }, data), 3);
   assert.equal(computedRowBonus(attack, { name: "без характеристики" }, data), undefined);
 });
+
+test("деньги: всего в зм - подсказка по курсам из схемы", async () => {
+  const { blockTotal } = await import("../src/sheets/bonus.ts");
+  const money = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "fields" && b.title === "Деньги");
+  assert.ok(money && money.kind === "fields" && money.total);
+  assert.equal(blockTotal(money.total, { coins: { gp: 205, cp: 22 } }), 205.22);
+  assert.equal(blockTotal(money.total, { coins: { pp: 1, ep: 3, sp: 7 } }), 12.2);
+  assert.equal(blockTotal(money.total, {}), 0);
+});

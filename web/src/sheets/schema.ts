@@ -72,9 +72,19 @@ export interface CheckBonus {
   proficiency: string;
 }
 
+/**
+ * Итог по полям блока - подсказка, а не хранимое значение: «всего в зм».
+ * Курсы - данные схемы (в другой системе монеты другие), а не код.
+ */
+export interface Total {
+  label: string;
+  terms: { key: string; factor: number }[];
+  unit: string;
+}
+
 export type Block =
-  /** Обычные поля. */
-  | { kind: "fields"; title: string; fields: Field[] }
+  /** Обычные поля. total - подсказка-итог под ними (взвешенная сумма полей). */
+  | { kind: "fields"; title: string; fields: Field[]; total?: Total }
   /**
    * Характеристики: data[path][key] = { score, save }. Модификатор
    * считается из значения - это арифметика, а не правило.

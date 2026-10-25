@@ -212,14 +212,26 @@ export const dnd5e: SheetSchema = {
         },
         {
           kind: "fields",
-          title: "Монеты",
+          title: "Деньги",
           fields: [
-            { key: "coins.cp", label: "ММ", kind: "number", width: 5, min: 0, max: 9999999 },
-            { key: "coins.sp", label: "СМ", kind: "number", width: 5, min: 0, max: 9999999 },
-            { key: "coins.ep", label: "ЭМ", kind: "number", width: 5, min: 0, max: 9999999 },
-            { key: "coins.gp", label: "ЗМ", kind: "number", width: 5, min: 0, max: 9999999 },
-            { key: "coins.pp", label: "ПМ", kind: "number", width: 5, min: 0, max: 9999999 },
+            { key: "coins.pp", label: "пм", kind: "number", width: 5, min: 0, max: 9999999 },
+            { key: "coins.gp", label: "зм", kind: "number", width: 5, min: 0, max: 9999999 },
+            { key: "coins.ep", label: "эм", kind: "number", width: 5, min: 0, max: 9999999 },
+            { key: "coins.sp", label: "см", kind: "number", width: 5, min: 0, max: 9999999 },
+            { key: "coins.cp", label: "мм", kind: "number", width: 5, min: 0, max: 9999999 },
           ],
+          // 1 пм = 10 зм, 1 эм = 1/2 зм, 1 см = 1/10 зм, 1 мм = 1/100 зм.
+          total: {
+            label: "всего в зм",
+            unit: "зм",
+            terms: [
+              { key: "coins.pp", factor: 10 },
+              { key: "coins.gp", factor: 1 },
+              { key: "coins.ep", factor: 0.5 },
+              { key: "coins.sp", factor: 0.1 },
+              { key: "coins.cp", factor: 0.01 },
+            ],
+          },
         },
       ],
     },

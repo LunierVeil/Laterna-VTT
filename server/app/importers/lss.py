@@ -384,9 +384,11 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
         },
         "weapons": [_weapon(w) for w in inner.get("weaponsList") or [] if isinstance(w, dict)],
         "resources": counters,
-        "coins": {c: _int((inner.get("coins") or {}).get(c), 0, 9_999_999) for c in _COINS}
-        if isinstance(inner.get("coins"), dict)
-        else {},
+        # Пустое coins (или без какой-то монеты) - нули: денег нет, а не "неизвестно".
+        "coins": {
+            c: _int((inner.get("coins") if isinstance(inner.get("coins"), dict) else {}).get(c), 0, 9_999_999) or 0
+            for c in _COINS
+        },
         "features": [],
         "equipment": items,
         "lore": [],
