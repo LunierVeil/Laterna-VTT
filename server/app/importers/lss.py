@@ -117,6 +117,82 @@ def _weapon(w: dict) -> dict:
     }
 
 
+def _text_doc(text: str | None) -> dict | None:
+    """Простой текст (заметки ресурса) -> документ: абзацы по пустой строке,
+    переносы внутри - hardBreak. Через тот же белый список, что и тексты."""
+    if not text or not text.strip():
+        return None
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", text.strip()):
+        content: list = []
+        for i, line in enumerate(block.split("\n")):
+            if i:
+                content.append({"type": "hardBreak"})
+            if line.strip():
+                content.append({"type": "text", "text": line.rstrip()})
+        paragraphs.append({"type": "paragraph", "content": content})
+    return clean_doc({"type": "doc", "content": paragraphs})
+
+
+# Где ресурс лежит в LSS: снаряжение - это предметы, а не счётчики.
+_ITEM_LOCATIONS = {"equipment", "items"}
+
+
+def _resources(raw: object) -> tuple[list, list, int]:
+    """resources LSS -> (счётчики, карточки снаряжения, сколько удалённых).
+
+    Удалённое (isDeleted) и осиротевшее (orphanedAt - удалили то, к чему
+    ресурс был привязан) не переносим. Снаряжение - предметами: имя,
+    количество = current, описание = notes; resolvedMax у предмета - шум
+    формата, не счётчик. Остальное - счётчики, current > max не обрезаем:
+    так в файле, лист покажет как есть. Дубли по имени склеиваем.
+    """
+    if not isinstance(raw, dict):
+        return [], [], 0
+    counters: dict[str, dict] = {}
+    items: dict[str, dict] = {}
+    deleted = 0
+    for r in raw.values():
+        if not isinstance(r, dict):
+            continue
+        if r.get("isDeleted") or r.get("orphanedAt"):
+            deleted += 1
+            continue
+        name = _str(r.get("name"))
+        key = (name or "").casefold()
+        rid = r.get("id") if isinstance(r.get("id"), str) and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", r["id"]) else None
+        if r.get("location") in _ITEM_LOCATIONS:
+            qty = _int(r.get("current"), 0, 99999)
+            doc = _text_doc(_str(r.get("notes"), 20_000))
+            if key in items:
+                same = items[key]
+                if qty is not None:
+                    same["qty"] = (same.get("qty") or 0) + qty
+                if doc and same.get("doc") != doc:
+                    same["doc"] = {"type": "doc", "content": (same.get("doc") or {}).get("content", []) + doc["content"]}
+                continue
+            items[key] = {
+                "id": f"lss-{rid}" if rid else f"lss-item-{len(items) + 1}",
+                "name": name,
+                "qty": qty,
+                "doc": doc,
+                "source": "lss",
+            }
+            continue
+        if key in counters:
+            continue  # дубль счётчика - первый главнее
+        counters[key] = {
+            # id - чтобы узлы resource в текстах находили свой счётчик.
+            "id": rid,
+            "name": name,
+            "current": _int(r.get("current"), 0, 999),
+            "max": _int(r.get("resolvedMax"), 0, 999),
+            "rest": "long" if r.get("isLongRest") else "short" if r.get("isShortRest") else None,
+            "source": "lss",
+        }
+    return list(counters.values()), list(items.values()), deleted
+
+
 # Пределы - те же, что min/max в web/src/sheets/dnd5e.ts.
 _ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
 _COINS = ("cp", "sp", "ep", "gp", "pp")
@@ -195,6 +271,8 @@ def parse(raw: object) -> tuple[str, dict]:
     saves = inner.get("saves") if isinstance(inner.get("saves"), dict) else {}
     skills = inner.get("skills") if isinstance(inner.get("skills"), dict) else {}
 
+    counters, items, deleted = _resources(inner.get("resources"))
+
     data: dict = {
         "info": {
             "class": _str(info.get("charClass")),
@@ -231,26 +309,12 @@ def parse(raw: object) -> tuple[str, dict]:
             if isinstance(s, dict)
         },
         "weapons": [_weapon(w) for w in inner.get("weaponsList") or [] if isinstance(w, dict)],
-        "resources": [
-            {
-                # id - чтобы узлы resource в текстах находили свой счётчик.
-                "id": r.get("id") if isinstance(r.get("id"), str) else None,
-                "name": _str(r.get("name")),
-                "current": _int(r.get("current"), 0, 999),
-                "max": _int(r.get("resolvedMax"), 0, 999),
-                "rest": "long" if r.get("isLongRest") else "short" if r.get("isShortRest") else None,
-                "source": "lss",
-            }
-            for r in (inner.get("resources") or {}).values()
-            if isinstance(r, dict)
-        ]
-        if isinstance(inner.get("resources"), dict)
-        else [],
+        "resources": counters,
         "coins": {c: _int((inner.get("coins") or {}).get(c), 0, 9_999_999) for c in _COINS}
         if isinstance(inner.get("coins"), dict)
         else {},
         "features": [],
-        "equipment": [],
+        "equipment": items,
         "lore": [],
         "import": {"edition": _str(outer.get("edition"), 20)},
     }

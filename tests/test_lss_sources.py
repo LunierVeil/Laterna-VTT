@@ -82,3 +82,50 @@ def test_is_prof_variants():
     for value, expected in ((0, False), (1, True), (True, True), (False, False), (None, False), (2, True)):
         assert lss._prof(value) is expected, value
         assert lss._prof({"value": value}) is expected, value
+
+
+# --- ресурсы ------------------------------------------------------------------
+
+
+def test_nilon_no_deleted_and_items_not_counters():
+    data = parse(NILON)
+    counters = [r["name"] for r in data["resources"]]
+    items = [c["name"] for c in data["equipment"]]
+    # Удалённый "меч рассвета" (isDeleted) не перенесён, живой "меч рассвета*" - есть.
+    assert "меч рассвета" not in items + counters
+    assert "меч рассвета*" in items
+    # Осиротевший дубль "плащь" пропущен, живой - один.
+    assert items.count("плащь") == 1
+    # Снаряжение - не счётчики.
+    assert "Длинный меч" in items and "Длинный меч" not in counters
+    assert counters == ["Сражение двумя оружиями."]
+
+
+def test_item_quantity_and_notes():
+    items = {c["name"]: c for c in parse(NILON)["equipment"]}
+    assert items["Кольчуга"]["qty"] == 2
+    assert "кд 16" in json.dumps(items["Кольчуга"]["doc"], ensure_ascii=False)
+    assert items["Ладан"]["doc"] is None
+
+
+def _with_resources(resources: dict) -> str:
+    raw = json.loads(SAD)
+    inner = json.loads(raw["data"])
+    inner["resources"] = resources
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    return json.dumps(raw, ensure_ascii=False)
+
+
+def test_duplicates_merged_and_overflow_kept():
+    data = parse(_with_resources({
+        "a": {"id": "a", "name": "Факел", "current": 2, "location": "equipment", "notes": "горит час"},
+        "b": {"id": "b", "name": "факел ", "current": 3, "location": "items"},
+        "c": {"id": "c", "name": "Ки", "current": 7, "resolvedMax": 5, "isShortRest": True, "location": "traits"},
+        "d": {"id": "d", "name": "Ки", "current": 1, "resolvedMax": 5, "location": "traits"},
+        "e": {"id": "e", "name": "Старое", "current": 1, "location": "traits", "isDeleted": True},
+    }))
+    torches = [c for c in data["equipment"] if c["name"].casefold().strip() == "факел"]
+    assert len(torches) == 1 and torches[0]["qty"] == 5
+    ki = [r for r in data["resources"] if r["name"] == "Ки"]
+    assert len(ki) == 1 and (ki[0]["current"], ki[0]["max"]) == (7, 5)  # больше максимума - как в файле
+    assert "Старое" not in [r["name"] for r in data["resources"]]
