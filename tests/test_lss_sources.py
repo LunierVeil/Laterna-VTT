@@ -129,3 +129,23 @@ def test_duplicates_merged_and_overflow_kept():
     ki = [r for r in data["resources"] if r["name"] == "Ки"]
     assert len(ki) == 1 and (ki[0]["current"], ki[0]["max"]) == (7, 5)  # больше максимума - как в файле
     assert "Старое" not in [r["name"] for r in data["resources"]]
+
+
+# --- внешность ----------------------------------------------------------------
+
+
+def test_sub_info_and_size():
+    info = parse(NILON)["info"]
+    assert (info["age"], info["height"], info["weight"]) == ("23", "178", "50")
+    assert (info["eyes"], info["skin"], info["hair"]) == ("Полностью белые", "бледно-серая", "Черные")
+    assert info["size"] == "medium"
+    sad = parse(SAD)["info"]
+    # У sad subInfo пустой - пустое не переносим.
+    assert all(sad[k] is None for k in ("age", "height", "weight", "eyes", "skin", "hair"))
+    assert sad["size"] == "small"
+
+
+def test_prof_text_kept():
+    """Текст "Прочие владения и языки" (prof) - карточкой умений."""
+    titles = [c["title"] for c in parse(SAD)["features"]]
+    assert "Прочие владения и языки" in titles

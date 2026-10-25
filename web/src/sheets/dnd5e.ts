@@ -271,6 +271,32 @@ export const dnd5e: SheetSchema = {
             { key: "info.background", label: "Предыстория", kind: "text" },
             { key: "info.alignment", label: "Мировоззрение", kind: "text" },
             { key: "info.xp", label: "Опыт", kind: "number", width: 6, min: 0, max: 1000000 },
+            {
+              key: "info.size",
+              label: "Размер",
+              kind: "select",
+              options: [
+                { value: "", label: "-" },
+                { value: "tiny", label: "Крошечный" },
+                { value: "small", label: "Маленький" },
+                { value: "medium", label: "Средний" },
+                { value: "large", label: "Большой" },
+                { value: "huge", label: "Огромный" },
+                { value: "gargantuan", label: "Громадный" },
+              ],
+            },
+          ],
+        },
+        {
+          kind: "fields",
+          title: "Внешность",
+          fields: [
+            { key: "info.age", label: "Возраст", kind: "text", width: 6 },
+            { key: "info.height", label: "Рост", kind: "text", width: 6 },
+            { key: "info.weight", label: "Вес", kind: "text", width: 6 },
+            { key: "info.eyes", label: "Глаза", kind: "text", width: 12 },
+            { key: "info.skin", label: "Кожа", kind: "text", width: 12 },
+            { key: "info.hair", label: "Волосы", kind: "text", width: 12 },
           ],
         },
         {

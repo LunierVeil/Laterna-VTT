@@ -193,6 +193,17 @@ def _resources(raw: object) -> tuple[list, list, int]:
     return list(counters.values()), list(items.values()), deleted
 
 
+# Внешность из subInfo - поля "О персонаже".
+_SUB_INFO = ("age", "height", "weight", "eyes", "skin", "hair")
+# Размер - значения select в схеме листа.
+_SIZES = {"tiny", "small", "medium", "large", "huge", "gargantuan"}
+
+
+def _size(node: object) -> str | None:
+    value = _str(node, 20)
+    return value.lower() if value and value.lower() in _SIZES else None
+
+
 # Пределы - те же, что min/max в web/src/sheets/dnd5e.ts.
 _ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
 _COINS = ("cp", "sp", "ep", "gp", "pp")
@@ -270,6 +281,7 @@ def parse(raw: object) -> tuple[str, dict]:
     stats = inner.get("stats") if isinstance(inner.get("stats"), dict) else {}
     saves = inner.get("saves") if isinstance(inner.get("saves"), dict) else {}
     skills = inner.get("skills") if isinstance(inner.get("skills"), dict) else {}
+    sub = inner.get("subInfo") if isinstance(inner.get("subInfo"), dict) else {}
 
     counters, items, deleted = _resources(inner.get("resources"))
 
@@ -282,6 +294,9 @@ def parse(raw: object) -> tuple[str, dict]:
             "background": _str(info.get("background")),
             "alignment": _str(info.get("alignment")),
             "xp": _int(info.get("experience"), 0, 1_000_000),
+            "size": _size(info.get("size")),
+            # Внешность (subInfo): пустые значения _str отбрасывает в None.
+            **{key: _str(sub.get(key), 60) for key in _SUB_INFO},
         },
         "vitals": {
             "hp": {
