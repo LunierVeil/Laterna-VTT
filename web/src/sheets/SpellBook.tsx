@@ -4,6 +4,7 @@ import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent } from "./richDoc";
 import { useSheetOps } from "./sheetOps";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { Icon } from "../ui/icons";
 
 const DocEditor = lazy(() => import("./DocEditor"));
 
@@ -19,6 +20,8 @@ type Spell = {
   name?: string;
   level?: number;
   prepared?: boolean;
+  /** Всегда подготовлено (доменные заклинания жреца, клятвы паладина). */
+  always_prepared?: boolean;
   ritual?: boolean;
   concentration?: boolean;
   school?: string;
@@ -59,6 +62,7 @@ const TEXT_FIELDS: { key: keyof Spell; label: string }[] = [
 ];
 const FLAGS: { key: keyof Spell; label: string }[] = [
   { key: "prepared", label: "Подготовлено" },
+  { key: "always_prepared", label: "Всегда подготовлено" },
   { key: "ritual", label: "Ритуал" },
   { key: "concentration", label: "Концентрация" },
   { key: "comp_v", label: "В" },
@@ -211,7 +215,10 @@ function SpellRow({
   return (
     <li className="spell-row">
       <div className="spell-line">
-        {level > 0 ? (
+        {level > 0 && spell.always_prepared ? (
+          // Всегда подготовлено - снять нельзя, снимается флагом в правке.
+          <span className="spell-prep spell-prep-on spell-prep-always" role="img" aria-label="всегда подготовлено" title="всегда подготовлено" />
+        ) : level > 0 ? (
           <button
             className={spell.prepared ? "spell-prep spell-prep-on" : "spell-prep"}
             aria-pressed={!!spell.prepared}
@@ -384,7 +391,7 @@ function Circle({
               title={locked ? "ячейки закрыты от правки - открыть" : "закрыть ячейки от правки"}
               onClick={() => setLocked((v) => !v)}
             >
-              {locked ? "🔒" : "🔓"}
+              <Icon name={locked ? "lock" : "unlock"} size={16} />
             </button>
           </>
         )}
@@ -433,8 +440,8 @@ export function SpellBook({
   );
   const res = get(data, block.resourcesPath);
   const resources: ResourceInfo[] = Array.isArray(res) ? res : [];
-  // Заговоры готовить не нужно - фильтр их не прячет.
-  const visible = onlyPrepared ? all.filter((s) => (s.level ?? 0) === 0 || s.prepared) : all;
+  // Заговоры готовить не нужно, "всегда подготовлено" - уже - фильтр их не прячет.
+  const visible = onlyPrepared ? all.filter((s) => (s.level ?? 0) === 0 || s.prepared || s.always_prepared) : all;
 
   return (
     <section className="sheet-block sheet-block-wide spellbook">

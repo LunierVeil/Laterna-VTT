@@ -749,3 +749,6 @@ button.portrait:hover { filter: brightness(1.15); }
   .sheet-title h2 { font-size: 30px; }
   .tile-hp { grid-column: 1 / -1; }
 }
+.spell-prep-always { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent); cursor: default; }
+.circle-lock { display: grid; place-items: center; color: var(--muted); }
+.circle-lock-open { color: var(--accent); }
