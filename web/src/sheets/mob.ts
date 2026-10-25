@@ -12,12 +12,13 @@ export const mob: SheetSchema = {
   title: "Моб / NPC",
   portrait: "portrait",
   summary: {
-    subtitle: ["kind"],
+    subtitle: ["size", "kind"],
     stats: [
       { key: "hp.max", label: "Хиты", kind: "number" },
       { key: "ac", label: "КД", kind: "number" },
       { key: "speed", label: "Скорость", kind: "text" },
       { key: "initiative", label: "Инициатива", kind: "number" },
+      { key: "cr", label: "Опасность", kind: "text" },
     ],
   },
   token: {
@@ -37,10 +38,40 @@ export const mob: SheetSchema = {
           title: "Основное",
           fields: [
             { key: "kind", label: "Тип", kind: "text", width: 14 },
+            { key: "size", label: "Размер", kind: "text", width: 10 },
+            // Текстом: "1/4", "1/2" - не число.
+            { key: "cr", label: "Опасность (CR)", kind: "text", width: 5 },
             { key: "hp.max", label: "Хиты", kind: "number", width: 5, min: 1, max: 99999 },
             { key: "ac", label: "КД", kind: "number", width: 4, min: 0, max: 40 },
             { key: "speed", label: "Скорость", kind: "text", width: 8 },
+            // Ручное: у монстра бывает не равна модификатору Ловкости.
             { key: "initiative", label: "Инициатива", kind: "number", width: 4, min: -10, max: 30 },
+          ],
+        },
+        {
+          kind: "abilities",
+          title: "Характеристики",
+          path: "abilities",
+          min: 1,
+          max: 30,
+          items: [
+            { key: "str", label: "Сила" },
+            { key: "dex", label: "Ловкость" },
+            { key: "con", label: "Телосложение" },
+            { key: "int", label: "Интеллект" },
+            { key: "wis", label: "Мудрость" },
+            { key: "cha", label: "Харизма" },
+          ],
+        },
+        {
+          kind: "fields",
+          title: "Чувства и защита",
+          fields: [
+            { key: "senses", label: "Чувства", kind: "text", width: 24 },
+            { key: "languages", label: "Языки", kind: "text", width: 24 },
+            { key: "defenses", label: "Сопротивления и иммунитеты", kind: "text", width: 30 },
+            // Текстом, как в статблоке: "Лов +4, Скрытность +6".
+            { key: "saves_skills", label: "Спасброски и навыки", kind: "text", width: 30 },
           ],
         },
         {
@@ -67,9 +98,28 @@ export const mob: SheetSchema = {
           },
         },
         {
+          kind: "cards",
+          title: "Особенности",
+          path: "traits",
+          titleKey: "title",
+          addLabel: "+ Особенность",
+          resourcesPath: "resources",
+          fields: [],
+        },
+        {
+          kind: "cards",
+          title: "Реакции",
+          path: "reactions",
+          titleKey: "title",
+          addLabel: "+ Реакция",
+          resourcesPath: "resources",
+          fields: [],
+        },
+        {
           kind: "fields",
           title: "Заметки",
-          fields: [{ key: "notes", label: "Особенности", kind: "longtext" }],
+          // Старые мобы писали особенности сюда - поле осталось, данные целы.
+          fields: [{ key: "notes", label: "Заметки", kind: "longtext" }],
         },
       ],
     },

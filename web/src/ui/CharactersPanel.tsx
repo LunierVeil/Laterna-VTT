@@ -102,6 +102,7 @@ function MobSheets({
                 <span className="mob-name">{c.name}</span>
                 <span className="muted mob-stats">
                   хиты {num(c, "hp.max")} · КД {num(c, "ac")}
+                  {typeof at(c.data, "cr") === "string" && at(c.data, "cr") !== "" && ` · опасность ${at(c.data, "cr")}`}
                 </span>
               </button>
               <span className="mob-actions">
