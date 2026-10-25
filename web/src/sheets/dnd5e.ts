@@ -3,6 +3,16 @@ import { mob } from "./mob.ts";
 
 const D20 = { normal: "1d20", advantage: "2d20kh1", disadvantage: "2d20kl1" };
 
+const ABILITY_OPTIONS = [
+  { value: "", label: "-" },
+  { value: "str", label: "Сила" },
+  { value: "dex", label: "Ловкость" },
+  { value: "con", label: "Телосложение" },
+  { value: "int", label: "Интеллект" },
+  { value: "wis", label: "Мудрость" },
+  { value: "cha", label: "Харизма" },
+];
+
 // Бонус = модификатор + мастерство при владении; "свой бонус" главнее.
 // Это подсказка формы, не правило: экспертизу и предметы игрок вписывает сам.
 const SKILL_BONUS: CheckBonus = {
@@ -206,6 +216,30 @@ export const dnd5e: SheetSchema = {
             { key: "stealth", label: "Скрытность", hint: "Лов", ability: "dex" },
             { key: "survival", label: "Выживание", hint: "Мдр", ability: "wis" },
           ],
+        },
+        {
+          kind: "table",
+          title: "Инструменты",
+          path: "tools",
+          addLabel: "Добавить инструмент",
+          columns: [
+            { key: "name", label: "Название", kind: "text" },
+            { key: "ability", label: "Характеристика", kind: "select", options: ABILITY_OPTIONS },
+            { key: "level", label: "Владение", kind: "prof" },
+            // Пусто - подсказка "посчитано"; вписанное главнее.
+            { key: "bonus", label: "Свой бонус", kind: "text", width: 4 },
+          ],
+          rolls: {
+            titleKey: "name",
+            items: [
+              {
+                label: "проверка",
+                key: "bonus",
+                d20: D20,
+                computed: { ability: "ability", flag: "level", abilities: "abilities", score: "score", proficiency: "proficiency" },
+              },
+            ],
+          },
         },
       ],
     },

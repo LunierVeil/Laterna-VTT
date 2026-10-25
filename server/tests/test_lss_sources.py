@@ -288,3 +288,14 @@ def test_death_saves():
     raw["data"] = json.dumps(inner, ensure_ascii=False)
     # Больше трёх провалов в файле - до границы схемы, как и прочие числа.
     assert parse(json.dumps(raw, ensure_ascii=False))["death"] == {"successes": 2, "fails": 3, "dying": True}
+
+
+def test_tools_not_parsed_but_kept_on_reimport():
+    """Инструменты из текста prof пока не разбираем: prof - карточкой, таблица -
+    игрока, и переимпорт её не трогает."""
+    data = parse(SAD)
+    assert "tools" not in data
+    assert "Прочие владения и языки" in [c["title"] for c in data["features"]]
+    played = dict(data, tools=[{"name": "Воровские инструменты", "ability": "dex", "level": 2}])
+    merged = lss.merge_reimport(played, parse(SAD))
+    assert merged["tools"] == played["tools"]

@@ -347,6 +347,7 @@ function show(field: Field, value: unknown): React.ReactNode {
   if (isEmpty(value)) return "—";
   if (field.kind === "checkbox") return value === true ? "●" : "○";
   if (field.kind === "select") return field.options?.find((o) => o.value === value)?.label ?? String(value);
+  if (field.kind === "prof") return ["нет", "владение", "мастерство"][profLevel(value)];
   if (field.kind === "link") return <SafeLink href={value}>открыть ↗</SafeLink>;
   return String(value);
 }

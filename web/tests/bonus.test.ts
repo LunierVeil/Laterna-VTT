@@ -100,3 +100,14 @@ test("мастерство: Плут 1 уровня, Ловкость 10, мас
   // Старые листы: true = владение, false = нет; "2" из выпадающего списка = мастерство.
   assert.deepEqual([profLevel(true), profLevel(false), profLevel(undefined), profLevel("2"), profLevel(1)], [1, 0, 0, 2, 1]);
 });
+
+test("инструменты: бонус из характеристики и уровня владения строки", async () => {
+  const { computedRowBonus } = await import("../src/sheets/bonus.ts");
+  const tools = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "table" && b.path === "tools");
+  assert.ok(tools && tools.kind === "table" && tools.rolls);
+  const check = tools.rolls.items[0];
+  const data = { proficiency: 2, abilities: { dex: { score: 16 } } };
+  assert.equal(computedRowBonus(check, { name: "Воровские инструменты", ability: "dex", level: 2 }, data), 7);
+  assert.equal(computedRowBonus(check, { name: "Воровские инструменты", ability: "dex", level: 1 }, data), 5);
+  assert.equal(computedRowBonus(check, { name: "Без характеристики", level: 1 }, data), undefined);
+});
