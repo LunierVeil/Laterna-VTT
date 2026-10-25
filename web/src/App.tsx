@@ -206,7 +206,16 @@ export default function App() {
       }
       if (msg.type === "reply") {
         // Новый лист - сразу открыть.
-        if (msg.name === "character.created") ui.openCharacter(msg.payload.character.id);
+        if (msg.name === "character.created") {
+          ui.openCharacter(msg.payload.character.id);
+          // Импорт LSS: что перенесено и что нет - одной строкой.
+          const report = msg.payload.report as { done: string[]; skipped: string[] } | undefined;
+          if (report) {
+            const done = report.done.length ? `перенесено: ${report.done.join(", ")}` : "";
+            const skipped = report.skipped.length ? `не перенесено: ${report.skipped.join("; ")}` : "";
+            ui.flashNotice(`Импорт LSS - ${[done, skipped].filter(Boolean).join(". ") || "готово"}`);
+          }
+        }
         // ГМ создал сцену - сразу открываем её, чтобы готовить.
         if (msg.name === "scene.created") openScene(msg.payload.id);
         // Код приглашения приходит только сюда и только один раз.
@@ -241,6 +250,7 @@ export default function App() {
   }, [socket, sceneId, openScene]);
 
   const error = useUi((s) => s.error);
+  const notice = useUi((s) => s.notice);
   const openCharacter = useUi((s) => (s.openCharacterId ? s.characters[s.openCharacterId] : null));
 
   // По ссылке-приглашению - её экран, даже если в браузере уже кто-то вошёл:
@@ -287,6 +297,11 @@ export default function App() {
       </main>
       {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}
+      {notice && !error && (
+        <div className="toast toast-notice" role="status" onClick={() => useUi.setState({ notice: null })}>
+          {notice}
+        </div>
+      )}
     </div>
   );
 }

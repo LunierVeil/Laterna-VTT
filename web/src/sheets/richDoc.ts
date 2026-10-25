@@ -81,4 +81,14 @@ export function docText(node: unknown, depth = 0): string {
   return `${own} ${kids}`;
 }
 
+/** Есть ли что показать: текст, фишка ресурса или черта (раздел LSS
+ * "Снаряжение" - одни фишки предметов, без слов). */
+export function docHasContent(node: unknown, depth = 0): boolean {
+  if (!node || typeof node !== "object" || depth > MAX_DEPTH) return false;
+  const n = node as { type?: unknown; text?: unknown; content?: unknown };
+  if (typeof n.text === "string" && n.text.trim()) return true;
+  if (n.type === "resource" || n.type === "horizontalRule") return true;
+  return Array.isArray(n.content) && n.content.some((c) => docHasContent(c, depth + 1));
+}
+
 export const EMPTY_DOC: DocNode = { type: "doc", content: [{ type: "paragraph" }] };

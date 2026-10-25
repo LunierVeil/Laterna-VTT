@@ -41,6 +41,8 @@ interface UiState {
   users: string[];
   connected: boolean;
   error: string | null;
+  /** Сообщение-итог (не ошибка): отчёт импорта и подобное. */
+  notice: string | null;
   sceneName: string;
   gridSize: number;
   background: string | null;
@@ -59,6 +61,8 @@ interface UiState {
   setError: (e: string | null) => void;
   /** Показать ошибку тостом на пару секунд. */
   flashError: (e: string) => void;
+  /** Показать итог тостом - дольше ошибки: его читают. */
+  flashNotice: (text: string) => void;
   setScene: (name: string, gridSize: number, background: string | null) => void;
   setChaining: (c: boolean) => void;
   setSelected: (t: SelectedToken | null) => void;
@@ -113,6 +117,7 @@ export const useUi = create<UiState>((set) => ({
   users: [],
   connected: false,
   error: null,
+  notice: null,
   sceneName: "",
   gridSize: 70,
   background: null,
@@ -144,6 +149,12 @@ export const useUi = create<UiState>((set) => ({
       // Не гасим более свежую ошибку, пришедшую за это время.
       if (useUi.getState().error === error) set({ error: null });
     }, 2500);
+  },
+  flashNotice: (notice) => {
+    set({ notice });
+    setTimeout(() => {
+      if (useUi.getState().notice === notice) set({ notice: null });
+    }, 8000);
   },
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),

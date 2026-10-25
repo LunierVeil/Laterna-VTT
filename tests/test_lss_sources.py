@@ -189,3 +189,49 @@ def test_unknown_key_and_duplicate_titles():
     titles = [c["title"] for c in parse(json.dumps(raw, ensure_ascii=False))["features"]]
     assert "mystery-block" not in titles and "Записи" in titles and "Записи 2" in titles
     assert len(titles) == len(set(titles)), titles
+
+
+# --- отчёт импорта --------------------------------------------------------------
+
+
+def test_report_nilon():
+    report = lss.parse_report(NILON)[2]
+    assert "оружие 2" in report["done"] and "предметы 23" in report["done"]
+    assert "удалённое в LSS: 2" in report["skipped"]
+    assert "портрет не перенесён, загрузите вручную" in report["skipped"]
+    # Аватар - внешний адрес: не скачивается и в лист не попадает.
+    assert "longstoryshort.app/avatar" not in json.dumps(lss.parse(NILON)[1])
+
+
+def test_report_sad_clean():
+    assert lss.parse_report(SAD)[2]["skipped"] == []
+
+
+def test_report_counts_non_https_links():
+    raw = json.loads(SAD)
+    inner = json.loads(raw["data"])
+    bad = {"type": "text", "text": "x", "marks": [{"type": "link", "attrs": {"href": "javascript:alert(1)"}}]}
+    ok = {"type": "text", "text": "y", "marks": [{"type": "link", "attrs": {"href": "https://ok.example"}}]}
+    inner["text"]["features"]["value"]["data"]["content"].append({"type": "paragraph", "content": [bad, ok]})
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    assert "ссылки не https: 1" in lss.parse_report(json.dumps(raw, ensure_ascii=False))[2]["skipped"]
+
+
+# --- переимпорт ---------------------------------------------------------------
+
+
+def test_nilon_reimport_keeps_own_edits():
+    played = parse(NILON)
+    played["about"] = {"story": "своя история"}
+    played["skills"]["athletics"] = {**played["skills"].get("athletics", {}), "bonus": 9}
+    played["weapons"][0]["attack"] = "+7"  # игрок вписал атаку, которой не было в файле
+    played["equipment"].append({"id": "own-rope", "name": "Своя верёвка", "qty": 1})
+    played["resources"].append({"name": "Свой счётчик", "current": 1, "max": 3})
+    merged = lss.merge_reimport(played, parse(NILON))
+    assert merged["about"] == {"story": "своя история"}
+    assert merged["skills"]["athletics"]["bonus"] == 9
+    assert merged["weapons"][0]["attack"] == "+7"
+    assert "Своя верёвка" in [c["name"] for c in merged["equipment"]]
+    assert "Свой счётчик" in [r["name"] for r in merged["resources"]]
+    names = [c["name"] for c in merged["equipment"]]
+    assert len(names) == len(set(names))

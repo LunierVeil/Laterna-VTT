@@ -316,7 +316,9 @@ def test_reimport_keeps_player_text(sockets):
     g, _ = sockets
     source = (Path(__file__).parent / "fixtures" / "lss_sample.json").read_text(encoding="utf-8")
     g.send_text(json.dumps({"type": "cmd", "id": "i1", "name": "character.import", "payload": {"source": source}}))
-    char = recv_until(g, lambda m: m.get("cmd_id") == "i1")["payload"]["character"]
+    reply = recv_until(g, lambda m: m.get("cmd_id") == "i1")
+    char = reply["payload"]["character"]
+    assert reply["payload"]["report"]["done"], "отчёт импорта - в ответе"
     try:
         g.send_text(json.dumps({"type": "cmd", "id": "i2", "name": "character.update", "payload": {
             "id": char["id"], "set": {"about.story": "своя история", "skills.athletics.bonus": 13},

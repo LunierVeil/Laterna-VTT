@@ -24,6 +24,8 @@ export interface ResourceInfo {
   name?: unknown;
   current?: unknown;
   max?: unknown;
+  /** У предмета снаряжения - количество вместо current/max. */
+  qty?: unknown;
 }
 
 const MAX_DEPTH = 12;
@@ -81,7 +83,12 @@ function Rich({ node, resources, depth }: { node: Node; resources: ResourceInfo[
       const r = resources.find((x) => x.id === id);
       if (!r) return null;
       const name = typeof r.name === "string" ? r.name : "ресурс";
-      const count = typeof r.current === "number" && typeof r.max === "number" ? ` ${r.current}/${r.max}` : "";
+      const count =
+        typeof r.current === "number" && typeof r.max === "number"
+          ? ` ${r.current}/${r.max}`
+          : typeof r.qty === "number" && r.qty !== 1
+            ? ` ×${r.qty}`
+            : "";
       return (
         <span className="res-chip">
           {name}

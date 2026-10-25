@@ -1,7 +1,7 @@
 import { lazy, Suspense, useRef, useState } from "react";
 import type { Block, Field } from "./schema";
 import { RichText, type ResourceInfo } from "./RichText";
-import { docText } from "./richDoc";
+import { docHasContent, docText } from "./richDoc";
 
 // Редактор (TipTap) - отдельным куском кода: грузится, только когда правят.
 const DocEditor = lazy(() => import("./DocEditor"));
@@ -79,7 +79,17 @@ export function Cards({
     .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
     .map((c, i) => ({ ...c, id: typeof c.id === "string" ? c.id : `row-${i}` }));
   const res = get(data, block.resourcesPath);
-  const resources: ResourceInfo[] = Array.isArray(res) ? res : [];
+  // Фишки в текстах ссылаются и на счётчики, и на предметы снаряжения
+  // (из LSS предметы приходят ресурсами, у нас они карточки).
+  const items = get(data, "equipment");
+  const resources: ResourceInfo[] = [
+    ...(Array.isArray(res) ? res : []),
+    ...(Array.isArray(items) ? items : []).map((c: { id?: unknown; name?: unknown; qty?: unknown }) => ({
+      id: c.id,
+      name: c.name,
+      qty: c.qty,
+    })),
+  ];
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,7 +177,7 @@ export function Cards({
       <div className="cards">
         {shown.map((card) => {
           if (card.id === editingId) return <div key={card.id}>{editor}</div>;
-          const hasDoc = docText(card.doc).trim().length > 0;
+          const hasDoc = docHasContent(card.doc);
           const isOpen = !!query || open.has(card.id);
           return (
             <div key={card.id} className="card">

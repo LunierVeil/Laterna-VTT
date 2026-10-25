@@ -655,19 +655,19 @@ async def character_copy(db: AsyncSession, campaign: Campaign, actor: Actor, pay
     return "character.created", {"character": character.to_dict()}
 
 
-def _parse_lss(raw: object) -> tuple[str, dict]:
+def _parse_lss(raw: object) -> tuple[str, dict, dict]:
     try:
-        name, data = lss.parse(raw)
+        name, data, report = lss.parse_report(raw)
         sheet_data.check_value(data)
     except (lss.LssError, sheet_data.SheetError) as exc:
         raise CommandError(f"импорт LSS: {exc}")
-    return name, data
+    return name, data, report
 
 
 async def character_import(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     """Новый лист из файла Long Story Short. Файл хранится целиком."""
     raw = payload.get("source")
-    name, data = _parse_lss(raw)
+    name, data, report = _parse_lss(raw)
     owner_id = actor.id
     if actor.is_gm and "owner_id" in payload:
         owner_id = await _campaign_user(db, campaign.id, payload["owner_id"])
@@ -682,7 +682,8 @@ async def character_import(db: AsyncSession, campaign: Campaign, actor: Actor, p
     )
     db.add(character)
     await db.flush()
-    return "character.created", {"character": character.to_dict()}
+    # Отчёт - в ответе тому, кто импортировал (reply), а не в рассылке листа.
+    return "character.created", {"character": character.to_dict(), "report": report}
 
 
 async def character_reimport(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
@@ -695,7 +696,7 @@ async def character_reimport(db: AsyncSession, campaign: Campaign, actor: Actor,
     character = await _own_character(db, campaign, actor, payload.get("id"))
     if character.source_format != lss.FORMAT or not character.source_json:
         raise CommandError("этот лист не импортирован из LSS")
-    _, data = _parse_lss(character.source_json)
+    _, data, _ = _parse_lss(character.source_json)
     # Слияние - в адаптере: что считать своим, знает формат, а не ядро.
     character.data_json = sheet_data.dump(lss.merge_reimport(json.loads(character.data_json or "{}"), data))
     character.updated_at = datetime.now(timezone.utc)

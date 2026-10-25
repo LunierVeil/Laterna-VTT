@@ -638,3 +638,7 @@ button.portrait:hover { filter: brightness(1.15); }
 .view-check-name:hover span:first-child { color: var(--accent); }
 .view-manual { color: var(--accent); margin-left: 2px; }
 .view-note { margin: 12px 0 0; font-size: 12px; }
+.toast-notice {
+  background: var(--panel); border-color: var(--line); color: var(--text-2);
+  max-width: min(720px, calc(100vw - var(--sidebar) - 40px)); z-index: 30; cursor: pointer;
+}

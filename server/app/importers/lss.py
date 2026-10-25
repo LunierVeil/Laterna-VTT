@@ -15,7 +15,7 @@ import json
 import re
 
 from .. import dice
-from ..richtext import clean_doc, has_text
+from ..richtext import clean_doc, has_text, safe_href
 
 FORMAT = "lss-2"
 SUPPORTED_VERSION = "2"
@@ -172,7 +172,9 @@ def _resources(raw: object) -> tuple[list, list, int]:
                     same["doc"] = {"type": "doc", "content": (same.get("doc") or {}).get("content", []) + doc["content"]}
                 continue
             items[key] = {
-                "id": f"lss-{rid}" if rid else f"lss-item-{len(items) + 1}",
+                # id ресурса как есть: на него ссылаются фишки в текстах LSS
+                # (раздел "Снаряжение" - это список таких фишек).
+                "id": rid or f"lss-item-{len(items) + 1}",
                 "name": name,
                 "qty": qty,
                 "doc": doc,
@@ -261,6 +263,50 @@ def _unique_title(label: str, cards: list, title_key: str) -> str:
 
 def parse(raw: object) -> tuple[str, dict]:
     """Файл LSS -> (имя персонажа, data по схеме Laterna)."""
+    name, data, _ = parse_report(raw)
+    return name, data
+
+
+def _bad_links(node: object, depth: int = 0) -> int:
+    """Сколько ссылок в тексте отброшено (не https) - для отчёта."""
+    if not isinstance(node, dict) or depth > 24:
+        return 0
+    count = sum(
+        1
+        for m in node.get("marks") or []
+        if isinstance(m, dict) and m.get("type") == "link"
+        and not safe_href((m.get("attrs") or {}).get("href") if isinstance(m.get("attrs"), dict) else None)
+    )
+    return count + sum(_bad_links(c, depth + 1) for c in node.get("content") or [])
+
+
+def _report(data: dict, deleted: int, avatar: bool, bad_links: int) -> dict:
+    """Что перенесено и что нет - одной строкой в интерфейсе после загрузки."""
+    items = [c for c in data["equipment"] if c.get("qty") is not None]
+    texts = len(data["features"]) + len(data["lore"]) + len(data["equipment"]) - len(items)
+    done = [
+        f"{label} {n}"
+        for label, n in (
+            ("оружие", len(data["weapons"])),
+            ("счётчики", len(data["resources"])),
+            ("предметы", len(items)),
+            ("тексты", texts),
+        )
+        if n
+    ]
+    skipped = []
+    if deleted:
+        skipped.append(f"удалённое в LSS: {deleted}")
+    if avatar:
+        skipped.append("портрет не перенесён, загрузите вручную")
+    if bad_links:
+        skipped.append(f"ссылки не https: {bad_links}")
+    return {"done": done, "skipped": skipped}
+
+
+def parse_report(raw: object) -> tuple[str, dict, dict]:
+    """parse + отчёт: что перенесено, что пропущено (удалённое, портрет,
+    ссылки не https)."""
     # Размер - первым: дальше файл разбирается целиком.
     if isinstance(raw, str) and len(raw.encode()) > MAX_BYTES:
         raise LssError(f"файл больше {MAX_BYTES // 1024} КБ")
@@ -369,7 +415,16 @@ def parse(raw: object) -> tuple[str, dict]:
         cards = data[target]
         data[target].append({"id": f"lss-{key}", title_key: _unique_title(label, cards, title_key), "doc": doc, "source": "lss"})
 
-    return name, data
+    avatar = inner.get("avatar")
+    # Портрет в LSS - ссылка на их сервер. Не скачиваем и не храним чужие
+    # адреса: в <img> они заставили бы браузеры всех ходить туда.
+    has_avatar = bool(avatar) and avatar != {}
+    bad_links = sum(
+        _bad_links(e.get("value", {}).get("data") if isinstance(e.get("value"), dict) else None)
+        for e in texts.values()
+        if isinstance(e, dict)
+    )
+    return name, data, _report(data, deleted, has_avatar, bad_links)
 
 
 # --- переимпорт --------------------------------------------------------------
@@ -386,11 +441,18 @@ def _merge_rows(old: list, new: list) -> list:
     узнаются по имени и не дублируются.
     """
     taken = {_identity(r) for r in new if isinstance(r, dict)}
+    previous = {_identity(r): r for r in old if isinstance(r, dict)}
+    # Та же строка, что была (по id или имени), - по полям: пустое в файле не
+    # затирает вписанное игроком (атака оружия, которой в LSS не было).
+    fresh = [
+        _merge_dict(previous[_identity(r)], r) if isinstance(r, dict) and _identity(r) in previous else r
+        for r in new
+    ]
     own = [
         r for r in old
         if isinstance(r, dict) and r.get("source") != "lss" and _identity(r) not in taken
     ]
-    return new + own
+    return fresh + own
 
 
 def _merge_dict(old: dict, new: dict) -> dict:
