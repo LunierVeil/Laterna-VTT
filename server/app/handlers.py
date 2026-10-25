@@ -688,15 +688,16 @@ async def character_import(db: AsyncSession, campaign: Campaign, actor: Actor, p
 async def character_reimport(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     """Заново прогнать сохранённый исходник через текущий адаптер.
 
-    Нужно, когда адаптер поменялся. Данные листа заменяются целиком - ручные
-    правки пропадут, клиент об этом предупреждает. Имя не трогаем: его могли
-    сменить уже после импорта.
+    Нужно, когда адаптер поменялся. Значения из файла заменяются, вписанное
+    игроком сверх файла остаётся (lss.merge_reimport). Имя не трогаем: его
+    могли сменить уже после импорта.
     """
     character = await _own_character(db, campaign, actor, payload.get("id"))
     if character.source_format != lss.FORMAT or not character.source_json:
         raise CommandError("этот лист не импортирован из LSS")
     _, data = _parse_lss(character.source_json)
-    character.data_json = sheet_data.dump(data)
+    # Слияние - в адаптере: что считать своим, знает формат, а не ядро.
+    character.data_json = sheet_data.dump(lss.merge_reimport(json.loads(character.data_json or "{}"), data))
     character.updated_at = datetime.now(timezone.utc)
     await db.flush()
     return "character.saved", {"character": character.to_dict()}

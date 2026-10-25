@@ -1035,13 +1035,13 @@ export function CharacterSheet({ character, socket }: { character: Character; so
               (confirmReimport ? (
                 <button
                   className="tool tool-danger"
-                  title="лист заполнится заново из сохранённого файла - ручные правки пропадут"
+                  title="значения из файла (хиты, характеристики, оружие и ресурсы из файла) заменятся; своё - тексты «О персонаже», заметки, портрет, свои бонусы и карточки - останется"
                   onClick={() => {
                     socket.send("character.reimport", { id: character.id });
                     setConfirmReimport(false);
                   }}
                 >
-                  Правки пропадут - точно?
+                  Значения из файла заменятся - точно?
                 </button>
               ) : (
                 <button

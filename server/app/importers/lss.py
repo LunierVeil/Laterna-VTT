@@ -64,7 +64,8 @@ _COINS = ("cp", "sp", "ep", "gp", "pp")
 # --- тексты (TipTap) --------------------------------------------------------
 
 # Раздел текста LSS -> карточка листа. Снаряжение - карточкой предмета,
-# остальное - карточками умений: в листе их можно править и дополнять.
+# личность и история - на вкладку «О персонаже» (data.lore), остальное -
+# карточками умений. В листе их можно править и дополнять.
 _TEXT_LABELS = {
     "features": "Умения и способности",
     "traits": "Умения и особенности",
@@ -85,6 +86,15 @@ _TEXT_LABELS = {
     "notes-3": "Заметки 3",
 }
 
+
+# Тексты о персонаже, а не о его умениях. Карточками (lore), а не в поля
+# textarea: в LSS это документы TipTap со списками и жирным, в textarea они
+# потеряли бы вид. Поля «Внешность», «Черты характера»... листа - для
+# своего текста игрока, импорт их не трогает (и переимпорт не затирает).
+_LORE_KEYS = {
+    "background", "appearance", "personality", "ideals", "bonds", "flaws",
+    "allies", "quests", "notes-1", "notes-2", "notes-3",
+}
 
 # --- разбор -----------------------------------------------------------------
 
@@ -165,6 +175,7 @@ def parse(raw: object) -> tuple[str, dict]:
                 "attack": _str(w.get("mod"), 20),
                 "damage": _str(w.get("dmg"), 60),
                 "type": _str(w.get("dmgType"), 60),
+                "source": "lss",
             }
             for w in inner.get("weaponsList") or []
             if isinstance(w, dict)
@@ -177,6 +188,7 @@ def parse(raw: object) -> tuple[str, dict]:
                 "current": _int(r.get("current"), 0, 999),
                 "max": _int(r.get("resolvedMax"), 0, 999),
                 "rest": "long" if r.get("isLongRest") else "short" if r.get("isShortRest") else None,
+                "source": "lss",
             }
             for r in (inner.get("resources") or {}).values()
             if isinstance(r, dict)
@@ -188,6 +200,7 @@ def parse(raw: object) -> tuple[str, dict]:
         else {},
         "features": [],
         "equipment": [],
+        "lore": [],
         "import": {"edition": _str(outer.get("edition"), 20)},
     }
 
@@ -204,7 +217,56 @@ def parse(raw: object) -> tuple[str, dict]:
         # id из ключа LSS: переимпорт даёт те же карточки, а не новые.
         if key == "equipment":
             data["equipment"].append({"id": f"lss-{key}", "name": label, "doc": doc, "source": "lss"})
+        elif key in _LORE_KEYS:
+            data["lore"].append({"id": f"lss-{key}", "title": label, "doc": doc, "source": "lss"})
         else:
             data["features"].append({"id": f"lss-{key}", "title": label, "doc": doc, "source": "lss"})
 
     return name, data
+
+
+# --- переимпорт --------------------------------------------------------------
+
+def _identity(row: dict) -> object:
+    return row.get("id") or row.get("name") or row.get("title")
+
+
+def _merge_rows(old: list, new: list) -> list:
+    """Строки и карточки из файла - заново, свои строки игрока - остаются.
+
+    Своё - без пометки source="lss" и не совпадает с новой строкой по id или
+    имени: у листов, импортированных до пометки source, строки из файла
+    узнаются по имени и не дублируются.
+    """
+    taken = {_identity(r) for r in new if isinstance(r, dict)}
+    own = [
+        r for r in old
+        if isinstance(r, dict) and r.get("source") != "lss" and _identity(r) not in taken
+    ]
+    return new + own
+
+
+def _merge_dict(old: dict, new: dict) -> dict:
+    out = dict(old)
+    for key, value in new.items():
+        prev = old.get(key)
+        if isinstance(value, dict) and isinstance(prev, dict):
+            out[key] = _merge_dict(prev, value)
+        elif isinstance(value, list) and isinstance(prev, list):
+            out[key] = _merge_rows(prev, value)
+        elif value is None and key in old:
+            continue  # в файле пусто - вписанное игроком не трогаем
+        else:
+            out[key] = value
+    return out
+
+
+def merge_reimport(old: object, new: dict) -> dict:
+    """Переимпорт поверх листа, не теряя того, что игрок вписал сам.
+
+    Значения, которые есть в файле (хиты, характеристики, владения...), -
+    из файла: ради этого переимпорт и запускают. Чего в файле нет - остаётся:
+    поля «О персонаже», заметки, портрет, свой бонус навыка, свои карточки,
+    оружие и ресурсы. Правил тут тоже нет - только какое значение чьё.
+    """
+    return _merge_dict(old if isinstance(old, dict) else {}, new)

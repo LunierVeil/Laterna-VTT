@@ -25,6 +25,19 @@ def with_inner(change) -> str:
     return json.dumps(outer, ensure_ascii=False)
 
 
+def fill_texts(*keys):
+    """Правка образца: в разделы текста LSS - по абзацу."""
+
+    def change(inner):
+        for key in keys:
+            inner["text"][key]["value"]["data"] = {
+                "type": "doc",
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": f"текст {key}"}]}],
+            }
+
+    return change
+
+
 class Sample(unittest.TestCase):
     def setUp(self):
         self.name, self.data = lss.parse(SAMPLE)
@@ -59,7 +72,9 @@ class Sample(unittest.TestCase):
     def test_weapons(self):
         w = self.data["weapons"]
         self.assertEqual(len(w), 3)
-        self.assertEqual(w[0], {"name": "Цеп", "attack": "+10", "damage": "1к8+4", "type": "дробящ."})
+        self.assertEqual(
+            w[0], {"name": "Цеп", "attack": "+10", "damage": "1к8+4", "type": "дробящ.", "source": "lss"}
+        )
 
     def test_resources(self):
         r = self.data["resources"]
@@ -71,8 +86,24 @@ class Sample(unittest.TestCase):
         self.assertEqual({x["rest"] for x in r}, {"long", "short"})
 
     def cards(self):
-        """Все карточки из текстов: умения и предметы."""
-        return self.data["features"] + self.data["equipment"]
+        """Все карточки из текстов: умения, предметы, записи о персонаже."""
+        return self.data["features"] + self.data["equipment"] + self.data["lore"]
+
+    def test_personal_texts_go_to_about(self):
+        """Предыстория, внешность, черты - на вкладку «О персонаже», не в умения."""
+        # В образце из личных текстов заполнены только союзники - допишем.
+        _, data = lss.parse(with_inner(fill_texts("background", "appearance", "personality", "quests")))
+        lore = {c["id"] for c in data["lore"]}
+        features = {c["id"] for c in data["features"]}
+        self.assertEqual(lore, {"lss-background", "lss-appearance", "lss-personality", "lss-quests", "lss-allies"})
+        self.assertFalse(lore & features)
+        self.assertIn("lss-features", features)
+        # Свои поля «О персонаже» импорт не заполняет - они игрока.
+        self.assertNotIn("about", data)
+
+    def test_rows_marked_as_imported(self):
+        self.assertTrue(all(w["source"] == "lss" for w in self.data["weapons"]))
+        self.assertTrue(all(r["source"] == "lss" for r in self.data["resources"]))
 
     def test_texts_become_cards(self):
         ids = [c["id"] for c in self.cards()]
@@ -217,3 +248,62 @@ class Hostile(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Reimport(unittest.TestCase):
+    """Переимпорт: значения из файла - заново, вписанное игроком - остаётся."""
+
+    def setUp(self):
+        _, self.fresh = lss.parse(with_inner(fill_texts("personality")))
+
+    def played(self) -> dict:
+        """Лист после игры: игрок вписал своё поверх импорта."""
+        data = copy.deepcopy(self.fresh)
+        data["about"] = {"story": "Родился в Невервинтере"}
+        data["notes"] = "долг гному 5 зм"
+        data["portrait"] = "/uploads/" + "a" * 32 + ".png"
+        data["skills"]["athletics"]["bonus"] = 13
+        data["abilities"]["str"]["save_bonus"] = 2
+        data["features"].append({"id": "own-1", "title": "Своё умение", "doc": {"type": "doc"}})
+        data["weapons"].append({"name": "Найденный кинжал", "attack": "+9", "damage": "1к4+4"})
+        data["vitals"]["hp"]["current"] = 7
+        data["abilities"]["str"]["score"] = 3  # опечатка игрока в поле из файла
+        return data
+
+    def test_own_values_survive(self):
+        merged = lss.merge_reimport(self.played(), self.fresh)
+        self.assertEqual(merged["about"], {"story": "Родился в Невервинтере"})
+        self.assertEqual(merged["notes"], "долг гному 5 зм")
+        self.assertTrue(merged["portrait"].startswith("/uploads/"))
+        self.assertEqual(merged["skills"]["athletics"]["bonus"], 13)
+        self.assertEqual(merged["abilities"]["str"]["save_bonus"], 2)
+        self.assertIn("own-1", [c["id"] for c in merged["features"]])
+        self.assertIn("Найденный кинжал", [w["name"] for w in merged["weapons"]])
+
+    def test_file_values_replace(self):
+        merged = lss.merge_reimport(self.played(), self.fresh)
+        self.assertEqual(merged["abilities"]["str"]["score"], self.fresh["abilities"]["str"]["score"])
+        self.assertEqual(merged["vitals"]["hp"]["current"], 140)
+
+    def test_no_duplicates(self):
+        merged = lss.merge_reimport(self.played(), self.fresh)
+        for key in ("features", "lore", "equipment", "weapons", "resources"):
+            ids = [r.get("id") or r.get("name") for r in merged[key]]
+            self.assertEqual(len(ids), len(set(ids)), key)
+
+    def test_old_import_without_source_marks(self):
+        """Лист, импортированный до пометок source и до вкладки lore: тексты
+        о персонаже были в умениях, оружие - без source. После переимпорта
+        тексты переезжают в lore без дублей, оружие не удваивается."""
+        old = copy.deepcopy(self.fresh)
+        old["features"] += [dict(c) for c in old.pop("lore")]
+        for row in old["weapons"] + old["resources"]:
+            row.pop("source")
+        merged = lss.merge_reimport(old, self.fresh)
+        self.assertNotIn("lss-personality", [c["id"] for c in merged["features"]])
+        self.assertIn("lss-personality", [c["id"] for c in merged["lore"]])
+        self.assertEqual(len(merged["weapons"]), len(self.fresh["weapons"]))
+        self.assertEqual(len(merged["resources"]), len(self.fresh["resources"]))
+
+    def test_merged_passes_sheet_checks(self):
+        sheet_data.check_value(lss.merge_reimport(self.played(), self.fresh))

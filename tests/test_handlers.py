@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -306,3 +307,26 @@ def test_forwarded_for_only_when_trusted(monkeypatch):
     assert main.client_ip(req("127.0.0.1", "6.6.6.6, 1.2.3.4")) == "1.2.3.4"
     # Не с этой машины - заголовку не верим даже при включённой настройке.
     assert main.client_ip(req("10.0.0.5", "1.2.3.4")) == "10.0.0.5"
+
+
+# --- переимпорт LSS ----------------------------------------------------------
+
+
+def test_reimport_keeps_player_text(sockets):
+    g, _ = sockets
+    source = (Path(__file__).parent / "fixtures" / "lss_sample.json").read_text(encoding="utf-8")
+    g.send_text(json.dumps({"type": "cmd", "id": "i1", "name": "character.import", "payload": {"source": source}}))
+    char = recv_until(g, lambda m: m.get("cmd_id") == "i1")["payload"]["character"]
+    try:
+        g.send_text(json.dumps({"type": "cmd", "id": "i2", "name": "character.update", "payload": {
+            "id": char["id"], "set": {"about.story": "своя история", "skills.athletics.bonus": 13},
+        }}))
+        recv_until(g, lambda m: m.get("type") == "character")
+        g.send_text(json.dumps({"type": "cmd", "id": "i3", "name": "character.reimport", "payload": {"id": char["id"]}}))
+        data = recv_until(g, lambda m: m.get("type") == "character")["character"]["data"]
+        assert data["about"]["story"] == "своя история"
+        assert data["skills"]["athletics"]["bonus"] == 13
+        assert any(c["id"] == "lss-allies" for c in data["lore"])  # в образце из личных текстов заполнены союзники
+    finally:
+        g.send_text(json.dumps({"type": "cmd", "id": "i4", "name": "character.delete", "payload": {"id": char["id"]}}))
+        recv_until(g, lambda m: m.get("type") == "character_deleted")

@@ -271,6 +271,31 @@ export const dnd5e: SheetSchema = {
         },
         {
           kind: "fields",
+          title: "История и характер",
+          // Свой текст игрока. Импорт LSS сюда не пишет - его тексты ниже
+          // карточками, и переимпорт этих полей не трогает.
+          fields: [
+            { key: "about.story", label: "История персонажа", kind: "longtext" },
+            { key: "about.appearance", label: "Внешность", kind: "longtext" },
+            { key: "about.personality", label: "Черты характера", kind: "longtext" },
+            { key: "about.ideals", label: "Идеалы", kind: "longtext" },
+            { key: "about.bonds", label: "Привязанности", kind: "longtext" },
+            { key: "about.flaws", label: "Слабости", kind: "longtext" },
+          ],
+        },
+        {
+          // Тексты LSS (предыстория, внешность, черты, союзники, задания,
+          // заметки) - документы с форматированием, поэтому карточки.
+          kind: "cards",
+          title: "Записи",
+          path: "lore",
+          titleKey: "title",
+          addLabel: "+ Запись",
+          resourcesPath: "resources",
+          fields: [],
+        },
+        {
+          kind: "fields",
           title: "Заметки",
           fields: [{ key: "notes", label: "Заметки", kind: "longtext" }],
         },
