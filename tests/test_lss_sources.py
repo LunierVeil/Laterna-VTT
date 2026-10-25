@@ -149,3 +149,43 @@ def test_prof_text_kept():
     """Текст "Прочие владения и языки" (prof) - карточкой умений."""
     titles = [c["title"] for c in parse(SAD)["features"]]
     assert "Прочие владения и языки" in titles
+
+
+# --- заголовки текстов ----------------------------------------------------------
+
+
+def _all_titles(data: dict) -> list[str]:
+    return [c.get("title") or c.get("name") for key in ("features", "equipment", "lore") for c in data[key]]
+
+
+def test_no_raw_text_keys_in_titles():
+    for raw in (NILON, SAD):
+        titles = _all_titles(parse(raw))
+        for key in ("items", "traits", "notes-1", "notes-2", "notes-3", "prof"):
+            assert key not in titles, (key, titles)
+
+
+def test_items_text_goes_to_equipment():
+    raw = json.loads(SAD)
+    inner = json.loads(raw["data"])
+    inner["text"]["items"] = {"value": {"data": {
+        "type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "верёвка"}]}],
+    }}}
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    data = parse(json.dumps(raw, ensure_ascii=False))
+    card = next(c for c in data["equipment"] if c["id"] == "lss-items")
+    assert card["name"] == "Предметы"
+    assert "lss-items" not in [c["id"] for c in data["features"]]
+
+
+def test_unknown_key_and_duplicate_titles():
+    raw = json.loads(SAD)
+    inner = json.loads(raw["data"])
+    doc = {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "x"}]}]}
+    inner["text"]["mystery-block"] = {"value": {"data": doc}}
+    inner["text"]["other-block"] = {"value": {"data": doc}}
+    inner["text"]["features"]["customLabel"] = "Черты"  # совпадёт с разделом feats
+    raw["data"] = json.dumps(inner, ensure_ascii=False)
+    titles = [c["title"] for c in parse(json.dumps(raw, ensure_ascii=False))["features"]]
+    assert "mystery-block" not in titles and "Записи" in titles and "Записи 2" in titles
+    assert len(titles) == len(set(titles)), titles

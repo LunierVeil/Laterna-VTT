@@ -219,6 +219,7 @@ _TEXT_LABELS = {
     "traits": "Умения и особенности",
     "attacks": "Атаки и заклинания",
     "equipment": "Снаряжение",
+    "items": "Предметы",
     "prof": "Прочие владения и языки",
     "personality": "Черты характера",
     "ideals": "Идеалы",
@@ -245,6 +246,18 @@ _LORE_KEYS = {
 }
 
 # --- разбор -----------------------------------------------------------------
+
+def _unique_title(label: str, cards: list, title_key: str) -> str:
+    """Два раздела с одним заголовком ("Записи", одинаковые customLabel) -
+    нумеруем: "Записи 2", чтобы карточки различались."""
+    taken = {c.get(title_key) for c in cards}
+    if label not in taken:
+        return label
+    n = 2
+    while f"{label} {n}" in taken:
+        n += 1
+    return f"{label} {n}"
+
 
 def parse(raw: object) -> tuple[str, dict]:
     """Файл LSS -> (имя персонажа, data по схеме Laterna)."""
@@ -343,14 +356,18 @@ def parse(raw: object) -> tuple[str, dict]:
         # Пустые разделы (в LSS там часто пустые абзацы) не тащим в лист.
         if not doc or not has_text(doc):
             continue
-        label = _str(entry.get("customLabel")) or _TEXT_LABELS.get(key) or key
+        # Заголовок: своя подпись игрока, иначе из таблицы, иначе "Записи" -
+        # сырой ключ формата ("items") игроку ничего не говорит.
+        label = _str(entry.get("customLabel")) or _TEXT_LABELS.get(key) or "Записи"
         # id из ключа LSS: переимпорт даёт те же карточки, а не новые.
-        if key == "equipment":
-            data["equipment"].append({"id": f"lss-{key}", "name": label, "doc": doc, "source": "lss"})
+        if key in ("equipment", "items"):
+            target, title_key = "equipment", "name"
         elif key in _LORE_KEYS:
-            data["lore"].append({"id": f"lss-{key}", "title": label, "doc": doc, "source": "lss"})
+            target, title_key = "lore", "title"
         else:
-            data["features"].append({"id": f"lss-{key}", "title": label, "doc": doc, "source": "lss"})
+            target, title_key = "features", "title"
+        cards = data[target]
+        data[target].append({"id": f"lss-{key}", title_key: _unique_title(label, cards, title_key), "doc": doc, "source": "lss"})
 
     return name, data
 
