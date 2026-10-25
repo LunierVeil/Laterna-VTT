@@ -297,30 +297,7 @@ export const dnd5e: SheetSchema = {
       id: "spells",
       title: "Заклинания",
       blocks: [
-        {
-          kind: "fields",
-          title: "Ячейки заклинаний",
-          fields: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
-            key: `slots.${n}`,
-            label: `${n} круг`,
-            kind: "number" as const,
-            width: 3,
-            min: 0,
-            max: 99,
-          })),
-        },
-        {
-          kind: "cards",
-          title: "Заклинания",
-          path: "spells",
-          titleKey: "name",
-          addLabel: "+ Заклинание",
-          resourcesPath: "resources",
-          fields: [
-            { key: "level", label: "Круг", kind: "number", width: 3, min: 0, max: 9 },
-            { key: "link", label: "Ссылка (https)", kind: "link" },
-          ],
-        },
+        { kind: "spellbook", title: "Заклинания", path: "spells", slots: "slots", resourcesPath: "resources" },
       ],
     },
     {

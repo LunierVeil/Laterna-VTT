@@ -5,6 +5,8 @@ import type { Character } from "../types";
 import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
+import { SpellBook } from "./SpellBook";
+import { SheetOpsContext, type SheetOps } from "./sheetOps";
 import { safeUpload, uploadImage } from "../net/upload";
 import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "./bonus";
 
@@ -232,6 +234,9 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
 
     case "deathSaves":
       return <DeathSaves block={block} data={data} set={set} />;
+
+    case "spellbook":
+      return <SpellBook block={block} data={data} set={set} />;
 
     case "table": {
       const raw = get(data, block.path);
@@ -762,6 +767,10 @@ function ViewBlock({
     case "deathSaves":
       // Всегда на виду, как карточки: отмечают посреди боя, без "Редактировать".
       return <DeathSaves block={block} data={data} set={set} roll={roll} />;
+
+    case "spellbook":
+      // Как карточки: одинаково в игре и в правке, добавлять можно посреди сессии.
+      return <SpellBook block={block} data={data} set={set} />;
   }
 }
 
@@ -1017,6 +1026,14 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   const roll: RollFn = (formula, label) =>
     socket.send("dice.roll", { formula, label, hidden: useUi.getState().isGm && useUi.getState().hiddenRolls });
 
+  // Списки и счётчики - отдельными командами: пересчитывает сервер.
+  const ops: SheetOps = {
+    list: (path, op, extra) => socket.send("character.list", { id: character.id, path, op, ...extra }),
+    counter: (path, delta, maxPath) =>
+      socket.send("character.counter", { id: character.id, path, delta, ...(maxPath ? { max_path: maxPath } : {}) }),
+    roll,
+  };
+
   const owner = accounts.find((a) => a.id === character.owner_id)?.name;
   const current = schema?.tabs.find((t) => t.id === tab) ?? schema?.tabs[0];
   const subtitle = schema?.summary.subtitle
@@ -1051,6 +1068,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
   const nothingToShow = !editing && views?.every((v) => v.view === null);
 
   return (
+    <SheetOpsContext.Provider value={ops}>
     <div className="sheet-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="sheet" role="dialog" aria-label={`Лист: ${character.name}`}>
         <header className="sheet-head">
@@ -1195,5 +1213,6 @@ export function CharacterSheet({ character, socket }: { character: Character; so
         )}
       </div>
     </div>
+    </SheetOpsContext.Provider>
   );
 }

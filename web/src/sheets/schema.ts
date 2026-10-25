@@ -130,6 +130,14 @@ export type Block =
       counter?: Counter;
     }
   /**
+   * Книга заклинаний: десять кругов (0 - заговоры) с ячейками
+   * (slots.N.total, slots.N.left) и заклинаниями data[path] = [{id, name,
+   * level, prepared, ritual, concentration, comp_v/s/m, ...}]. Элементы
+   * меняются командой character.list, ячейка тратится character.counter -
+   * клиент ничего не пересчитывает сам.
+   */
+  | { kind: "spellbook"; title: string; path: string; slots: string; resourcesPath: string }
+  /**
    * Спасброски от смерти: две строки по max отметок (успехи, провалы),
    * бросок d20 (бросает сервер). Достигли max - подпись "стабилизирован"
    * или "мёртв"; что это значит в игре, решает стол, лист только пишет.
