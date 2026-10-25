@@ -37,6 +37,15 @@ class RussianK(unittest.TestCase):
         self.assertEqual(len(r.terms[0].rolls), 4)
         self.assertEqual(len(r.terms[0].kept), 3)
 
+    def test_cyrillic_d(self):
+        # longstoryshort.app пишет "1 д8 +4": "д" - как "к" и "d".
+        r = dice.roll("1 д8 +4")
+        self.assertEqual(len(r.terms), 2)
+        self.assertTrue(1 <= r.terms[0].rolls[0] <= 8)
+        self.assertEqual(r.terms[1].value, 4)
+        self.assertEqual(len(dice.roll("2Д6").terms[0].rolls), 2)
+        self.assertEqual(len(dice.roll("1д8+1к6+1d4").terms), 3)
+
     def test_chat_command(self):
         self.assertEqual(dice.parse_chat("/r 1к20+5"), "1к20+5")
         self.assertEqual(dice.roll(dice.parse_chat("/r 1к20+5")).terms[1].value, 5)
