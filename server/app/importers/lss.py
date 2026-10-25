@@ -269,6 +269,22 @@ _LORE_KEYS = {
 
 # --- разбор -----------------------------------------------------------------
 
+def _is_story(text: str) -> bool:
+    """Длиннее 60 символов или несколько предложений - не название предыстории."""
+    return len(text) > 60 or bool(re.search(r"[.!?…]\s+\S", text))
+
+
+def _doc_text(node: object) -> str:
+    if not isinstance(node, dict):
+        return ""
+    own = node.get("text") if isinstance(node.get("text"), str) else ""
+    return " ".join([own, *(_doc_text(c) for c in node.get("content") or [])])
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
 def _unique_title(label: str, cards: list, title_key: str) -> str:
     """Два раздела с одним заголовком ("Записи", одинаковые customLabel) -
     нумеруем: "Записи 2", чтобы карточки различались."""
@@ -361,6 +377,10 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
     saves = inner.get("saves") if isinstance(inner.get("saves"), dict) else {}
     skills = inner.get("skills") if isinstance(inner.get("skills"), dict) else {}
     sub = inner.get("subInfo") if isinstance(inner.get("subInfo"), dict) else {}
+    # Предыстория: короткое - название ("Дворянин"), длинное или из нескольких
+    # предложений - это уже история персонажа, ей место в "Истории".
+    background = _str(info.get("background"), 20_000)
+    story = background if background and _is_story(background) else None
 
     counters, items, deleted = _resources(inner.get("resources"))
 
@@ -370,7 +390,7 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
             "subclass": _str(info.get("charSubclass")),
             "level": _int(info.get("level"), 1, 20),
             "race": _str(info.get("race")),
-            "background": _str(info.get("background")),
+            "background": None if story else background,
             "alignment": _str(info.get("alignment")),
             "xp": _int(info.get("experience"), 0, 1_000_000),
             "size": _size(info.get("size")),
@@ -423,6 +443,8 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
         "import": {"edition": _str(outer.get("edition"), 20)},
     }
 
+    if story:
+        data["about"] = {"story": story}
     texts = inner.get("text") if isinstance(inner.get("text"), dict) else {}
     for key, entry in texts.items():
         if not isinstance(entry, dict) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", key):
@@ -431,6 +453,9 @@ def parse_report(raw: object) -> tuple[str, dict, dict]:
         doc = clean_doc(value.get("data") if "data" in value else value)
         # Пустые разделы (в LSS там часто пустые абзацы) не тащим в лист.
         if not doc or not has_text(doc):
+            continue
+        # Тот же текст, что ушёл из info.background в "Историю", - не дублируем.
+        if key == "background" and story and _plain(_doc_text(doc)) == _plain(story):
             continue
         # Заголовок: своя подпись игрока, иначе из таблицы, иначе "Записи" -
         # сырой ключ формата ("items") игроку ничего не говорит.
@@ -500,6 +525,11 @@ def _merge_dict(old: dict, new: dict) -> dict:
     return out
 
 
+# Где своё игрока главнее файла: "О персонаже" импорт заполняет только
+# пустое (история из длинной предыстории), вписанное игроком не трогает.
+_PLAYER_FIRST = ("about",)
+
+
 def merge_reimport(old: object, new: dict) -> dict:
     """Переимпорт поверх листа, не теряя того, что игрок вписал сам.
 
@@ -508,4 +538,10 @@ def merge_reimport(old: object, new: dict) -> dict:
     поля «О персонаже», заметки, портрет, свой бонус навыка, свои карточки,
     оружие и ресурсы. Правил тут тоже нет - только какое значение чьё.
     """
-    return _merge_dict(old if isinstance(old, dict) else {}, new)
+    old = old if isinstance(old, dict) else {}
+    merged = _merge_dict(old, new)
+    for key in _PLAYER_FIRST:
+        mine = old.get(key)
+        if isinstance(mine, dict):
+            merged[key] = {**(merged.get(key) or {}), **{k: v for k, v in mine.items() if v not in (None, "")}}
+    return merged

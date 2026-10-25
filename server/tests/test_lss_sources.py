@@ -310,3 +310,35 @@ def test_item_weight_from_notes():
     assert items["Кольчуга"]["weight"] == 55 and items["Кольчуга"]["qty"] == 2
     assert items["Кираса"]["weight"] is None
     assert items["Ладан"]["weight"] is None
+
+
+# --- предыстория ----------------------------------------------------------------
+
+
+def test_vespira_background_goes_to_story():
+    data = parse(ALL["lss_vespira"])
+    assert data["info"]["background"] is None
+    assert data["about"]["story"].startswith("маленькая Мария жыла в деревне")
+
+
+def test_short_background_stays_title():
+    assert parse(ALL["lss_lapland"])["info"]["background"] == "Святое дитя"
+    assert parse(SAD)["info"]["background"] == "Дворянин"
+    assert "about" not in parse(SAD)
+
+
+def test_story_not_duplicated_when_same_text():
+    """У Люция text.background - тот же текст, что info.background: карточки нет."""
+    data = parse(ALL["lss_lucius"])
+    assert data["about"]["story"].startswith("Люций рос в семье")
+    assert "lss-background" not in [c["id"] for c in data["lore"]]
+
+
+def test_reimport_keeps_own_story():
+    played = parse(ALL["lss_vespira"])
+    played["about"] = {"story": "своя переписанная история", "flaws": "боится темноты"}
+    merged = lss.merge_reimport(played, parse(ALL["lss_vespira"]))
+    assert merged["about"] == {"story": "своя переписанная история", "flaws": "боится темноты"}
+    # Пустую историю импорт заполняет.
+    empty = lss.merge_reimport(dict(played, about={}), parse(ALL["lss_vespira"]))
+    assert empty["about"]["story"].startswith("маленькая Мария")
