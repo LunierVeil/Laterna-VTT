@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { safeHref } from "./richDoc";
 
 /**
  * Тексты способностей из импорта - документы TipTap. Рисуем разбором узлов
@@ -49,6 +50,9 @@ function Rich({ node, resources, depth }: { node: Node; resources: ResourceInfo[
       return <li>{children(node, resources, depth)}</li>;
     case "hardBreak":
       return <br />;
+    case "horizontalRule":
+    case "divider":
+      return <hr />;
     case "text": {
       if (typeof node.text !== "string") return null;
       let out: ReactNode = node.text;
@@ -57,6 +61,17 @@ function Rich({ node, resources, depth }: { node: Node; resources: ResourceInfo[
         const type = (m as { type?: unknown })?.type;
         if (type === "bold") out = <strong>{out}</strong>;
         else if (type === "italic") out = <em>{out}</em>;
+        else if (type === "link") {
+          // Только https; rel и target - наши, не из файла.
+          const href = safeHref((m as { attrs?: { href?: unknown } })?.attrs?.href);
+          if (href) {
+            out = (
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                {out}
+              </a>
+            );
+          }
+        }
       }
       return out;
     }

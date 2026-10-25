@@ -1,6 +1,7 @@
 import { EditorContent, Node, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanDoc, EMPTY_DOC, type DocNode } from "./richDoc";
+import Link from "@tiptap/extension-link";
+import { cleanDoc, EMPTY_DOC, safeHref, type DocNode } from "./richDoc";
 
 /**
  * Ссылка на счётчик листа (из импорта LSS). В редакторе - неизменяемая
@@ -24,15 +25,25 @@ const Resource = Node.create({
 });
 
 // Только то, что пропустит белый список: остальное выключено, чтобы игрок
-// не набрал то, что потом молча пропадёт при сохранении.
+// не набрал то, что потом молча пропадёт при сохранении. Горизонтальная
+// черта включена - она приходит из LSS (divider).
 const extensions = [
   StarterKit.configure({
     blockquote: false,
     codeBlock: false,
     code: false,
-    horizontalRule: false,
     strike: false,
     heading: { levels: [3] },
+  }),
+  // Ссылки из импорта не теряются при правке. Только https: остальное
+  // редактор не примет, а сервер и cleanDoc всё равно выбросят.
+  Link.configure({
+    openOnClick: false,
+    autolink: false,
+    linkOnPaste: false,
+    protocols: [],
+    HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+    validate: (href) => safeHref(href) !== null,
   }),
   Resource,
 ];

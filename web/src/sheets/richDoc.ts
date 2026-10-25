@@ -9,28 +9,56 @@
 export interface DocNode {
   type: string;
   text?: string;
-  marks?: { type: string }[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
   attrs?: Record<string, unknown>;
   content?: DocNode[];
 }
 
-const NODES = new Set(["doc", "paragraph", "text", "hardBreak", "heading", "bulletList", "orderedList", "listItem", "resource"]);
-const MARKS = new Set(["bold", "italic"]);
+const NODES = new Set([
+  "doc", "paragraph", "text", "hardBreak", "heading", "bulletList", "orderedList", "listItem", "resource",
+  "horizontalRule",
+]);
+// LSS называет горизонтальную черту divider, TipTap - horizontalRule.
+const ALIASES: Record<string, string> = { divider: "horizontalRule" };
+const MARKS = new Set(["bold", "italic", "link"]);
 const MAX_DEPTH = 12;
+const HREF = /^https:\/\/[^\s<>"'`\\]+$/;
+
+/**
+ * Ссылка из текста - только https с хостом, как server/app/richtext.py.
+ * React не запрещает javascript: в href (только предупреждает), поэтому
+ * проверяем и здесь, на отрисовке.
+ */
+export function safeHref(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 2000 || !HREF.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 export function cleanDoc(node: unknown, depth = 0): DocNode | null {
   if (!node || typeof node !== "object" || depth > MAX_DEPTH) return null;
   const n = node as Record<string, unknown>;
-  const type = n.type;
+  const type = typeof n.type === "string" ? (ALIASES[n.type] ?? n.type) : n.type;
   if (typeof type !== "string" || !NODES.has(type)) return null;
   if (type === "text") {
     if (typeof n.text !== "string" || !n.text) return null;
-    const marks = (Array.isArray(n.marks) ? n.marks : [])
-      .map((m) => (m as { type?: unknown })?.type)
-      .filter((t): t is string => typeof t === "string" && MARKS.has(t))
-      .map((t) => ({ type: t }));
+    const marks: { type: string; attrs?: Record<string, unknown> }[] = [];
+    for (const raw of Array.isArray(n.marks) ? n.marks : []) {
+      const m = raw as { type?: unknown; attrs?: { href?: unknown } };
+      if (typeof m?.type !== "string" || !MARKS.has(m.type)) continue;
+      if (m.type !== "link") marks.push({ type: m.type });
+      else {
+        const href = safeHref(m.attrs?.href);
+        if (href) marks.push({ type: "link", attrs: { href } });
+      }
+    }
     return marks.length ? { type, text: n.text, marks } : { type, text: n.text };
   }
+  if (type === "horizontalRule") return { type };
   const attrs = (n.attrs && typeof n.attrs === "object" ? n.attrs : {}) as Record<string, unknown>;
   if (type === "resource") {
     return typeof attrs.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(attrs.id) ? { type, attrs: { id: attrs.id } } : null;
