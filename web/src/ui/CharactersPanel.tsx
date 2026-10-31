@@ -8,7 +8,7 @@ import { at } from "../sheets/tokenStats";
 import { SheetRow } from "./SheetRow";
 
 /** Листы персонажей: свои; у ГМ - все, с подписью, чей. */
-function PlayerSheets({ socket, list }: { socket: SceneSocket; list: Character[] }) {
+function PlayerSheets({ socket, list, stageRef }: { socket: SceneSocket; list: Character[]; stageRef: React.MutableRefObject<SceneStage | null> }) {
   const accounts = useUi((s) => s.accounts);
   const isGm = useUi((s) => s.isGm);
   const file = useRef<HTMLInputElement>(null);
@@ -25,7 +25,10 @@ function PlayerSheets({ socket, list }: { socket: SceneSocket; list: Character[]
       {list.length === 0 && <p className="muted side-note">Пока ни одного листа.</p>}
       <ul className="sheet-list">
         {list.map((c) => (
-          <SheetRow key={c.id} character={c} socket={socket}>
+          <SheetRow key={c.id} character={c} socket={socket} extra={<button className="tool" onClick={() => {
+            const p = stageRef.current?.freeCellNearCenter();
+            if (p) socket.send("token.add", { ...p, character_id: c.id });
+          }}>На карту</button>}>
             {isGm && (
               <span className="muted sheet-row-sub">
                 {accounts.find((a) => a.id === c.owner_id)?.name ?? "без владельца"}
@@ -164,7 +167,7 @@ export function CharactersPanel({
       {isGm && kind === "mob" ? (
         <MobSheets socket={socket} list={mobs} stageRef={stageRef} />
       ) : (
-        <PlayerSheets socket={socket} list={pcs} />
+        <PlayerSheets socket={socket} list={pcs} stageRef={stageRef} />
       )}
     </div>
   );

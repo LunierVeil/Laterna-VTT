@@ -8,6 +8,7 @@ import type { SceneStage } from "../scene/stage";
 // показывать игроку кнопки, которые всё равно ответят отказом.
 const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boolean }[] = [
   { id: "select", icon: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Delete - удалить свой токен" },
+  { id: "ping", icon: "select", label: "Пинг", hint: "Тап по карте - показать место всем" },
   { id: "token", icon: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "ruler", icon: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },
   { id: "wall", icon: "wall", label: "Стены и двери", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену. Дверь: Shift+клик в «Выборе» - запереть", gm: true },

@@ -6,6 +6,7 @@ export interface Token {
   size: number;
   color: string;
   image_url: string | null;
+  portrait_url?: string | null;
   layer: string;
   /** id пользователя; null - общий. */
   owner_id: string | null;
@@ -155,4 +156,4 @@ export interface SceneInfo {
   name: string;
 }
 
-export type Tool = "select" | "wall" | "token" | "erase" | "ruler" | "fog";
+export type Tool = "ping" | "select" | "wall" | "token" | "erase" | "ruler" | "fog";

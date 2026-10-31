@@ -68,7 +68,10 @@ export function SheetRow({
   };
 
   return (
-    <li className="sheet-row">
+    <li className="sheet-row" draggable onDragStart={(e) => {
+      e.dataTransfer.setData("application/x-laterna-character", character.id);
+      e.dataTransfer.effectAllowed = "copy";
+    }}>
       {avatar}
       <div className="sheet-row-main">
         <span className="sheet-row-name" title={character.name}>

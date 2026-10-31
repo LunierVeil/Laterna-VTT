@@ -57,6 +57,8 @@ async function gmKeyLogin(
 }
 
 export default function App() {
+  const [hideSidebar, setHideSidebar] = useState(true);
+  const [hideRail, setHideRail] = useState(false);
   const me = useUi((s) => s.me);
   // Экран до игры: проверяем сессию, затем вход или первый вход мастера.
   const [checking, setChecking] = useState(true);
@@ -287,7 +289,11 @@ export default function App() {
   if (!socket) return <div className="gate-wait">Загрузка сцены...</div>;
 
   return (
-    <div className="app">
+    <div className={`app ${hideSidebar ? "hide-sidebar" : ""} ${hideRail ? "hide-rail" : ""}`}>
+      <div className="mobile-panels">
+        <button onClick={() => setHideSidebar(!hideSidebar)}>{hideSidebar ? "Открыть панели" : "Свернуть панели"}</button>
+        <button onClick={() => setHideRail(!hideRail)}>{hideRail ? "Инструменты" : "Свернуть инструменты"}</button>
+      </div>
       <TopBar socket={socket} sceneId={sceneId!} />
       <main>
         <ToolRail socket={socket} stageRef={stageRef} />

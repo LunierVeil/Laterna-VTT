@@ -260,7 +260,7 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
                 {rows.map((row, i) => (
                   <tr key={i}>
                     {block.columns.map((c) => (
-                      <td key={c.key}>
+                      <td key={c.key} data-label={c.label}>
                         <FieldInput
                           field={c}
                           value={row?.[c.key]}
@@ -268,7 +268,7 @@ function EditBlock({ block, data, set }: { block: Block; data: unknown; set: (pa
                         />
                       </td>
                     ))}
-                    <td>
+                    <td data-label="Действия">
                       <button
                         className="tool"
                         title="удалить строку"
@@ -667,7 +667,7 @@ function ViewBlock({
                       <tr key={i}>
                         {block.columns.map((c) =>
                           c.key === counter.max ? null : c.key === counter.current ? (
-                            <td key={c.key} className="counter-cell">
+                            <td key={c.key} data-label={c.label} className="counter-cell">
                               <button
                                 className="tool"
                                 title="потратить"
@@ -695,11 +695,11 @@ function ViewBlock({
                             </td>
                           ) : c.key === counter.rest && !isEmpty(row[c.key]) ? (
                             // Какой отдых восстанавливает - плашкой, как в макете.
-                            <td key={c.key}>
+                            <td key={c.key} data-label={c.label}>
                               <span className={`rest-chip rest-${String(row[c.key])}`}>{show(c, row[c.key])}</span>
                             </td>
                           ) : (
-                            <td key={c.key}>{show(c, row[c.key])}</td>
+                            <td key={c.key} data-label={c.label}>{show(c, row[c.key])}</td>
                           ),
                         )}
                       </tr>
@@ -711,7 +711,7 @@ function ViewBlock({
                         .filter((c) => !(counter && c.key === counter.max))
                         .map((c) =>
                           spec && c.key === spec.titleKey ? (
-                            <td key={c.key}>
+                            <td key={c.key} data-label={c.label}>
                               <button
                                 className="roll-name"
                                 title="бросить всё сразу; Shift - с преимуществом, Alt - с помехой"
@@ -721,11 +721,11 @@ function ViewBlock({
                               </button>
                             </td>
                           ) : (
-                            <td key={c.key}>{cellView(c, row, spec?.items, data)}</td>
+                            <td key={c.key} data-label={c.label}>{cellView(c, row, spec?.items, data)}</td>
                           ),
                         )}
                       {spec && (
-                        <td className="roll-buttons">
+                        <td className="roll-buttons" data-label="Броски">
                           {spec.items.map((it) =>
                             rollFormula(it, row, "normal", data) ? (
                               <button

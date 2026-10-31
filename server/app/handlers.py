@@ -215,8 +215,8 @@ async def token_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict)
         # Экземпляр моба: свой номер, полные хиты, портрет из листа.
         name = await _mob_instance_name(db, scene.id, character)
         hp = _mob_max_hp(character)
-        image_url = image_url or _mob_portrait(character)
     elif character is not None:
+        owner_id = character.owner_id
         name = str(payload.get("name") or character.name)[:200]
     token = Token(
         scene_id=scene.id,
