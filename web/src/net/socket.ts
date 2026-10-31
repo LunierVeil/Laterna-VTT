@@ -1,4 +1,4 @@
-import type { Scene, ServerMessage } from "../types";
+import type { ServerMessage } from "../types";
 
 type Listener = (msg: ServerMessage) => void;
 
@@ -21,9 +21,12 @@ export class SceneSocket {
   private lastSeq = -1;
   private closedByUs = false;
   private retry = 0;
+  private watchdog: ReturnType<typeof setInterval> | undefined;
+  private lastMessage = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(private sceneId: string) {}
+  private sceneId: string;
+  constructor(sceneId: string) { this.sceneId = sceneId; }
 
   connect() {
     this.closedByUs = false;
@@ -34,11 +37,24 @@ export class SceneSocket {
     const ws = new WebSocket(url);
     this.ws = ws;
 
-    ws.onmessage = (e) => this.onMessage(JSON.parse(e.data) as ServerMessage);
+    ws.onmessage = (e) => {
+      if (this.ws !== ws || this.closedByUs) return;
+      this.lastMessage = Date.now();
+      const msg = JSON.parse(e.data);
+      if (msg.type === "tokens_refresh") { void this.resync(); return; }
+      if (msg.type !== "heartbeat") void this.onMessage(msg);
+    };
     ws.onopen = () => {
       this.retry = 0;
+      this.lastMessage = Date.now();
+      clearInterval(this.watchdog);
+      this.watchdog = setInterval(() => {
+        if (Date.now() - this.lastMessage > 45000) ws.close();
+      }, 5000);
     };
     ws.onclose = () => {
+      if (this.ws !== ws) return;
+      clearInterval(this.watchdog);
       if (this.closedByUs) return;
       // Все неподтверждённые изменения откатываем: после обрыва мы не
       // знаем, дошли они или нет. Снапшот при переподключении всё равно
@@ -54,6 +70,7 @@ export class SceneSocket {
     // переподключение уже запланировано, и без этого старый сокет
     // через секунду ожил бы и полез в старую сцену.
     clearTimeout(this.retryTimer);
+    clearInterval(this.watchdog);
     this.closedByUs = true;
     this.ws?.close();
   }
@@ -126,12 +143,7 @@ export class SceneSocket {
   }
 
   private async resync() {
-    const res = await fetch(`/api/scenes/${this.sceneId}`);
-    const scene = (await res.json()) as Scene;
-    if (!scene || (scene as any).error) return;
-    this.revertAll();
-    this.lastSeq = scene.seq;
-    this.emit({ type: "snapshot", seq: scene.seq, scene });
+    this.ws?.close();
   }
 
   /**
@@ -144,6 +156,7 @@ export class SceneSocket {
     optimistic?: { apply: () => void; revert: () => void },
   ): string {
     const id = crypto.randomUUID();
+    if (this.ws?.readyState !== WebSocket.OPEN) return id;
     if (optimistic) {
       optimistic.apply();
       this.pending.set(id, { revert: optimistic.revert });

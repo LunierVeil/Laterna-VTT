@@ -92,6 +92,13 @@ export function hpChanges(schema: SheetSchema, data: unknown, next: number): Rec
   const hp = schema.summary.hp;
   if (!hp) return {};
   const changes: Record<string, unknown> = { [hp.current]: next };
+  const current = at(data, hp.current);
+  const temporary = hp.temp ? at(data, hp.temp) : undefined;
+  if (typeof current === "number" && next < current && typeof temporary === "number" && temporary > 0 && hp.temp) {
+    const absorbed = Math.min(current - next, temporary);
+    changes[hp.temp] = temporary - absorbed;
+    changes[hp.current] = next + absorbed;
+  }
   const raw = at(data, hp.current);
   const cur = typeof raw === "number" ? raw : undefined;
   if (next > 0 && cur !== undefined && cur <= 0) {

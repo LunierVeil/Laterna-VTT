@@ -609,3 +609,119 @@ def test_fog_undo_only_own(client, gm, sockets, scene_id):
     assert err["type"] == "error" and "другой мастер" in err["message"]
     handlers._fog_history[scene_id].clear()
     run(g, "u6", "fog.clear", {})
+
+
+def test_portrait_and_delete_refresh_tokens(client, gm, sockets, scene_id):
+    g, p = sockets
+    from app.config import UPLOAD_DIR
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / ("a" * 32 + ".png")).write_bytes(b"test")
+    (UPLOAD_DIR / ("b" * 32 + ".png")).write_bytes(b"test")
+    g.send_text(json.dumps({"id": "portrait-sheet", "name": "character.create", "payload": {"name": "Portrait", "system": "mob"}}))
+    char = recv_until(g, lambda m: m.get("cmd_id") == "portrait-sheet")["payload"]["character"]
+    tok = run(g, "portrait-token", "token.add", {"x": 175, "y": 175, "character_id": char["id"]})["payload"]["token"]
+    g.send_text(json.dumps({"name": "character.update", "payload": {"id": char["id"], "set": {"portrait": "/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"}}}))
+    recv_until(g, lambda m: m.get("type") == "character")
+    recv_until(p, lambda m: m.get("type") == "tokens_refresh")
+    snap = {"scene": client.get(f"/api/scenes/{scene_id}", headers=gm).json()}
+    linked = next(t for t in snap["scene"]["tokens"] if t["id"] == tok["id"])
+    assert linked["image_url"] is None
+    assert linked["portrait_url"] == "/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"
+    run(g, "portrait-own", "token.update", {"id": tok["id"], "image_url": "/uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png"})
+    g.send_text(json.dumps({"name": "character.delete", "payload": {"id": char["id"]}}))
+    recv_until(g, lambda m: m.get("type") == "character_deleted")
+    recv_until(p, lambda m: m.get("type") == "tokens_refresh")
+    snap = {"scene": client.get(f"/api/scenes/{scene_id}", headers=gm).json()}
+    token = next(t for t in snap["scene"]["tokens"] if t["id"] == tok["id"])
+    assert token["portrait_url"] is None and token["hp"] is None
+    assert token["image_url"] == "/uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png"
+    run(g, "portrait-cleanup", "token.remove", {"id": tok["id"]})
+
+
+def test_concurrent_scene_events_and_reconnect_snapshot(client, gm, player, sockets, scene_id):
+    """Two commands are in flight before either sender consumes its ack."""
+    g, p = sockets
+    run(g, "con-clear", "fog.clear", {})
+    recv_until(p, lambda m: m.get("cmd_id") == "con-clear")
+    baseline = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"]
+    for ws, cid, x in [(g, "con-g", 3505), (p, "con-p", 3645)]:
+        ws.send_text(json.dumps({"id": cid, "name": "token.add", "payload": {"x": x, "y": 705}}))
+    g.send_text(json.dumps({"id": "con-fog", "name": "fog.cover", "payload": {"x": 3400, "y": 600, "w": 500, "h": 300}}))
+    streams = []
+    for ws in (g, p):
+        events = [recv_until(ws, is_event) for _ in range(3)]
+        assert [m["seq"] for m in events] == list(range(baseline + 1, baseline + 4))
+        assert {m["cmd_id"] for m in events} == {"con-g", "con-p", "con-fog"}
+        streams.append(events)
+    ids = [m["payload"]["token"]["id"] for m in streams[0] if m["name"] == "token.added"]
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as reconnected:
+        snap = reconnected.receive_json()
+        assert snap["type"] == "snapshot" and snap["seq"] == baseline + 3
+        assert snap["scene"]["fog"]
+        # Own token remains visible, GM's token is hidden even on reconnect.
+        visible = {t["id"] for t in snap["scene"]["tokens"]}
+        gm_token = next(m["payload"]["token"]["id"] for m in streams[0] if m["cmd_id"] == "con-g")
+        player_token = next(m["payload"]["token"]["id"] for m in streams[0] if m["cmd_id"] == "con-p")
+        assert gm_token not in visible and player_token in visible
+        run(g, "con-reveal", "fog.clear", {})
+        reveal = recv_until(reconnected, lambda m: m.get("cmd_id") == "con-reveal")
+        assert reveal["seq"] == baseline + 4
+        assert gm_token in [t["id"] for t in reveal["payload"]["add_tokens"]]
+    for i, tid in enumerate(ids):
+        run(g, f"con-clean-{i}", "token.remove", {"id": tid})
+
+
+def test_activate_scene_delivers_campaign_then_filtered_snapshot(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    new_id = run(g, "switch-create", "scene.create", {"name": "switch-regression"})["payload"]["id"]
+    with client.websocket_connect(f"/ws/scene/{new_id}", headers=gm) as new_gm:
+        assert new_gm.receive_json()["type"] == "snapshot"
+        tok = run(new_gm, "switch-token", "token.add", {"x": 105, "y": 105})["payload"]["token"]
+        fog = run(new_gm, "switch-fog", "fog.cover", {"x": 0, "y": 0, "w": 300, "h": 300})
+        run(g, "switch-activate", "scene.activate", {"id": new_id})
+        campaign = recv_until(p, lambda m: m.get("type") == "campaign" and m["active_scene_id"] == new_id)
+        assert campaign["active_scene_id"] == new_id
+        with client.websocket_connect(f"/ws/scene/{new_id}", headers=player["headers"]) as new_p:
+            snap = new_p.receive_json()
+            assert snap["scene"]["id"] == new_id and snap["seq"] == fog["seq"]
+            assert snap["scene"]["fog"] == fog["payload"]["fog"]
+            assert tok["id"] not in [t["id"] for t in snap["scene"]["tokens"]]
+            run(new_gm, "switch-reveal", "fog.clear", {})
+            event = recv_until(new_p, lambda m: m.get("cmd_id") == "switch-reveal")
+            assert event["seq"] == snap["seq"] + 1
+            assert event["payload"]["add_tokens"][0]["id"] == tok["id"]
+        run(g, "switch-return", "scene.activate", {"id": scene_id})
+    run(g, "switch-delete", "scene.delete", {"id": new_id})
+
+
+def test_gm_places_player_character_and_owner_can_move(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    p.send_text(json.dumps({"id": "place-sheet", "name": "character.create", "payload": {"name": "Owner's hero"}}))
+    char = recv_until(p, lambda m: m.get("cmd_id") == "place-sheet")["payload"]["character"]
+    recv_until(g, lambda m: m.get("type") == "character" and m["character"]["id"] == char["id"])
+    tok = run(g, "place-token", "token.add", {"x": 2805, "y": 105, "character_id": char["id"]})["payload"]["token"]
+    delivered = recv_until(p, lambda m: m.get("cmd_id") == "place-token")["payload"]["token"]
+    assert delivered["character_id"] == char["id"] and delivered["owner_id"] == player["id"]
+    moved = run(p, "place-move", "token.move", {"id": tok["id"], "x": 2875, "y": 105})
+    assert moved["name"] == "token.moved"
+    assert recv_until(g, lambda m: m.get("cmd_id") == "place-move")["payload"]["x"] == 2875
+    p.send_text(json.dumps({"name": "character.delete", "payload": {"id": char["id"]}}))
+    recv_until(g, lambda m: m.get("type") == "character_deleted" and m["id"] == char["id"])
+    recv_until(p, lambda m: m.get("type") == "tokens_refresh")
+    # A second client actually reconnects: validate the WS snapshot, not REST/DB.
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as again:
+        snap = again.receive_json()
+        detached = next(t for t in snap["scene"]["tokens"] if t["id"] == tok["id"])
+        assert detached["character_id"] is None and detached["hp"] is None
+    run(g, "place-clean", "token.remove", {"id": tok["id"]})
+
+
+def test_idle_websocket_receives_heartbeat_without_advancing_seq(client, gm, scene_id):
+    """Real server heartbeat, not a fabricated client fixture."""
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=gm) as ws:
+        snapshot = ws.receive_json()
+        heartbeat = recv_until(ws, lambda m: m.get("type") == "heartbeat")
+        assert heartbeat == {"type": "heartbeat"}
+        event = run(ws, "after-idle", "token.add", {"x": 385, "y": 735})
+        assert event["seq"] == snapshot["seq"] + 1
+        run(ws, "idle-cleanup", "token.remove", {"id": event["payload"]["token"]["id"]})

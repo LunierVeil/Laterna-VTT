@@ -753,3 +753,50 @@ button.portrait:hover { filter: brightness(1.15); }
 .circle-lock { display: grid; place-items: center; color: var(--muted); }
 .circle-lock-open { color: var(--accent); }
 .rail-flyout-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+
+/* Keep modal grid items shrinkable across scene remounts. */
+.sheet { min-width: 0; isolation: isolate; }
+.sheet-body > *, .sheet-block, .sheet-title { min-width: 0; }
+.sheet-overlay { position: fixed; z-index: 100; }
+.mobile-panels { display: none; }
+@media (max-width: 760px) {
+  .sheet { box-sizing: border-box; width: 100%; height: 100dvh; max-height: 100dvh; padding: 10px; }
+  .sheet-body { grid-template-columns: minmax(0, 1fr); }
+  .sheet-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sheet-title input { width: 100%; }
+  /* Six desktop columns cannot fit readable actions/inputs on a phone.
+     Keep table semantics and headings, but lay each record out as labelled fields. */
+  .sheet-table { display: block; overflow-wrap: anywhere; }
+  .sheet-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .sheet-table tbody { display: grid; gap: 12px; }
+  .sheet-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sheet-table td { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .sheet-table td::before { content: attr(data-label); font-size: 11px; color: var(--muted); }
+  .sheet-table td:first-child { grid-column: 1 / -1; }
+  .sheet-table .roll-buttons, .sheet-table .counter-cell { grid-column: 1 / -1; flex-flow: row wrap; align-items: center; white-space: normal; text-align: left; }
+  .sheet-table .roll-buttons::before, .sheet-table .counter-cell::before { flex-basis: 100%; }
+  .sheet-table .roll-buttons .tool { margin-left: 0; }
+  .sheet-table.view-table td { border: 0; border-radius: 0; padding: 8px; }
+  /* The native proficiency select and its caption used to impose a 129px
+     min-content width on each of three ~93px ability columns. */
+  .sheet-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sheet-save { flex-direction: column; max-width: 100%; }
+  .sheet-save .prof-select { min-width: 0; max-width: 100%; }
+  .sheet-table td input, .sheet-table td input:not([style]) { min-width: 0; max-width: 100%; width: 100%; }
+  .sheet-input-wrap { max-width: 100%; flex-wrap: wrap; }
+  .sheet-tabs { gap: 0; }
+  .sheet-tab { padding: 8px; }
+  .mobile-panels { display: flex; position: fixed; bottom: 6px; left: 6px; z-index: 40; gap: 4px; }
+  .hide-sidebar .sidebar, .hide-rail .rail { display: none; }
+  .sidebar { position: absolute; right: 0; top: 0; bottom: 0; z-index: 35; max-width: calc(100vw - 50px); }
+  .app main { position: relative; }
+  /* Nonshrinking header groups widened the layout viewport on mobile.
+     Reflow the header instead of clipping the page or raising overlay z-index. */
+  .topbar { flex-wrap: wrap; gap: 8px 12px; }
+  .topbar-scene { flex: 1 1 150px; min-width: 0; flex-wrap: wrap; }
+  .topbar-scene-name { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-right { flex: 1 1 100%; max-width: 100%; }
+  .topbar-right .me { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-right .users { flex: 1; }
+  .topbar-right .icon-btn, .gm-badge { flex-shrink: 0; }
+}

@@ -122,5 +122,10 @@ export function SceneView({
     stageRef.current?.setCharacterStats(statsOf(characters));
   }, [characters, stageRef]);
 
-  return <div className="scene" ref={host} />;
+  return <div className="scene" ref={host} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("application/x-laterna-character");
+    const p = stageRef.current?.dropPoint(e.clientX, e.clientY);
+    if (id && p) socket.send("token.add", { ...p, character_id: id });
+  }} />;
 }

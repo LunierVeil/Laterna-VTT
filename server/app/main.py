@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import logging
@@ -37,9 +38,9 @@ from .config import (
 )
 from .ratelimit import LoginLimiter
 from .db import SessionLocal, get_session, init_db
-from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError
+from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
-from .models import Campaign, Character, Invite, Message, Scene, User
+from .models import Campaign, Character, Invite, Message, Scene, Token, User
 from .roles import Actor, gm_key_notice, is_gm_key
 
 
@@ -253,6 +254,16 @@ def _visible(mark: dict, actor: Actor, index: int) -> bool:
     return True
 
 
+async def token_view(db, token):
+    data = token.to_dict()
+    data["portrait_url"] = None
+    if token.character_id:
+        character = await db.get(Character, token.character_id)
+        if character:
+            data["portrait_url"] = _mob_portrait(character)
+    return data
+
+
 async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
     scene = (
         await db.execute(
@@ -291,7 +302,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         # Токены слоя ГМ и то, что под туманом, игроку не отдаём вовсе:
         # прятать на клиенте бесполезно, всё пришедшее видно в DevTools.
         "tokens": [
-            token_for(t.to_dict(), actor)
+            token_for(await token_view(db, t), actor)
             for t in scene.tokens
             if actor.is_gm
             or (t.layer != "gm" and (t.owner_id == actor.id or not fog.contains_point(fog_rects, t.x, t.y)))
@@ -642,12 +653,8 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             return
         view = await campaign_view(db, campaign, actor)
 
-    # В рассылку - сразу, как собран снапшот, а не после отправки: иначе
-    # всё, что случилось, пока снапшот летел, клиент терял. События сцены
-    # это переживали (разрыв seq -> перезапрос), а чат (без seq) пропадал
-    # молча. Событие, обогнавшее снапшот, клиент увидит как разрыв seq и
-    # перезапросит состояние.
-    await hub.join(scene_id, websocket, actor)
+    # Повторный снимок, отправка и подписка под одним локом сцены:
+    # событие не может обогнать снимок или попасть между ним и join.
     try:
         # Отправка - уже под try: ушёл клиент, пока летел снапшот, -
         # finally всё равно уберёт его из рассылки.
@@ -656,11 +663,26 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             # Адрес туннеля - мастеру, для ссылок-приглашений. Снапшот
             # приходит при каждом подключении, в отличие от ответа на вход.
             you["public_url"] = PUBLIC_URL
-        await websocket.send_json(protocol.snapshot(snap["seq"], snap, you))
-        await websocket.send_json(view)
+        async with hub.lock(scene_id):
+            async with SessionLocal() as db:
+                campaign = await get_campaign(db)
+                view = await campaign_view(db, campaign, actor)
+                snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
+            if snap is None:
+                await hub.send(websocket, view)
+                await websocket.close(code=4000)
+                return
+            await hub.send(websocket, protocol.snapshot(snap["seq"], snap, you))
+            await hub.send(websocket, view)
+            await hub.join(scene_id, websocket, actor)
         await hub.broadcast_all(protocol.presence(hub.users()))
         while True:
-            raw = await websocket.receive_text()
+            try:
+                async with asyncio.timeout(15):
+                    raw = await websocket.receive_text()
+            except asyncio.TimeoutError:
+                await hub.send(websocket, {"type": "heartbeat"})
+                continue
             await handle_raw(websocket, scene_id, actor, raw)
     # Второе - когда сокет закрыли с нашей стороны (publish_campaign) или
     # отправка в уже закрывшийся сокет не удалась: тогда starlette бросает
@@ -727,6 +749,11 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 await hub.send(websocket, protocol.error("внутренняя ошибка", command.id))
                 return
 
+        if "token" in payload:
+            async with SessionLocal() as db:
+                token = await db.get(Token, payload["token"]["id"])
+                if token:
+                    payload["token"] = await token_view(db, token)
         hidden = payload.pop(HIDDEN, None)
         await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
 
@@ -758,13 +785,13 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
             if name.startswith("character."):
                 if name == "character.created":
                     await hub.send(websocket, protocol.reply(name, payload, command.id))
-                await publish_character(name, payload)
+                await publish_character(name, payload, command.name != "character.update" or "portrait" in command.payload.get("set", {}))
                 return
             await hub.send(websocket, protocol.reply(name, payload, command.id))
             await publish_campaign(db, campaign)
 
 
-async def publish_character(name: str, payload: dict) -> None:
+async def publish_character(name: str, payload: dict, refresh_tokens: bool = True) -> None:
     """Лист - только владельцу и мастерам. Остальным не уходит ни байта."""
     if name == "character.deleted":
         owner_id = payload["owner_id"]
@@ -775,6 +802,9 @@ async def publish_character(name: str, payload: dict) -> None:
     for _, ws, actor in hub.connections():
         if actor.is_gm or actor.id == owner_id:
             await hub.send(ws, msg)
+
+    if refresh_tokens and name != "character.created":
+        await hub.broadcast_all({"type": "tokens_refresh"})
 
 
 async def kick_user(user_id: str) -> None:

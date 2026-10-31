@@ -118,3 +118,11 @@ test("вес снаряжения: вес × количество, без кол
   assert.equal(totalWeight(cards, "weight", "qty"), 122.5);
   assert.equal(totalWeight(undefined, "weight", "qty"), 0);
 });
+
+test("damage consumes temporary hp before current hp", async () => {
+  const { hpChanges } = await import("../src/sheets/bonus.ts");
+  const data = { vitals: { hp: { current: 20, temp: 10 } } };
+  assert.deepEqual(hpChanges(dnd5e, data, 16), { "vitals.hp.current": 20, "vitals.hp.temp": 6 });
+  assert.deepEqual(hpChanges(dnd5e, data, 6), { "vitals.hp.current": 16, "vitals.hp.temp": 0 });
+  assert.deepEqual(hpChanges(dnd5e, data, 25), { "vitals.hp.current": 25 });
+});

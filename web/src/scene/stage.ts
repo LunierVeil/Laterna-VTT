@@ -166,6 +166,7 @@ export class SceneStage {
   private wallStart: { x: number; y: number } | null = null;
   private pointerScene = { x: 0, y: 0 };
   private destroyed = false;
+  private resizeObserver: ResizeObserver | null = null;
 
   // Стены, созданные этим клиентом, для отмены по Ctrl+Z. Чужие стены
   // отменять нельзя - иначе один игрок стирает работу другого.
@@ -273,6 +274,18 @@ export class SceneStage {
     this.drawGrid();
     this.app.ticker.add(this.tickAnchor);
     this.app.ticker.add(this.tickPings);
+
+    // Pixi's resizeTo listens to window resize, not flex-layout changes.
+    // Collapsing a panel or wrapping the header resizes the host without
+    // a window event; keep both the drawing surface and its hit area in sync.
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.destroyed || !parent.clientWidth || !parent.clientHeight) return;
+      if (this.app.screen.width === parent.clientWidth && this.app.screen.height === parent.clientHeight) return;
+      this.app.resize();
+      this.app.stage.hitArea = this.app.screen;
+      this.lastAnchor = ""; // reposition the selected token card for the new bounds
+    });
+    this.resizeObserver.observe(parent);
   }
 
   /** Пинг от участника: кольцо с именем на ~4 секунды. */
@@ -346,6 +359,8 @@ export class SceneStage {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
 
     window.removeEventListener("keydown", this.onKeyDown);
 
@@ -581,7 +596,7 @@ export class SceneStage {
    * опоздавшая не применяется.
    */
   private setTokenImage(view: TokenView, r: number) {
-    const url = view.data.image_url;
+    const url = view.data.image_url || view.data.portrait_url;
     view.imageMask.clear();
     view.imageMask.circle(0, 0, r).fill({ color: 0xffffff });
     if (!url) {
@@ -862,7 +877,7 @@ export class SceneStage {
   }
 
   private onTokenDown = (e: FederatedPointerEvent, view: TokenView) => {
-    if (e.altKey && e.button === 0) {
+    if (this.tool === "ping" && e.button === 0) {
       e.stopPropagation();
       const p = this.toScene(e);
       this.cb.onPing(p.x, p.y);
@@ -896,7 +911,7 @@ export class SceneStage {
     const p = this.toScene(e);
 
     // Пинг - в любом инструменте: Alt+клик, на телефоне - долгое нажатие.
-    if (e.altKey && e.button === 0) {
+    if ((e.altKey || this.tool === "ping") && e.button === 0) {
       this.cb.onPing(p.x, p.y);
       return;
     }
@@ -1046,10 +1061,8 @@ export class SceneStage {
 
     if (this.dragging) {
       const { view, grab } = this.dragging;
-      const c = this.snapToken(
-        { x: this.pointerScene.x - grab.x, y: this.pointerScene.y - grab.y },
-        view.data.size,
-      );
+      const raw = { x: this.pointerScene.x - grab.x, y: this.pointerScene.y - grab.y };
+      const c = e.altKey ? raw : this.snapToken(raw, view.data.size);
       view.node.position.set(c.x, c.y);
       // Сколько прошёл и сколько можно по листу. Не запрещаем - решает стол
       // (рывок, хоумбрю); сервер проверяет только стены.
@@ -1130,11 +1143,14 @@ export class SceneStage {
     this.measureLabel.style.fill = over ? 0xffb0a8 : 0xffffff;
     if (radius) {
       this.measureLabel.anchor.set(0.5, 1);
-      this.measureLabel.position.set(b.x, b.y - radius - 14);
+      this.measureLabel.anchor.set(0, 0);
+      const corner = this.world.toLocal({ x: 16, y: 16 } as any);
+      this.measureLabel.position.copyFrom(corner);
     } else {
       this.measureLabel.anchor.set(0, 1);
       this.measureLabel.position.set(b.x + 12, b.y - 12);
     }
+    this.measureLabel.scale.set(1 / this.world.scale.x);
     this.measureLabel.visible = true;
   }
 
@@ -1163,6 +1179,11 @@ export class SceneStage {
    * Свободная клетка у центра экрана - куда ставить токен из списка мобов.
    * Пятерых гоблинов подряд не надо растаскивать из одной клетки.
    */
+  dropPoint(clientX: number, clientY: number) {
+    const rect = this.app.canvas.getBoundingClientRect();
+    return this.snapToken(this.world.toLocal({ x: clientX - rect.left, y: clientY - rect.top } as any), 1);
+  }
+
   freeCellNearCenter(): { x: number; y: number } {
     const p = this.world.toLocal({ x: this.app.screen.width / 2, y: this.app.screen.height / 2 } as any);
     const c = this.snapToken(p, 1); // в клетку, как и при постановке кликом
