@@ -962,3 +962,36 @@ def assert_message_history(history, live):
     assert {k: v for k, v in history.items() if k != "created_at"} == {k: v for k, v in live.items() if k != "created_at"}
     # SQLite drops the UTC suffix on DateTime reads; the instant must agree.
     assert datetime.fromisoformat(history["created_at"]).replace(tzinfo=timezone.utc) == datetime.fromisoformat(live["created_at"]).replace(tzinfo=timezone.utc)
+
+
+def test_group_deletion_keeps_server_permissions_and_actual_recipient_events(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    ids = []
+    for i in range(2):
+        t = run(p, f"group-own-{i}", "token.add", {"x": 2205 + i * 70, "y": 1505})["payload"]["token"]
+        recv_until(g, lambda m: m.get("cmd_id") == f"group-own-{i}")
+        ids.append(t["id"])
+    foreign = run(g, "group-foreign", "token.add", {"x": 2415, "y": 1505})["payload"]["token"]
+    recv_until(p, lambda m: m.get("cmd_id") == "group-foreign")
+    shared = run(g, "group-shared", "token.add", {"x": 2485, "y": 1505, "owner_id": None})["payload"]["token"]
+    recv_until(p, lambda m: m.get("cmd_id") == "group-shared")
+    hidden = run(g, "group-secret", "token.add", {"x": 2555, "y": 1505, "layer": "gm"})["payload"]["token"]
+    assert recv_until(p, lambda m: m.get("type") == "event")["name"] == "noop"
+    try:
+        before = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"]
+        assert run(p, "group-denied", "token.remove", {"id": foreign["id"]})["type"] == "error"
+        assert client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"] == before
+        for i, token_id in enumerate(ids + [shared["id"]]):
+            cid = f"group-remove-{i}"
+            actual = run(p, cid, "token.remove", {"id": token_id})
+            other = recv_until(g, lambda m: m.get("cmd_id") == cid)
+            assert actual == other
+            assert actual["name"] == "token.removed" and actual["payload"] == {"id": token_id}
+            assert actual["seq"] == before + i + 1
+        snap = client.get(f"/api/scenes/{scene_id}", headers=player["headers"]).json()
+        remaining = {t["id"] for t in snap["tokens"]}
+        assert foreign["id"] in remaining and hidden["id"] not in remaining
+        assert not remaining.intersection(ids + [shared["id"]])
+    finally:
+        run(g, "group-clean-foreign", "token.remove", {"id": foreign["id"]})
+        run(g, "group-clean-secret", "token.remove", {"id": hidden["id"]})

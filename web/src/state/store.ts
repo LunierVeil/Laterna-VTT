@@ -50,6 +50,8 @@ interface UiState {
   background: string | null;
   chaining: boolean;
   selected: SelectedToken | null;
+  selectionCount: number;
+  selectionEditable: number;
   activeSceneId: string | null;
   /** Все сцены кампании - знает только ГМ. */
   scenes: SceneInfo[];
@@ -133,6 +135,8 @@ export const useUi = create<UiState>((set) => ({
   background: null,
   chaining: false,
   selected: null,
+  selectionCount: 0,
+  selectionEditable: 0,
   activeSceneId: null,
   scenes: [],
   folders: [],

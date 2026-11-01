@@ -9,7 +9,7 @@ import type { SceneStage } from "../scene/stage";
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
 const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boolean; touch?: boolean }[] = [
-  { id: "select", icon: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Delete - удалить свой токен; Alt+клик - пинг" },
+  { id: "select", icon: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Shift+клик или Shift+рамка - выбрать несколько; Delete - удалить выбранные доступные токены; Esc - снять выделение; Alt+клик - пинг" },
   { id: "ping", icon: "ping", touch: true, label: "Пинг", hint: "Тап по карте - показать место всем" },
   { id: "token", icon: "token", gm: true, label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "ruler", icon: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },

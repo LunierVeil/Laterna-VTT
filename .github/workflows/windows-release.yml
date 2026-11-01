@@ -107,5 +107,7 @@ jobs:
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag --prerelease --title "Laterna VTT $tag" --notes-file docs\RELEASE_ALPHA.md
+          } else {
+            gh release edit $tag --prerelease --title "Laterna VTT $tag" --notes-file docs\RELEASE_ALPHA.md
           }
           gh release upload $tag "dist\$env:NAME.zip" --clobber

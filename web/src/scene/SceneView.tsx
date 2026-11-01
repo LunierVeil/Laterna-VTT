@@ -63,6 +63,7 @@ export function SceneView({
                 }
               : null,
           ),
+      onSelectionChange: (selectionCount, selectionEditable) => useUi.setState({selectionCount, selectionEditable}),
       onChainChange: (active) => useUi.getState().setChaining(active),
       onOpenToken: (t) => {
         // Лист открывается, только если он этому клиенту виден.
@@ -99,7 +100,7 @@ export function SceneView({
 
     return () => {
       cancelled = true;
-      if (stageRef.current === stage) stageRef.current = null;
+      if (stageRef.current === stage) {stageRef.current = null; useUi.setState({selectionCount: 0, selectionEditable: 0});}
       void mounted.finally(() => stage.destroy());
     };
   }, [socket, stageRef, onReady]);

@@ -13,6 +13,7 @@ import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
 import { CharacterSheet } from "./sheets/CharacterSheet";
 import { DiceMenu } from "./ui/DicePanel";
 import { DiceAnimation } from "./ui/DiceAnimation";
+import { SelectionBar } from "./ui/SelectionBar";
 import type { Message } from "./types";
 import type { Scene, SceneInfo, UserInfo } from "./types";
 
@@ -323,6 +324,7 @@ export default function App() {
           <TokenCard socket={socket} stageRef={stageRef} />
           <InitiativePanel socket={socket} />
           <ToolHint />
+          <SelectionBar stageRef={stageRef} />
           {diceOpen && <DiceMenu socket={socket} onClose={closeDice} />}
           <DiceAnimation key={animatedRoll?.id ?? "none"} message={diceAnimation ? animatedRoll : null} />
           <ZoomControl stageRef={stageRef} />

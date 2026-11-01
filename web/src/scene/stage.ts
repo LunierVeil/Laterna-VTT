@@ -41,6 +41,7 @@ export interface StageCallbacks {
    * потащит за собой ререндер React.
    */
   onSelect: (token: Token | null) => void;
+  onSelectionChange?: (count: number, editable: number) => void;
   /** Рисуется ли сейчас цепочка стен - для подсказки в интерфейсе. */
   onChainChange: (active: boolean) => void;
   /** Двойной клик по токену - открыть его лист. */
@@ -147,6 +148,8 @@ export class SceneStage {
 
   private tool: Tool = "select";
   private selectedId: string | null = null;
+  private selectedIds = new Set<string>();
+  private marquee: {start: {x: number; y: number}; base: string[]} | null = null;
   /**
    * Куда прикрепить карточку выбранного токена: экранные координаты центра
    * и радиус. Карточка двигает свой DOM-узел сама, мимо React, - иначе
@@ -382,6 +385,7 @@ export class SceneStage {
   setTool(tool: Tool) {
     if (this.destroyed) return;
     this.tool = tool;
+    this.marquee = null;
     this.endChain();
     this.clearMeasure();
     this.setCursor("default");
@@ -461,8 +465,10 @@ export class SceneStage {
     this.setCurrentTurn(scene.combat);
 
     // После переподключения выбранный токен мог исчезнуть или измениться.
-    const sel = this.selectedId;
-    this.select(sel && this.tokens.has(sel) ? sel : null);
+    this.dragging = null;
+    this.marquee = null;
+    this.ghostLayer.clear();
+    this.setSelection([...this.selectedIds]);
   }
 
   applyEvent(name: string, payload: any, cmdId?: string | null) {
@@ -588,7 +594,7 @@ export class SceneStage {
     view.data = data;
     view.label.text = data.name;
     this.redrawToken(view);
-    if (this.selectedId === data.id) this.cb.onSelect(data);
+    if (this.selectedIds.has(data.id)) this.setSelection([...this.selectedIds]);
   }
 
   /**
@@ -631,7 +637,7 @@ export class SceneStage {
     if (this.dragging?.view === view) this.dragging = null;
     view.node.destroy({ children: true });
     this.tokens.delete(id);
-    if (this.selectedId === id) this.select(null);
+    if (this.selectedIds.has(id)) this.setSelection([...this.selectedIds].filter(v => v !== id));
   }
 
   private setTokenPosition(id: string, x: number, y: number) {
@@ -656,7 +662,7 @@ export class SceneStage {
 
     view.body.clear();
     view.body.circle(0, 0, r).stroke({ width: 2, color: 0x000000, alpha: 0.4 });
-    if (this.selectedId === view.data.id) {
+    if (this.selectedIds.has(view.data.id)) {
       view.body.circle(0, 0, r + 4).stroke({ width: 2.5, color: COLORS.selection });
     }
     // Чей ход в бою - видно на карте, не только в трекере.
@@ -710,17 +716,30 @@ export class SceneStage {
   }
 
   private select(id: string | null) {
-    const prev = this.selectedId;
-    this.selectedId = id;
-    if (prev) {
-      const v = this.tokens.get(prev);
-      if (v) this.redrawToken(v);
+    this.setSelection(id ? [id] : []);
+  }
+
+  private setSelection(ids: string[]) {
+    const previous = this.selectedIds;
+    this.selectedIds = new Set(ids.filter(id => this.tokens.has(id)));
+    this.selectedId = this.selectedIds.size === 1 ? [...this.selectedIds][0] : null;
+    for (const id of new Set([...previous, ...this.selectedIds])) {
+      const view = this.tokens.get(id);
+      if (view) this.redrawToken(view);
     }
-    if (id) {
-      const v = this.tokens.get(id);
-      if (v) this.redrawToken(v);
+    this.cb.onSelect(this.selectedId ? this.tokens.get(this.selectedId)!.data : null);
+    this.cb.onSelectionChange?.(this.selectedIds.size, [...this.selectedIds].filter(id => this.canEdit(this.tokens.get(id)!.data.owner_id)).length);
+  }
+
+  clearSelection() { this.select(null); }
+
+  removeSelected() {
+    if (this.dragging || this.marquee || this.destroyed) return;
+    // Same authoritative command per token; never remove foreign tokens locally.
+    for (const id of this.selectedIds) {
+      const view = this.tokens.get(id);
+      if (view && this.canEdit(view.data.owner_id)) this.cb.onRemoveToken(id);
     }
-    this.cb.onSelect(id ? (this.tokens.get(id)?.data ?? null) : null);
   }
 
   get selected(): string | null {
@@ -891,6 +910,14 @@ export class SceneStage {
       this.cb.onPing(p.x, p.y);
       return;
     }
+    if (e.shiftKey && !e.altKey && e.button === 0) {
+      view.lastDown = 0;
+      const ids = new Set(this.selectedIds);
+      if (ids.has(view.data.id)) ids.delete(view.data.id);
+      else ids.add(view.data.id);
+      this.setSelection([...ids]);
+      return;
+    }
     // Двойной клик - открыть лист. Одиночный выбирает и тащит: лист,
     // выскакивающий на каждом ходе, мешал бы.
     const now = performance.now();
@@ -977,6 +1004,13 @@ export class SceneStage {
       }
     }
 
+    if (this.tool === "select" && e.button === 0 && e.shiftKey) {
+      this.cancelLongPress();
+      this.marquee = {start: {x: p.x, y: p.y}, base: [...this.selectedIds]};
+      this.pointerScene = p;
+      return;
+    }
+
     if (e.button === 1 || e.button === 2 || this.tool === "select" || this.tool === "erase") {
       if (this.tool === "select" && e.button === 0) this.select(null);
       this.panning = {
@@ -1025,6 +1059,8 @@ export class SceneStage {
       return;
 
     if (e.key === "Escape") {
+      this.marquee = null;
+      this.select(null);
       this.endChain();
       return;
     }
@@ -1035,10 +1071,9 @@ export class SceneStage {
       return;
     }
     // Backspace - для маков, где отдельной Delete нет.
-    if ((e.key === "Delete" || e.key === "Backspace") && this.tool === "select" && this.selectedId) {
+    if ((e.key === "Delete" || e.key === "Backspace") && this.tool === "select" && this.selectedIds.size) {
       e.preventDefault();
-      // Не оптимистично: ждём token.removed от сервера, он может отказать.
-      if (!this.dragging) this.cb.onRemoveToken(this.selectedId);
+      if (!e.repeat) this.removeSelected();
     }
   };
 
@@ -1048,6 +1083,13 @@ export class SceneStage {
       this.cancelLongPress(); // повёл пальцем - это панорама
     }
 
+    if (this.marquee) {
+      const r = this.fogRect(this.marquee.start, this.pointerScene);
+      this.ghostLayer.clear().rect(r.x, r.y, r.w, r.h)
+        .fill({color: COLORS.selection, alpha: 0.12})
+        .stroke({width: 1.5 / this.world.scale.x, color: COLORS.selection});
+      return;
+    }
     if (this.fogDrag) {
       const r = this.fogRect(this.fogDrag, this.pointerScene);
       const g = this.ghostLayer;
@@ -1100,6 +1142,19 @@ export class SceneStage {
   }
 
   private onPointerUp = () => {
+    if (this.marquee) {
+      const r = this.fogRect(this.marquee.start, this.pointerScene);
+      const ids = new Set(this.marquee.base);
+      this.marquee = null;
+      this.ghostLayer.clear();
+      if (r.w >= 4 && r.h >= 4) {
+        for (const [id, view] of this.tokens) {
+          const {x, y} = view.data;
+          if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) ids.add(id);
+        }
+        this.setSelection([...ids]);
+      }
+    }
     if (this.fogDrag) {
       const r = this.fogRect(this.fogDrag, this.pointerScene);
       this.fogDrag = null;
