@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { diceFormula, DICE_SIDES, MAX_MENU_DICE } from "./diceDisplay";
+import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 
@@ -113,4 +114,39 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
       </div>
     </div>
   );
+}
+
+/** Same dice.roll command as the chat and sheet; only the formula UI differs. */
+export function DiceMenu({socket, onClose}: {socket: SceneSocket; onClose: () => void}) {
+  const [sides, setSides] = useState(20), [count, setCount] = useState(1), [mod, setMod] = useState(0);
+  const {isGm, hiddenRolls, diceAnimation, connected} = useUi();
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const prior = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const key = (e: KeyboardEvent) => {if (e.key === "Escape") {e.stopPropagation(); onClose();}};
+    window.addEventListener("keydown", key, true);
+    return () => {window.removeEventListener("keydown", key, true); prior?.focus();};
+  }, [onClose]);
+  const roll = (formula: string) => socket.send("dice.roll", {formula, hidden: isGm && hiddenRolls});
+  const formula = diceFormula(sides, count, mod);
+  return <section className="dice-menu" role="dialog" aria-label="Меню кубиков" onKeyDown={e => e.stopPropagation()}>
+    <header><h3>Кубики</h3><button ref={closeRef} className="tool" aria-label="Закрыть кубики" onClick={onClose}>×</button></header>
+    <div className="dice-types" role="group" aria-label="Тип кубика">{DICE_SIDES.map(s => <button key={s} className="die-btn" aria-pressed={sides === s} onClick={() => setSides(s)}>d{s}</button>)}</div>
+    <label className="dice-counter">Количество
+      <button className="tool" aria-label="Уменьшить количество" disabled={count <= 1} onClick={() => setCount(count - 1)}>−</button>
+      <input aria-label="Количество кубиков" type="number" min={1} max={MAX_MENU_DICE} value={count} onChange={e => setCount(Math.max(1, Math.min(MAX_MENU_DICE, Math.trunc(Number(e.target.value)) || 1)))} />
+      <button className="tool" aria-label="Увеличить количество" disabled={count >= MAX_MENU_DICE} onClick={() => setCount(count + 1)}>+</button>
+    </label>
+    <label className="dice-counter">Модификатор
+      <button className="tool" aria-label="Уменьшить модификатор" disabled={mod <= -1000} onClick={() => setMod(mod - 1)}>−</button>
+      <input aria-label="Модификатор броска" type="number" min={-1000} max={1000} value={mod} onChange={e => setMod(Math.max(-1000, Math.min(1000, Math.trunc(Number(e.target.value)) || 0)))} />
+      <button className="tool" aria-label="Увеличить модификатор" disabled={mod >= 1000} onClick={() => setMod(mod + 1)}>+</button>
+    </label>
+    <output className="dice-formula" aria-label="Формула броска">{formula}</output>
+    <div className="dice-row"><button className="btn btn-accent grow" disabled={!connected} onClick={() => roll(formula)}>Бросить</button><button className="btn" disabled={!connected} onClick={() => roll("1d20")}>Быстрый d20</button></div>
+    {isGm && <label><input type="checkbox" checked={hiddenRolls} onChange={e => useUi.getState().setHiddenRolls(e.target.checked)} /> Скрытно ГМ</label>}
+    <label><input type="checkbox" checked={diceAnimation} onChange={e => useUi.getState().setDiceAnimation(e.target.checked)} /> Анимация кубиков</label>
+    <small className="muted">До {MAX_MENU_DICE} кубиков. Результат сохраняется в чате. При уменьшении движения в системе анимация отключена.</small>
+  </section>;
 }

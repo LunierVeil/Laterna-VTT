@@ -446,3 +446,167 @@ test('Alpha token settings: linked controls removed without data loss; legacy an
  assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),0);
  await p.close();
 });
+
+test('Fog images: repeated reveal restores sprite pixels without rebuilding stage or leaking hidden tokens',{timeout:120000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);await probe(observer,sceneId);
+ const upload=async()=>{const r=await gm.request.post(`${api}/api/uploads`,{data:await master.locator('canvas').screenshot(),headers:{'Content-Type':'image/png'}});assert.equal(r.status(),200);return(await r.json()).url;};
+ const portrait=await upload(),custom=await upload(),secretURL=await upload(),tokens=[];
+ for(const system of ['dnd5e','mob']){
+  const c=(await command('character.create',{name:`Fog ${system}`,system})).payload.character;
+  await command('character.update',{id:c.id,set:{portrait,'hp.max':15}});
+  for(const explicit of [false,true]){
+   const t=(await command('token.add',{x:2905+tokens.length*70,y:1005,character_id:c.id,...(explicit?{image_url:custom}:{})})).payload.token;
+   tokens.push({id:t.id,url:explicit?custom:portrait});
+  }
+ }
+ const npc=(await command('token.add',{x:3255,y:1005,name:'NPC without sheet',image_url:custom})).payload.token;tokens.push({id:npc.id,url:custom});
+ const mine=(await command('character.create',{name:'Own visible hero'},observer)).payload.character;
+ await command('character.update',{id:mine.id,set:{portrait}},observer);
+ const owned=(await command('token.add',{x:3325,y:1005,character_id:mine.id},observer)).payload.token;
+ const secretStart=observer.received.length;
+ const secret=(await command('token.add',{x:3395,y:1005,layer:'gm',image_url:secretURL})).payload.token;
+ const image=async(p,id)=>p.evaluate(id=>{
+  const s=window.observedStage,v=s?.tokens.get(id);if(!v||!v.image.visible||!v.image.texture.source||v.image.texture.width<=1)return null;
+  const {pixels,width,height}=s.app.renderer.extract.pixels({target:v.image});
+  let hash=2166136261;for(const byte of pixels)hash=Math.imul(hash^byte,16777619)>>>0;
+  return {url:v.imageUrl,width,height,hash,bytes:pixels.length};
+ },id);
+ const before=new Map();
+ for(const p of [master,observer])for(const t of [...tokens,{id:owned.id,url:portrait}]){
+  const rendered=await until(async()=>{const v=await image(p,t.id);return v?.url===t.url&&v.bytes>0?v:null;},'initial rendered image');
+  if(p===observer)before.set(t.id,rendered);
+ }
+ await observer.evaluate(id=>{window.fogStage=window.observedStage;window.fogRenderer=window.fogStage.app.renderer;window.ownNode=window.fogStage.tokens.get(id).node;},owned.id);
+ const snapshotCount=observer.received.filter(m=>m.type==='snapshot').length,region={x:2800,y:900,w:650,h:400};
+ for(let cycle=0;cycle<4;cycle++){
+  const start=observer.received.length;await command('fog.cover',region);
+  await until(()=>observer.received.slice(start).some(m=>m.name==='fog.updated'&&tokens.every(t=>m.payload.remove_tokens.includes(t.id))),'cover delivered');
+  for(const t of tokens)assert.equal(await stageToken(observer,t.id),null);
+  assert.deepEqual(await image(observer,owned.id),before.get(owned.id));
+  const covered=observer.received.slice(start).find(m=>m.name==='fog.updated');assert.equal(covered.payload.add_tokens.length,0);
+  for(const url of [portrait,custom,secretURL])assert.equal(JSON.stringify(covered).includes(url),false);
+  const revealFrom=observer.received.length;await command('fog.reveal',region);
+  const revealed=await until(()=>observer.received.slice(revealFrom).find(m=>m.name==='fog.updated'&&m.payload.add_tokens.length===tokens.length),'reveal delivered');
+  for(const t of tokens){
+   const packet=revealed.payload.add_tokens.find(v=>v.id===t.id);assert.equal(packet.image_url||packet.portrait_url,t.url,'complete image source');
+   const restored=await until(()=>image(observer,t.id),'image restored');assert.deepEqual(restored,before.get(t.id),'sprite pixels match');
+   assert.equal((await image(master,t.id)).url,t.url);
+  }
+  assert.equal(await observer.evaluate(id=>window.observedStage===window.fogStage&&window.observedStage.app.renderer===window.fogRenderer&&window.observedStage.tokens.get(id).node===window.ownNode,owned.id),true);
+  assert.equal(observer.received.filter(m=>m.type==='snapshot').length,snapshotCount);
+ }
+ assert.equal(await stageToken(observer,secret.id),null);
+ const disclosed=JSON.stringify(observer.received.slice(secretStart));assert.equal(disclosed.includes(secret.id),false);assert.equal(disclosed.includes(secretURL),false);
+ assert.equal(observer.received.some(m=>m.type==='character'&&m.character.system==='mob'),false);
+ await master.close();await observer.close();
+});
+
+test('v012 scenes: folder CRUD, menu/order/drag, private lazy previews and persistence without scene data loss',{timeout:120000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);const originalRequests=[];
+ master.on('request',r=>{if(r.url().includes('/uploads/'))originalRequests.push(r.url());});
+ await master.getByRole('tab',{name:'Сцены',exact:true}).click();
+ for(const name of ['v012 Dungeon','v012 Town']){
+  await master.getByRole('textbox',{name:'Название новой папки'}).fill(name);await master.getByRole('button',{name:'+ Папка',exact:true}).click();
+  await master.getByRole('button',{name:`▾ ${name} (0)`,exact:true}).waitFor();
+ }
+ const folders=await master.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().folders);
+ const fid=folders.find(f=>f.name==='v012 Dungeon').id,other=folders.find(f=>f.name==='v012 Town').id;
+ const a=(await command('scene.create',{name:'v012 Map'})).payload.id,b=(await command('scene.create',{name:'v012 Empty'})).payload.id;
+ const card=id=>master.locator(`.scene-row[data-scene-id="${id}"]`),folder=id=>master.locator(`.scene-folder[data-folder-id="${id}"]`);
+ await card(a).waitFor();await card(b).waitFor();assert.equal(await card(b).locator('img').count(),0);await card(b).getByRole('img',{name:'Сцена без превью'}).waitFor();
+ const upload=await gm.request.post(`${api}/api/uploads`,{data:await master.locator('canvas').screenshot(),headers:{'Content-Type':'image/png'}});assert.equal(upload.status(),200);const url=(await upload.json()).url;
+ await probe(master,a);await command('scene.update',{background_url:url},master);
+ const preview=card(a).locator('img');await until(()=>preview.evaluate(e=>e.complete&&e.naturalWidth>0),'thumbnail decoded');
+ const source=await preview.getAttribute('src');assert.match(source,new RegExp(`/api/scenes/${a}/preview`));assert.equal(originalRequests.some(r=>r.endsWith(url)),false,'no full map for inactive preview');
+ const size=await preview.evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.ok(size.w<=480&&size.h<=300);
+ assert.equal((await player.request.get(`${api}${source}`)).status(),403);
+ const initial=await (await gm.request.get(`${api}/api/scenes/${a}`)).json();
+ const move=async(id,target)=>{await card(id).getByRole('button',{name:/Действия сцены/}).click();await card(id).getByRole('combobox').selectOption(target);await folder(target).locator(`[data-scene-id="${id}"]`).waitFor();};
+ await move(a,fid);await move(b,fid);
+ await card(b).getByRole('button',{name:/Действия сцены/}).click();await card(b).getByRole('button',{name:'Выше',exact:true}).click();
+ await until(async()=>JSON.stringify(await folder(fid).locator('.scene-row').evaluateAll(es=>es.map(e=>e.dataset.sceneId)))===JSON.stringify([b,a]),'persisted order');
+ await card(a).dragTo(folder(other).locator('.scene-folder-heading'));await folder(other).locator(`[data-scene-id="${a}"]`).waitFor();
+ await move(a,'');
+ await master.getByRole('button',{name:'Переименовать папку v012 Dungeon'}).click();await master.getByRole('textbox',{name:'Новое название папки'}).fill('v012 Renamed');await master.getByRole('button',{name:'Сохранить',exact:true}).click();
+ await master.getByRole('button',{name:'▾ v012 Renamed (1)',exact:true}).click();
+ await master.reload();await master.locator('canvas').waitFor();await master.getByRole('tab',{name:'Сцены',exact:true}).click();
+ assert.equal(await master.getByRole('button',{name:'▸ v012 Renamed (1)',exact:true}).getAttribute('aria-expanded'),'false');
+ await master.getByRole('button',{name:'Удалить папку v012 Renamed'}).click();await master.getByRole('alertdialog').getByText('Сцены сохранятся и будут перемещены в «Без папки».',{exact:true}).waitFor();await master.getByRole('button',{name:'Удалить папку',exact:true}).click();
+ await folder('').locator(`[data-scene-id="${b}"]`).waitFor();
+ assert.deepEqual(await(await gm.request.get(`${api}/api/scenes/${a}`)).json(),initial);
+ const received=JSON.stringify(observer.received);for(const value of [fid,other,a,b,url,source])assert.equal(received.includes(value),false,'private scene metadata');
+ assert.equal(await observer.getByRole('tab',{name:'Сцены',exact:true}).count(),0);
+ assert.equal((await player.request.get(`${api}/api/scenes/${a}`)).status(),404);
+ if(process.env.BROWSER_RESULTS_DIR){await mkdir(process.env.BROWSER_RESULTS_DIR,{recursive:true});await master.screenshot({path:resolve(process.env.BROWSER_RESULTS_DIR,'v012-scenes.png')});}
+ await command('scene.delete',{id:a});await command('scene.delete',{id:b});await command('folder.delete',{id:other});
+ await master.close();await observer.close();
+});
+
+test('v012 dice: seven types, server faces/totals on two clients, chat history, secret rolls and nonblocking cleanup',{timeout:120000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);
+ for(const p of [master,observer]){await p.getByRole('button',{name:'Кубики',exact:true}).click();await p.getByRole('dialog',{name:'Меню кубиков'}).waitFor();await p.getByRole('checkbox',{name:'Анимация кубиков',exact:true}).check();}
+ const menu=observer.getByRole('dialog',{name:'Меню кубиков'});
+ for(const sides of [4,6,8,10,12,20,100]){
+  await menu.getByRole('button',{name:`d${sides}`,exact:true}).click();await menu.getByRole('spinbutton',{name:'Количество кубиков'}).fill('2');await menu.getByRole('spinbutton',{name:'Модификатор броска'}).fill('-3');
+  assert.equal(await menu.getByLabel('Формула броска',{exact:true}).textContent(),`2d${sides}-3`);
+  const start=observer.received.length;await menu.getByRole('button',{name:'Бросить',exact:true}).click();
+  const message=await until(()=>observer.received.slice(start).find(m=>m.type==='chat'&&m.message.kind==='roll')?.message,'server roll');
+  const roll=message.roll;assert.equal(roll.formula,`2d${sides}-3`);assert.equal(roll.total,roll.terms[0].rolls.reduce((a,b)=>a+b,0)-3);assert.ok(roll.terms[0].rolls.every(n=>n>=1&&n<=sides));
+  for(const p of [master,observer]){
+   const overlay=p.locator(`.dice-animation[data-message-id="${message.id}"]`);await overlay.waitFor();
+   assert.deepEqual(await overlay.locator('.animated-die').evaluateAll(es=>es.map(e=>Number(e.dataset.value))),roll.terms[0].rolls);
+   assert.equal(Number(await overlay.locator('.dice-animation-total strong').textContent()),roll.total);
+   assert.equal(Number(await p.locator('.chat-log .msg').last().locator('.roll-total').textContent()),roll.total,'rendered chat total matches animation');
+   await until(async()=>await overlay.getAttribute('data-phase')==='settled','dice settled');
+   if(process.env.BROWSER_RESULTS_DIR&&p===master&&sides===20){await mkdir(process.env.BROWSER_RESULTS_DIR,{recursive:true});await p.screenshot({path:resolve(process.env.BROWSER_RESULTS_DIR,'v012-dice.png')});}
+   assert.equal((await p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().messages.find(m=>m.id===id),message.id)).roll.total,roll.total);
+  }
+ }
+ await master.getByRole('checkbox',{name:'Скрытно ГМ',exact:true}).check();const start=observer.received.length;
+ await master.getByRole('button',{name:'Быстрый d20',exact:true}).click();
+ const secret=await until(()=>observer.received.slice(start).find(m=>m.type==='chat'&&m.message.kind==='hidden_roll')?.message,'hidden placeholder');
+ await master.locator(`.dice-animation[data-message-id="${secret.id}"]`).waitFor();assert.equal(secret.roll,null);assert.equal(await observer.locator(`.dice-animation[data-message-id="${secret.id}"]`).count(),0);
+ await master.getByRole('checkbox',{name:'Скрытно ГМ',exact:true}).uncheck();
+ await observer.getByRole('button',{name:'Закрыть кубики',exact:true}).click();
+ // A live animation is pointer-transparent; ordinary mouse input reaches Pixi.
+ await master.getByRole('button',{name:'Закрыть кубики',exact:true}).click();
+ await probe(observer,sceneId);
+ const token=(await command('token.add',{x:525,y:665,name:'Dice movement'},observer)).payload.token;
+ await control.evaluate(()=>window.probe.send(JSON.stringify({id:crypto.randomUUID(),name:'dice.roll',payload:{formula:'d20'}})));await observer.locator('.dice-animation').waitFor();
+ const xy=await atToken(observer,token.id);await observer.mouse.move(xy.x,xy.y);await observer.mouse.down();await observer.mouse.move(xy.x+70,xy.y,{steps:5});await observer.mouse.up();
+ await until(async()=> (await scene(observer)).tokens.find(t=>t.id===token.id)?.x===595,'token moved during animation');
+ await until(async()=>await observer.locator('.dice-animation').count()===0,'animation objects released');
+ // Resync restores the history, without replaying its rolls.
+ const before=observer.received.filter(m=>m.type==='snapshot').length;
+ await observer.reload();await observer.locator('canvas').waitFor();await until(()=>observer.received.filter(m=>m.type==='snapshot').length>before,'reconnect snapshot');
+ assert.equal(await observer.locator('.dice-animation').count(),0);
+ await command('token.remove',{id:token.id});await master.close();await observer.close();
+});
+
+test('v012 dice mobile: viewport fit, close/quick roll, disable preference, reduced motion, rapid bounded rolls',{timeout:120000},async()=>{
+ const context=await browser.newContext({viewport:{width:360,height:800},hasTouch:true,isMobile:true,storageState:await player.storageState()});
+ const p=await pageFor(context),observer=await pageFor(gm);await probe(p,sceneId);
+ for(const width of [360,390,430,768]){
+  await p.setViewportSize({width,height:850});await p.getByRole('button',{name:'Кубики',exact:true}).tap();
+  const menu=p.getByRole('dialog',{name:'Меню кубиков'});await menu.waitFor();
+  const rect=await menu.boundingBox();assert.ok(rect.x>=0&&rect.y>=0&&rect.x+rect.width<=width&&rect.y+rect.height<=850);
+  assert.equal(await menu.evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
+  const hit=await p.getByRole('button',{name:'Закрыть кубики',exact:true}).evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});assert.equal(hit,true);
+  await p.getByRole('button',{name:'Закрыть кубики',exact:true}).tap();assert.equal(await menu.count(),0);
+ }
+ await p.getByRole('button',{name:'Кубики',exact:true}).tap();await p.getByRole('checkbox',{name:'Анимация кубиков',exact:true}).uncheck();
+ let start=p.received.length;await p.getByRole('button',{name:'Быстрый d20',exact:true}).tap();await until(()=>p.received.slice(start).some(m=>m.type==='chat'&&m.message.roll?.formula==='1d20'),'disabled roll persisted');assert.equal(await p.locator('.dice-animation').count(),0);
+ await p.reload();await p.locator('canvas').waitFor();await p.getByRole('button',{name:'Кубики',exact:true}).tap();assert.equal(await p.getByRole('checkbox',{name:'Анимация кубиков',exact:true}).isChecked(),false);
+ await p.getByRole('checkbox',{name:'Анимация кубиков',exact:true}).check();await p.emulateMedia({reducedMotion:'reduce'});start=p.received.length;
+ await p.getByRole('button',{name:'Быстрый d20',exact:true}).tap();await until(()=>p.received.slice(start).some(m=>m.type==='chat'&&m.message.kind==='roll'),'reduced roll');assert.equal(await p.locator('.dice-animation').count(),0);
+ await p.emulateMedia({reducedMotion:'no-preference'});
+ await probe(p,sceneId);
+ start=p.received.length;const observerStart=observer.received.length;
+ await p.evaluate(()=>{for(let i=0;i<8;i++)window.probe.send(JSON.stringify({id:crypto.randomUUID(),name:'dice.roll',payload:{formula:'100d6+5',label:`rapid ${i}`}}));});
+ const batch=await until(()=>{const list=[...new Map(p.received.slice(start).filter(m=>m.type==='chat'&&m.message.roll?.label?.startsWith('rapid ')).map(m=>[m.message.id,m.message])).values()];return list.length===8?list:null;},'eight rapid server rolls');
+ const last=batch.at(-1),overlay=p.locator(`.dice-animation[data-message-id="${last.id}"]`);await overlay.waitFor();
+ assert.equal(await p.locator('.dice-animation').count(),1);assert.equal(await overlay.locator('.animated-die').count(),12);assert.equal(await overlay.locator('.dice-extra').textContent(),'ещё 88 в чате');
+ for(const m of batch){const received=await until(()=>observer.received.slice(observerStart).find(v=>v.type==='chat'&&v.message.id===m.id)?.message,'rapid observer delivery');assert.deepEqual(received.roll,m.roll);}
+ await until(async()=>await p.locator('.dice-animation').count()===0,'rapid animation cleanup');
+ await observer.close();await p.close();await context.close();
+});

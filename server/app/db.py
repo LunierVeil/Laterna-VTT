@@ -33,6 +33,10 @@ def _check_columns(conn) -> None:
     for table in Base.metadata.sorted_tables:
         have = {c["name"] for c in insp.get_columns(table.name)}
         missing = [c for c in table.columns if c.name not in have]
+        if table.name == "scenes" and "folder_id" not in have:
+            # Additive upgrade: nullable FK, no table recreation or data rewrite.
+            conn.exec_driver_sql('ALTER TABLE "scenes" ADD COLUMN "folder_id" VARCHAR(36) REFERENCES "scene_folders" ("id") ON DELETE SET NULL')
+            missing = [c for c in missing if c.name != "folder_id"]
         for col in [c for c in missing if c.nullable and c.server_default is None and not c.foreign_keys]:
             ddl = col.type.compile(dialect=conn.dialect)
             conn.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}')

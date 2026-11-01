@@ -98,12 +98,29 @@ class Invite(Base):
         }
 
 
+class SceneFolder(Base):
+    __tablename__ = "scene_folders"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "name": self.name}
+
+
 class Scene(Base):
     __tablename__ = "scenes"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200), default="Новая сцена")
+    # NULL keeps existing scenes in the root; ordering falls back to creation time.
+    folder_id: Mapped[str | None] = mapped_column(
+        ForeignKey("scene_folders.id", ondelete="SET NULL"), nullable=True
+    )
+    sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Для порядка в списке сцен: id случайные, по ним не отсортируешь.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

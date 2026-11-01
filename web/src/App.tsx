@@ -11,6 +11,9 @@ import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
 import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
 import { CharacterSheet } from "./sheets/CharacterSheet";
+import { DiceMenu } from "./ui/DicePanel";
+import { DiceAnimation } from "./ui/DiceAnimation";
+import type { Message } from "./types";
 import type { Scene, SceneInfo, UserInfo } from "./types";
 
 const GM_SCENE = "lanterna.gmScene";
@@ -67,6 +70,11 @@ export default function App() {
   const [inviteToken, setInviteToken] = useState<string | null>(INVITE_FROM_URL);
   const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
+  const [animatedRoll, setAnimatedRoll] = useState<Message | null>(null);
+  const seenRolls = useRef(new Set<string>());
+  const diceOpen = useUi(s => s.diceOpen), diceAnimation = useUi(s => s.diceAnimation);
+  const closeDice = useCallback(() => useUi.getState().setDiceOpen(false), []);
+  useEffect(() => {if (!diceAnimation) setAnimatedRoll(null);}, [diceAnimation]);
   const loginWithKey = (key: string) => gmKeyLogin(key, setSetupKey);
 
   // Сокет подключается быстрее, чем инициализируется PixiJS, поэтому
@@ -102,6 +110,8 @@ export default function App() {
   useEffect(() => {
     if (!me) {
       setSceneId(null);
+      setAnimatedRoll(null);
+      seenRolls.current.clear();
       useUi.getState().setCharacters([]);
       useUi.getState().openCharacter(null);
       return;
@@ -155,6 +165,9 @@ export default function App() {
         ui.setConnected(true);
         if (msg.you) ui.setMe(msg.you);
         ui.setMessages(msg.scene.messages);
+        // History is never an animation source, including reconnects/scene switches.
+        for (const m of msg.scene.messages) seenRolls.current.add(m.id);
+        while (seenRolls.current.size > 512) seenRolls.current.delete(seenRolls.current.values().next().value!);
         ui.setScene(msg.scene.name, msg.scene.grid_size, msg.scene.background_url);
         ui.setCombat(msg.scene.combat);
         buffered.current.scene = msg.scene;
@@ -182,10 +195,15 @@ export default function App() {
       }
       if (msg.type === "chat") {
         ui.pushMessage(msg.message);
+        if (!seenRolls.current.has(msg.message.id)) {
+          seenRolls.current.add(msg.message.id);
+          if (msg.message.kind === "roll" && msg.message.roll && useUi.getState().diceAnimation) setAnimatedRoll(msg.message);
+        }
+        if (seenRolls.current.size > 512) seenRolls.current.delete(seenRolls.current.values().next().value!);
         return;
       }
       if (msg.type === "campaign") {
-        ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users, msg.invites);
+        ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users, msg.invites, msg.folders);
         // Аккаунт удалили - сессии больше нет, на экран входа.
         const myId = useUi.getState().me?.id;
         if (myId && !msg.users.some((u) => u.id === myId)) {
@@ -305,6 +323,8 @@ export default function App() {
           <TokenCard socket={socket} stageRef={stageRef} />
           <InitiativePanel socket={socket} />
           <ToolHint />
+          {diceOpen && <DiceMenu socket={socket} onClose={closeDice} />}
+          <DiceAnimation key={animatedRoll?.id ?? "none"} message={diceAnimation ? animatedRoll : null} />
           <ZoomControl stageRef={stageRef} />
         </div>
         <Sidebar onHide={() => setHideSidebar(true)} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />

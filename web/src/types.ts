@@ -118,7 +118,7 @@ export type ServerMessage =
   | { type: "ping"; x: number; y: number; author: string; color: string }
   // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
   // scenes и invites - только ГМ.
-  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; users: UserInfo[]; invites?: InviteInfo[] }
+  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; folders?: SceneFolder[]; users: UserInfo[]; invites?: InviteInfo[] }
   // Сессии нет или она кончилась - на экран входа.
   | { type: "auth_required" }
   // Лист приходит только владельцу и мастерам.
@@ -151,7 +151,11 @@ export interface InviteInfo {
   expires_at: string;
 }
 
+export interface SceneFolder { id: string; name: string; }
+
 export interface SceneInfo {
+  folder_id?: string | null;
+  preview_url?: string | null;
   id: string;
   name: string;
 }

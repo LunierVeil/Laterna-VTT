@@ -725,3 +725,240 @@ def test_idle_websocket_receives_heartbeat_without_advancing_seq(client, gm, sce
         event = run(ws, "after-idle", "token.add", {"x": 385, "y": 735})
         assert event["seq"] == snapshot["seq"] + 1
         run(ws, "idle-cleanup", "token.remove", {"id": event["payload"]["token"]["id"]})
+
+
+@pytest.mark.parametrize("system", ["dnd5e", "mob"])
+def test_fog_reappearance_preserves_portraits_and_visibility(client, gm, player, sockets, scene_id, system):
+    """Actual recipient packets: snapshots and all visibility transitions agree."""
+    from uuid import uuid4
+    from app.config import UPLOAD_DIR
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    urls = []
+    for _ in range(3):
+        name = uuid4().hex + ".png"
+        (UPLOAD_DIR / name).write_bytes(b"fixture")
+        urls.append("/uploads/" + name)
+    portrait, override, secret_image = urls
+    g, p = sockets
+    run(g, "img-clear", "fog.clear", {})
+    recv_until(p, lambda m: m.get("cmd_id") == "img-clear")
+    g.send_text(json.dumps({"id": "img-char", "name": "character.create", "payload": {"system": system, "name": "Fog image"}}))
+    char = recv_until(g, lambda m: m.get("cmd_id") == "img-char")["payload"]["character"]
+    g.send_text(json.dumps({"name": "character.update", "payload": {"id": char["id"], "set": {"portrait": portrait, "hp.max": 12}}}))
+    recv_until(g, lambda m: m.get("type") == "character" and m["character"]["data"].get("portrait") == portrait)
+    recv_until(p, lambda m: m.get("type") == "tokens_refresh")
+    tokens = []
+    for i, data in enumerate([{"character_id": char["id"]}, {"character_id": char["id"], "image_url": override}, {"image_url": override}]):
+        cid = f"img-add-{i}"
+        token = run(g, cid, "token.add", {"x": 3005 + 70*i, "y": 1005, **data})["payload"]["token"]
+        got = recv_until(p, lambda m: m.get("cmd_id") == cid)["payload"]["token"]
+        assert got["image_url"] == data.get("image_url")
+        assert got["portrait_url"] == (portrait if "character_id" in data else None)
+        tokens.append(token)
+    secret = run(g, "img-secret", "token.add", {"x": 3285, "y": 1005, "layer": "gm", "image_url": secret_image})["payload"]["token"]
+    assert recv_until(p, lambda m: m.get("type") == "event")["name"] == "noop"
+    region = {"x": 2900, "y": 900, "w": 600, "h": 400}
+    try:
+        for cycle in range(3):
+            cid = f"img-cover-{cycle}"
+            run(g, cid, "fog.cover", region)
+            covered = recv_until(p, lambda m: m.get("cmd_id") == cid)
+            assert set(covered["payload"]["remove_tokens"]) == {t["id"] for t in tokens}
+            assert covered["payload"]["add_tokens"] == []
+            assert all(url not in json.dumps(covered) for url in urls)
+            with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as reconnect:
+                hidden_snapshot = reconnect.receive_json()
+                assert not {t["id"] for t in tokens + [secret]} & {t["id"] for t in hidden_snapshot["scene"]["tokens"]}
+                assert all(url not in json.dumps(hidden_snapshot) for url in urls)
+            cid = f"img-reveal-{cycle}"
+            run(g, cid, "fog.reveal", region)
+            revealed = recv_until(p, lambda m: m.get("cmd_id") == cid)
+            added = {t["id"]: t for t in revealed["payload"]["add_tokens"]}
+            assert set(added) == {t["id"] for t in tokens}
+            for i, token in enumerate(tokens):
+                assert added[token["id"]].get("portrait_url") == (portrait if i < 2 else None)
+                assert added[token["id"]]["image_url"] == (override if i else None)
+                assert added[token["id"]]["hp"] is None
+            assert secret_image not in json.dumps(revealed)
+            # Compare exactly the token representation used after switching/reconnecting scenes.
+            with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as reconnect:
+                snapshot = reconnect.receive_json()["scene"]
+                for t in snapshot["tokens"]:
+                    if t["id"] in added:
+                        assert t == added[t["id"]]
+        run(g, "img-move-cover", "fog.cover", region)
+        recv_until(p, lambda m: m.get("cmd_id") == "img-move-cover")
+        run(g, "img-move-out", "token.move", {"id": tokens[0]["id"], "x": 2805, "y": 1005})
+        moved = recv_until(p, lambda m: m.get("cmd_id") == "img-move-out")
+        assert moved["name"] == "token.added" and moved["payload"]["token"].get("portrait_url") == portrait
+        run(g, "img-layer-hide", "token.update", {"id": tokens[0]["id"], "layer": "gm"})
+        recv_until(p, lambda m: m.get("cmd_id") == "img-layer-hide")
+        run(g, "img-layer-show", "token.update", {"id": tokens[0]["id"], "layer": "tokens"})
+        shown = recv_until(p, lambda m: m.get("cmd_id") == "img-layer-show")
+        assert shown["name"] == "token.added" and shown["payload"]["token"].get("portrait_url") == portrait
+    finally:
+        for i, t in enumerate(tokens + [secret]):
+            run(g, f"img-clean-{i}", "token.remove", {"id": t["id"]})
+        run(g, "img-clean-fog", "fog.clear", {})
+        g.send_text(json.dumps({"name": "character.delete", "payload": {"id": char["id"]}}))
+        recv_until(g, lambda m: m.get("type") == "character_deleted" and m["id"] == char["id"])
+        recv_until(p, lambda m: m.get("type") == "tokens_refresh")
+
+
+def test_scene_folders_real_clients_preserve_state_and_secrets(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    def apply(cid, command, payload):
+        reply = run(g, cid, command, payload)
+        assert reply["type"] == "reply", reply
+        view = recv_until(g, lambda m: m.get("type") == "campaign")
+        restricted = recv_until(p, lambda m: m.get("type") == "campaign")
+        assert "folders" not in restricted and "scenes" not in restricted
+        return reply, view
+    before = client.get(f"/api/scenes/{scene_id}", headers=gm).json()
+    folder, view = apply("folder-new", "folder.create", {"name": "Secret dungeon"})
+    fid = folder["payload"]["id"]
+    second, _ = apply("folder-second", "folder.create", {"name": "Town"})
+    other = second["payload"]["id"]
+    created, _ = apply("folder-scene", "scene.create", {"name": "Secret chamber", "folder_id": fid})
+    sid = created["payload"]["id"]
+    from io import BytesIO
+    from PIL import Image
+    png = BytesIO()
+    Image.new("RGB", (32, 32), "#c59144").save(png, "PNG")
+    image_url = client.post("/api/uploads", headers=gm, content=png.getvalue()).json()["url"]
+    with client.websocket_connect(f"/ws/scene/{sid}", headers=gm) as private:
+        private.receive_json()
+        run(private, "seed-background", "scene.update", {"background_url": image_url})
+        recv_until(g, lambda m: m.get("type") == "campaign")
+        recv_until(p, lambda m: m.get("type") == "campaign")
+        token = run(private, "seed-token", "token.add", {"x": 105, "y": 105, "image_url": image_url})["payload"]["token"]
+        run(private, "seed-wall", "wall.add", {"x1": 210, "y1": 140, "x2": 280, "y2": 140})
+        run(private, "seed-combat", "combat.add", {"token_id": token["id"]})
+        run(private, "seed-fog", "fog.cover", {"x": 70, "y": 70, "w": 140, "h": 140})
+    content = client.get(f"/api/scenes/{sid}", headers=gm).json()
+    assert content["tokens"] and content["walls"] and content["fog"] and content["combat"] and content["background_url"]
+    try:
+        _, view = apply("folder-rename", "folder.rename", {"id": fid, "name": "Dungeon renamed"})
+        assert {"id": fid, "name": "Dungeon renamed"} in view["folders"]
+        _, view = apply("folder-move", "scene.move", {"id": scene_id, "folder_id": fid, "before_id": sid})
+        assert [s["id"] for s in view["scenes"] if s["folder_id"] == fid] == [scene_id, sid]
+        assert client.get(f"/api/scenes/{scene_id}", headers=gm).json() == before
+        _, view = apply("folder-other", "scene.move", {"id": sid, "folder_id": other})
+        assert next(s for s in view["scenes"] if s["id"] == sid)["folder_id"] == other
+        _, view = apply("folder-root", "scene.move", {"id": sid, "folder_id": None})
+        assert next(s for s in view["scenes"] if s["id"] == sid)["folder_id"] is None
+        # A fresh process reads the persisted hierarchy (not the app's session/cache).
+        import subprocess, sys
+        script = """import json,sys
+from fastapi.testclient import TestClient
+from app.main import app
+with TestClient(app) as client:
+ response=client.get('/api/campaign',headers=json.loads(sys.argv[1]))
+ assert response.status_code==200,response.text
+ print('PERSISTED:'+json.dumps(response.json()))
+"""
+        result = subprocess.run([sys.executable, "-c", script, json.dumps(gm)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=20)
+        assert result.returncode == 0, result.stderr
+        persisted = json.loads(result.stdout.rsplit("PERSISTED:", 1)[1])
+        assert persisted["scenes"] == view["scenes"]
+        assert {"id": fid, "name": "Dungeon renamed"} in persisted["folders"]
+        assert client.get(f"/api/scenes/{sid}", headers=gm).json() == content
+        apply("folder-return", "scene.move", {"id": sid, "folder_id": fid})
+        _, view = apply("folder-delete", "folder.delete", {"id": fid})
+        assert all(f["id"] != fid for f in view["folders"])
+        assert next(s for s in view["scenes"] if s["id"] == scene_id)["folder_id"] is None
+        assert client.get(f"/api/scenes/{scene_id}", headers=gm).json() == before
+        assert client.get(f"/api/scenes/{sid}", headers=gm).json() == content
+        assert next(scene for scene in view["scenes"] if scene["id"] == sid)["folder_id"] is None
+        assert client.get(f"/api/scenes/{sid}", headers=player["headers"]).status_code == 404
+        for command, payload in [("folder.create", {"name": "forbidden"}), ("folder.rename", {"id": other, "name": "hack"}), ("folder.delete", {"id": other}), ("scene.move", {"id": scene_id, "folder_id": other})]:
+            assert run(p, command, command, payload)["type"] == "error"
+        assert run(g, "bad-folder", "scene.move", {"id": scene_id, "folder_id": "missing"})["type"] == "error"
+        assert run(g, "bad-order", "scene.move", {"id": scene_id, "folder_id": None, "before_id": "missing"})["type"] == "error"
+    finally:
+        apply("folder-clean-scene", "scene.delete", {"id": sid})
+        apply("folder-clean", "folder.delete", {"id": other})
+
+
+def test_scene_preview_is_small_cached_gm_only_and_background_change_published(client, gm, player, sockets, scene_id):
+    from io import BytesIO
+    from PIL import Image
+    from app.previews import PREVIEW_DIR
+    g, p = sockets
+    source = BytesIO()
+    Image.new("RGB", (2400, 1600), "#c89140").save(source, "PNG")
+    uploaded = client.post("/api/uploads", headers=gm, content=source.getvalue())
+    assert uploaded.status_code == 200
+    url = uploaded.json()["url"]
+    old = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["background_url"]
+    try:
+        run(g, "preview-bg", "scene.update", {"background_url": url})
+        view = recv_until(g, lambda m: m.get("type") == "campaign")
+        assert "scenes" not in recv_until(p, lambda m: m.get("type") == "campaign")
+        preview = next(s for s in view["scenes"] if s["id"] == scene_id)["preview_url"]
+        assert client.get(preview).status_code == 401
+        assert client.get(preview, headers=player["headers"]).status_code == 403
+        result = client.get(preview, headers=gm)
+        assert result.status_code == 200 and result.headers["content-type"] == "image/webp"
+        assert result.headers["cache-control"] == "private, no-store"
+        image = Image.open(BytesIO(result.content))
+        assert image.width <= 480 and image.height <= 300
+        assert len(result.content) < len(source.getvalue())
+        cached = PREVIEW_DIR / (url.split("/")[-1].split(".")[0] + ".webp")
+        stamp = cached.stat().st_mtime_ns
+        assert client.get(preview, headers=gm).content == result.content
+        assert cached.stat().st_mtime_ns == stamp
+        outside = client.get("/uploads-previews/" + cached.name, headers=player["headers"])
+        # Unknown paths may return the SPA shell, but never the cached image.
+        assert outside.content != result.content and "image/" not in outside.headers.get("content-type", "")
+    finally:
+        run(g, "preview-reset", "scene.update", {"background_url": old})
+        view = recv_until(g, lambda m: m.get("type") == "campaign")
+        if old is None:
+            assert next(s for s in view["scenes"] if s["id"] == scene_id)["preview_url"] is None
+        recv_until(p, lambda m: m.get("type") == "campaign")
+
+
+@pytest.mark.parametrize("sides", [4, 6, 8, 10, 12, 20, 100])
+def test_dice_menu_results_two_clients_and_history(client, gm, player, sockets, scene_id, monkeypatch, sides):
+    from app import dice
+    monkeypatch.setattr(dice.secrets, "randbelow", lambda n: n - 1)
+    g, p = sockets
+    seq = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["seq"]
+    formula = f"2d{sides}-3"
+    g.send_text(json.dumps({"id": "dice-menu", "name": "dice.roll", "payload": {"formula": formula, "total": -999, "rolls": [0]}}))
+    a = recv_until(g, lambda m: m.get("type") == "chat")["message"]
+    b = recv_until(p, lambda m: m.get("type") == "chat")["message"]
+    assert a == b and a["roll"]["total"] == 2 * sides - 3
+    assert a["roll"]["terms"][0]["rolls"] == [sides, sides]
+    assert a["roll"]["terms"][0]["kept"] == [sides, sides]
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as again:
+        snap = again.receive_json()
+        assert snap["seq"] == seq
+        assert_message_history(next(m for m in snap["scene"]["messages"] if m["id"] == a["id"]), a)
+    p.send_text(json.dumps({"id": "dice-player", "name": "dice.roll", "payload": {"formula": f"1d{sides}+5"}}))
+    own = recv_until(p, lambda m: m.get("type") == "chat")["message"]
+    assert own == recv_until(g, lambda m: m.get("type") == "chat")["message"]
+    assert own["roll"]["total"] == sides + 5
+
+
+def test_dice_menu_limits_and_secret_packets(client, gm, player, sockets, scene_id):
+    g, p = sockets
+    assert run(p, "dice-hidden-denied", "dice.roll", {"formula": "d20", "hidden": True})["type"] == "error"
+    assert run(g, "dice-limit", "dice.roll", {"formula": "101d6"})["type"] == "error"
+    g.send_text(json.dumps({"name": "dice.roll", "payload": {"formula": "100d4-5", "hidden": True, "label": "Secret dice menu"}}))
+    actual = recv_until(g, lambda m: m.get("type") == "chat")["message"]
+    filtered = recv_until(p, lambda m: m.get("type") == "chat")["message"]
+    assert len(actual["roll"]["terms"][0]["rolls"]) == 100
+    assert filtered["id"] == actual["id"] and filtered["roll"] is None and filtered["kind"] == "hidden_roll"
+    assert "100d4" not in json.dumps(filtered) and "Secret dice menu" not in json.dumps(filtered)
+    with client.websocket_connect(f"/ws/scene/{scene_id}", headers=player["headers"]) as again:
+        snap = again.receive_json()
+        assert_message_history(next(m for m in snap["scene"]["messages"] if m["id"] == actual["id"]), filtered)
+
+
+def assert_message_history(history, live):
+    from datetime import datetime, timezone
+    assert {k: v for k, v in history.items() if k != "created_at"} == {k: v for k, v in live.items() if k != "created_at"}
+    # SQLite drops the UTC suffix on DateTime reads; the instant must agree.
+    assert datetime.fromisoformat(history["created_at"]).replace(tzinfo=timezone.utc) == datetime.fromisoformat(live["created_at"]).replace(tzinfo=timezone.utc)

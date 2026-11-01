@@ -37,10 +37,11 @@ from .config import (
     WEB_DIST,
 )
 from .ratelimit import LoginLimiter
+from .previews import preview_file
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
-from .models import Campaign, Character, Invite, Message, Scene, Token, User
+from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
 from .roles import Actor, gm_key_notice, is_gm_key
 
 
@@ -125,15 +126,18 @@ async def campaign_view(db: AsyncSession, campaign: Campaign, actor: Actor) -> d
         return protocol.campaign(campaign.active_scene_id, None, users)
     scenes = (
         await db.execute(
-            select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.created_at)
+            select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.sort_order.asc().nulls_last(), Scene.created_at, Scene.id)
         )
     ).scalars()
     invites = await db.execute(
         select(Invite).where(Invite.campaign_id == campaign.id).order_by(Invite.created_at)
     )
     msg = protocol.campaign(
-        campaign.active_scene_id, [{"id": s.id, "name": s.name} for s in scenes], users
+        campaign.active_scene_id, [{"id": s.id, "name": s.name, "folder_id": s.folder_id,
+            "preview_url": f"/api/scenes/{s.id}/preview?v={s.background_url.rsplit('/', 1)[-1]}" if s.background_url else None} for s in scenes], users
     )
+    folders = (await db.execute(select(SceneFolder).where(SceneFolder.campaign_id == campaign.id).order_by(SceneFolder.created_at, SceneFolder.id))).scalars()
+    msg["folders"] = [f.to_dict() for f in folders]
     # Ожидающие приглашения - только мастеру, и без самих кодов.
     msg["invites"] = [i.to_dict() for i in invites.scalars()]
     return msg
@@ -254,14 +258,33 @@ def _visible(mark: dict, actor: Actor, index: int) -> bool:
     return True
 
 
-async def token_view(db, token):
-    data = token.to_dict()
+async def token_view(db: AsyncSession, token: Token | dict) -> dict:
+    # Visibility transitions contain captured dicts, snapshots contain ORM rows.
+    # Always use the same public representation, including the sheet portrait.
+    data = dict(token) if isinstance(token, dict) else token.to_dict()
     data["portrait_url"] = None
-    if token.character_id:
-        character = await db.get(Character, token.character_id)
+    if data.get("character_id"):
+        character = await db.get(Character, data["character_id"])
         if character:
             data["portrait_url"] = _mob_portrait(character)
     return data
+
+
+async def prepare_token_views(db: AsyncSession, payload: dict) -> None:
+    """Enrich internal token captures before recipient visibility filtering.
+
+    No hidden data is sent here: event_for still decides which objects, IDs
+    or noops each actor receives. Walls and visibility marks are unchanged.
+    """
+    if isinstance(payload.get("token"), dict):
+        payload["token"] = await token_view(db, payload["token"])
+    hidden = payload.get(HIDDEN)
+    if not hidden:
+        return
+    marks = hidden["changes"] if hidden["kind"] == "fog" else [hidden]
+    for mark in marks:
+        if mark["kind"] == "token":
+            mark["full"] = await token_view(db, mark["full"])
 
 
 async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
@@ -353,6 +376,22 @@ async def upload(request: Request, db: AsyncSession = Depends(get_session)) -> d
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     (UPLOAD_DIR / name).write_bytes(data)
     return {"url": f"/uploads/{name}"}
+
+
+@app.get("/api/scenes/{scene_id}/preview")
+async def scene_preview(scene_id: str, request: Request, db: AsyncSession = Depends(get_session)):
+    actor = await require_actor(request, db)
+    if not actor.is_gm:
+        raise HTTPException(403, "превью сцен доступны только ГМ")
+    campaign = await get_campaign(db)
+    scene = await db.get(Scene, scene_id)
+    if scene is None or scene.campaign_id != campaign.id or not scene.background_url:
+        raise HTTPException(404, "превью отсутствует")
+    from starlette.concurrency import run_in_threadpool
+    path = await run_in_threadpool(preview_file, scene.background_url)
+    if path is None:
+        raise HTTPException(404, "не удалось создать превью")
+    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "private, no-store"})
 
 
 @app.get("/api/health")
@@ -749,13 +788,13 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 await hub.send(websocket, protocol.error("внутренняя ошибка", command.id))
                 return
 
-        if "token" in payload:
-            async with SessionLocal() as db:
-                token = await db.get(Token, payload["token"]["id"])
-                if token:
-                    payload["token"] = await token_view(db, token)
+        async with SessionLocal() as db:
+            await prepare_token_views(db, payload)
         hidden = payload.pop(HIDDEN, None)
         await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
+        if name == "scene.updated" and ("name" in command.payload or "background_url" in command.payload):
+            async with SessionLocal() as db:
+                await publish_campaign(db, await get_campaign(db))
 
 
 async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.Command) -> None:

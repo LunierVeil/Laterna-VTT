@@ -87,6 +87,7 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
   useEffect(() => { if (!touch && tool === "ping") useUi.getState().setTool("select"); }, [touch, tool]);
   const combat = useUi((s) => s.combat);
   const combatOpen = useUi((s) => s.combatOpen);
+  const diceOpen = useUi(s => s.diceOpen);
 
   return (
     <nav className="rail" aria-label="Инструменты">
@@ -106,6 +107,7 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
         </div>
       ))}
       </div>)}
+      <button className="rail-btn" aria-label="Кубики" title="Кубики" aria-expanded={diceOpen} onClick={() => useUi.getState().setDiceOpen(!useUi.getState().diceOpen)}><Icon name="dice" /></button>
       <div className="rail-sep" />
       <button
         className={combat || combatOpen ? "rail-btn rail-btn-on" : "rail-btn"}

@@ -29,7 +29,7 @@ from . import auth, dice, fog, sheet_data
 from .importers import lss
 from .config import MAX_SCENE_SIDE, UPLOAD_DIR
 from .geometry import path_blocked
-from .models import AuthSession, Campaign, Character, Invite, Message, Scene, Token, User, Wall
+from .models import AuthSession, Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User, Wall
 from .roles import Actor
 
 
@@ -519,10 +519,76 @@ async def dice_roll(db: AsyncSession, campaign: Campaign, actor: Actor, payload:
     return "chat.said", {"message": message.to_dict()}
 
 
+async def _scene_folder(db: AsyncSession, campaign: Campaign, folder_id: str) -> SceneFolder:
+    folder = await db.get(SceneFolder, folder_id) if isinstance(folder_id, str) else None
+    if folder is None or folder.campaign_id != campaign.id:
+        raise CommandError("папка не найдена")
+    return folder
+
+
+def _folder_name(payload: dict) -> str:
+    name = str(payload.get("name") or "").strip()[:200]
+    if not name:
+        raise CommandError("нужно название папки")
+    return name
+
+
+async def folder_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    folder = SceneFolder(campaign_id=campaign.id, name=_folder_name(payload))
+    db.add(folder)
+    await db.flush()
+    return "folder.created", {"id": folder.id}
+
+
+async def folder_rename(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    folder = await _scene_folder(db, campaign, payload.get("id"))
+    folder.name = _folder_name(payload)
+    await db.flush()
+    return "folder.renamed", {"id": folder.id}
+
+
+async def folder_delete(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    folder = await _scene_folder(db, campaign, payload.get("id"))
+    # Explicitly unassign even on SQLite connections without foreign_keys enabled.
+    await db.execute(update(Scene).where(Scene.campaign_id == campaign.id, Scene.folder_id == folder.id).values(folder_id=None))
+    await db.delete(folder)
+    await db.flush()
+    return "folder.deleted", {"id": folder.id}
+
+
+async def scene_move(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    scene = await _campaign_scene(db, campaign, payload)
+    folder_id = payload.get("folder_id")
+    if folder_id is not None:
+        await _scene_folder(db, campaign, folder_id)
+    siblings = list((await db.execute(select(Scene).where(
+        Scene.campaign_id == campaign.id, Scene.folder_id == folder_id, Scene.id != scene.id
+    ).order_by(Scene.sort_order.asc().nulls_last(), Scene.created_at, Scene.id))).scalars())
+    before_id = payload.get("before_id")
+    position = len(siblings)
+    if before_id is not None:
+        position = next((i for i, s in enumerate(siblings) if s.id == before_id), -1)
+        if position < 0:
+            raise CommandError("сцена назначения не найдена в папке")
+    siblings.insert(position, scene)
+    scene.folder_id = folder_id
+    for i, item in enumerate(siblings):
+        item.sort_order = i
+    await db.flush()
+    return "scene.moved", {"id": scene.id}
+
+
 async def scene_create(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     _require_gm(actor)
     name = str(payload.get("name") or "").strip()[:200] or "Новая сцена"
-    scene = Scene(campaign_id=campaign.id, name=name)
+    folder_id = payload.get("folder_id")
+    if folder_id is not None:
+        await _scene_folder(db, campaign, folder_id)
+    scene = Scene(campaign_id=campaign.id, name=name, folder_id=folder_id)
     db.add(scene)
     await db.flush()
     # Новая сцена скрыта: игрокам её покажет только scene.activate.
@@ -963,7 +1029,7 @@ async def _fog_set(db: AsyncSession, scene: Scene, actor: Actor, after: list[dic
     for t in tokens:
         b, a = fog.contains_point(before, t.x, t.y), fog.contains_point(after, t.x, t.y)
         if b != a:
-            changes.append({"kind": "token", "id": t.id, "layer": t.layer == "gm", "fog": (b, a), "owner": t.owner_id, "full": t.to_dict()})
+            changes.append({"kind": "token", "id": t.id, "layer": (t.layer == "gm", t.layer == "gm"), "fog": (b, a), "owner": t.owner_id, "full": t.to_dict()})
     walls = (await db.execute(select(Wall).where(Wall.scene_id == scene.id))).scalars().all()
     for w in walls:
         b, a = _wall_fogged(before, w), _wall_fogged(after, w)
@@ -1057,6 +1123,10 @@ HANDLERS = {
 CAMPAIGN_HANDLERS = {
     "chat.say": chat_say,
     "dice.roll": dice_roll,
+    "folder.create": folder_create,
+    "folder.rename": folder_rename,
+    "folder.delete": folder_delete,
+    "scene.move": scene_move,
     "scene.create": scene_create,
     "scene.activate": scene_activate,
     "scene.delete": scene_delete,

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Character, Combat, InviteInfo, Message, SceneInfo, Token, Tool, UserInfo } from "../types";
+import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, Token, Tool, UserInfo } from "../types";
 
 /** Что нужно карточки токена. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
@@ -53,6 +53,11 @@ interface UiState {
   activeSceneId: string | null;
   /** Все сцены кампании - знает только ГМ. */
   scenes: SceneInfo[];
+  folders: SceneFolder[];
+  diceOpen: boolean;
+  diceAnimation: boolean;
+  setDiceOpen: (v: boolean) => void;
+  setDiceAnimation: (v: boolean) => void;
 
   setMe: (me: UserInfo | null) => void;
   setTool: (t: Tool) => void;
@@ -73,6 +78,7 @@ interface UiState {
     scenes: SceneInfo[] | undefined,
     accounts: UserInfo[],
     invites: InviteInfo[] | undefined,
+    folders?: SceneFolder[],
   ) => void;
   setLastInvite: (v: { token: string; user_id: string | null } | null) => void;
   setCharacters: (list: Character[]) => void;
@@ -129,6 +135,11 @@ export const useUi = create<UiState>((set) => ({
   selected: null,
   activeSceneId: null,
   scenes: [],
+  folders: [],
+  diceOpen: false,
+  diceAnimation: localStorage.getItem("lanterna.diceAnimation") === "on" || (localStorage.getItem("lanterna.diceAnimation") !== "off" && !(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)),
+  setDiceOpen: (diceOpen) => set({ diceOpen }),
+  setDiceAnimation: (diceAnimation) => {localStorage.setItem("lanterna.diceAnimation", diceAnimation ? "on" : "off"); set({diceAnimation});},
 
   // Не ГМ (вышел, вошёл игроком) - инструменты мастера недоступны.
   setMe: (me) =>
@@ -137,6 +148,7 @@ export const useUi = create<UiState>((set) => ({
       return {
         me,
         isGm,
+        ...(!isGm ? {scenes: [], folders: []} : {}),
         tool: !isGm && (s.tool === "token" || s.tool === "wall" || s.tool === "erase" || s.tool === "fog") ? "select" : s.tool,
         sideTab: !isGm && (s.sideTab === "scenes" || s.sideTab === "players") ? "chat" : s.sideTab,
       };
@@ -163,8 +175,8 @@ export const useUi = create<UiState>((set) => ({
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),
   setChaining: (chaining) => set({ chaining }),
   setSelected: (selected) => set({ selected }),
-  setCampaign: (activeSceneId, scenes, accounts, invites) =>
-    set(scenes ? { activeSceneId, scenes, accounts, invites: invites ?? [] } : { activeSceneId, accounts }),
+  setCampaign: (activeSceneId, scenes, accounts, invites, folders) =>
+    set(scenes ? { activeSceneId, scenes, accounts, invites: invites ?? [], folders: folders ?? [] } : { activeSceneId, accounts, scenes: [], folders: [] }),
   setLastInvite: (lastInvite) => set({ lastInvite }),
   setCharacters: (list) => set({ characters: Object.fromEntries(list.map((c) => [c.id, c])) }),
   putCharacter: (c) => set((s) => ({ characters: { ...s.characters, [c.id]: c } })),
