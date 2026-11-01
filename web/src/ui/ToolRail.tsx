@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useTouchInput } from "./input";
 import { useUi } from "../state/store";
 import type { Tool } from "../types";
 import { Icon, type IconName } from "./icons";
@@ -6,10 +8,10 @@ import type { SceneStage } from "../scene/stage";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
-const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boolean }[] = [
-  { id: "select", icon: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Delete - удалить свой токен" },
-  { id: "ping", icon: "select", label: "Пинг", hint: "Тап по карте - показать место всем" },
-  { id: "token", icon: "token", label: "Токен", hint: "Клик - поставить токен в клетку" },
+const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boolean; touch?: boolean }[] = [
+  { id: "select", icon: "select", label: "Выбор", hint: "ЛКМ - двигать свой токен, клик по двери - открыть/закрыть, Delete - удалить свой токен; Alt+клик - пинг" },
+  { id: "ping", icon: "ping", touch: true, label: "Пинг", hint: "Тап по карте - показать место всем" },
+  { id: "token", icon: "token", gm: true, label: "Токен", hint: "Клик - поставить токен в клетку" },
   { id: "ruler", icon: "ruler", label: "Линейка", hint: "Тяни - расстояние в футах. Клетка 5 фт, диагональ тоже 5" },
   { id: "wall", icon: "wall", label: "Стены и двери", hint: "Клик-клик - отрезок. Ctrl+Z - убрать свою стену. Дверь: Shift+клик в «Выборе» - запереть", gm: true },
   { id: "erase", icon: "erase", label: "Стереть", hint: "Клик по стене - удалить", gm: true },
@@ -81,12 +83,15 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
 export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: React.MutableRefObject<SceneStage | null> }) {
   const tool = useUi((s) => s.tool);
   const isGm = useUi((s) => s.isGm);
+  const touch = useTouchInput();
+  useEffect(() => { if (!touch && tool === "ping") useUi.getState().setTool("select"); }, [touch, tool]);
   const combat = useUi((s) => s.combat);
   const combatOpen = useUi((s) => s.combatOpen);
 
   return (
     <nav className="rail" aria-label="Инструменты">
-      {TOOLS.filter((t) => isGm || !t.gm).map((t) => (
+      {[false, true].filter(gm => !gm || isGm).map(gm => <div className="rail-group" role="group" aria-label={gm ? "Инструменты мастера" : "Карта"} key={String(gm)}>
+      {TOOLS.filter((t) => !!t.gm === gm && (!t.touch || touch)).map((t) => (
         <div key={t.id} className="rail-slot">
           <button
             className={t.id === tool ? "rail-btn rail-btn-on" : "rail-btn"}
@@ -100,6 +105,7 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
           {t.id === tool && <ToolOptions tool={t.id} socket={socket} stageRef={stageRef} />}
         </div>
       ))}
+      </div>)}
       <div className="rail-sep" />
       <button
         className={combat || combatOpen ? "rail-btn rail-btn-on" : "rail-btn"}

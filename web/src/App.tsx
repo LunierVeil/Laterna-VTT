@@ -291,7 +291,10 @@ export default function App() {
   return (
     <div className={`app ${hideSidebar ? "hide-sidebar" : ""} ${hideRail ? "hide-rail" : ""}`}>
       <div className="mobile-panels">
-        <button onClick={() => setHideSidebar(!hideSidebar)}>{hideSidebar ? "Открыть панели" : "Свернуть панели"}</button>
+        <button aria-label={hideSidebar ? "Открыть панели" : "Свернуть панели"} aria-expanded={!hideSidebar} aria-controls="table-sidebar" onClick={() => {
+          if (hideSidebar) useUi.getState().setSideTab("chat");
+          setHideSidebar(!hideSidebar);
+        }}>{hideSidebar ? "Чат ›" : "‹ Скрыть чат"}</button>
         <button onClick={() => setHideRail(!hideRail)}>{hideRail ? "Инструменты" : "Свернуть инструменты"}</button>
       </div>
       <TopBar socket={socket} sceneId={sceneId!} />
@@ -304,7 +307,7 @@ export default function App() {
           <ToolHint />
           <ZoomControl stageRef={stageRef} />
         </div>
-        <Sidebar socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
+        <Sidebar onHide={() => setHideSidebar(true)} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
       </main>
       {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}

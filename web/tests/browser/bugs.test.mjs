@@ -304,9 +304,12 @@ test('B10: populated PC and mob sheets fit every mobile tab in view and edit mod
     }
     await until(()=>p.evaluate(async id=>!!(await import('/src/state/store.ts')).useUi.getState().characters[id],c.id),'mobile sheet delivered');
     await openSheet(p,c.id);
-    for(const width of [360,390,430]) {
+    for(const width of [360,390,430,768,1024,1280]) {
       await p.setViewportSize({width,height:850});
-      if((await p.locator('.sheet').boundingBox()).width<width-4)failures.push({system,width,reason:'not full width'});
+      const bounds=await p.locator('.sheet').boundingBox();
+      // Preserve the original fullscreen requirement on phones; desktop is a modal beside the chat.
+      if(width<=760 && bounds.width<width-4)failures.push({system,width,reason:'not full width'});
+      if(bounds.x<0 || bounds.x+bounds.width>width+1)failures.push({system,width,reason:'outside viewport'});
       for(const edit of [false,true]) {
         if(edit)await p.locator('.sheet').getByRole('button',{name:'Редактировать',exact:true}).click();
         for(const tab of await p.locator('.sheet-tab').all()) {
@@ -320,4 +323,126 @@ test('B10: populated PC and mob sheets fit every mobile tab in view and edit mod
     await closeSheet(p);await p.setViewportSize({width:1280,height:900});
   }
   assert.deepEqual(failures,[],JSON.stringify(failures));await p.close();
+});
+
+test('Alpha layout: empty/populated PC and mob, view/edit, six widths; controls stay inside cards',{timeout:240000},async()=>{
+ const p=await pageFor(gm),issues=[];
+ for(const system of ['dnd5e','mob'])for(const filled of [false,true]){
+  const c=(await command('character.create',{name:`Alpha ${system} ${filled}`,system})).payload.character;
+  if(filled){
+   const set={proficiency:3,'vitals.hp.current':19,'vitals.hp.max':25,'vitals.ac':16,'hp.max':20,ac:14,kind:'Гуманоид',size:'Средний',senses:'Тёмное зрение 60 фт',languages:'Общий, драконий',defenses:'Сопротивление огню, иммунитет к яду',saves_skills:'Лов +4, Скрытность +6'};
+   for(const a of ['str','dex','con','int','wis','cha']){set[`abilities.${a}.score`]=16;set[`abilities.${a}.save`]=2;set[`abilities.${a}.save_bonus`]=6;}
+   await command('character.update',{id:c.id,set});
+   await command('character.list',{id:c.id,path:system==='mob'?'attacks':'weapons',op:'add',item:{name:'Длинное название оружия',attack:5,damage:'1d8+3',type:'Колющий'}});
+  }
+  await until(()=>p.evaluate(async id=>!!(await import('/src/state/store.ts')).useUi.getState().characters[id],c.id),'alpha sheet');
+  await openSheet(p,c.id);await p.locator('.sheet').getByRole('tab',{name:'Главное',exact:true}).click();
+  if(system==='dnd5e')assert.equal(await p.locator('.sheet').getByRole('tab',{name:'Навыки',exact:true}).count(),0);
+  for(const width of [360,390,430,768,1024,1280]){
+   await p.setViewportSize({width,height:900});
+   for(const edit of [false,true]){
+    if(edit)await p.locator('.sheet').getByRole('button',{name:'Редактировать',exact:true}).click();
+    const geometry=await p.locator('.sheet').evaluate(sheet=>{
+     const blocks=[...sheet.querySelectorAll('.sheet-body .sheet-block')];
+     const rect=e=>e.getBoundingClientRect();
+     const overlaps=blocks.flatMap((a,i)=>blocks.slice(i+1).filter(b=>{const x=rect(a),y=rect(b);return x.left<y.right-1&&x.right>y.left+1&&x.top<y.bottom-1&&x.bottom>y.top+1;}).map(b=>[a.querySelector('h3')?.textContent,b.querySelector('h3')?.textContent]));
+     const escaped=[...sheet.querySelectorAll('.sheet-body input,.sheet-body select,.sheet-body button,.sheet-ability,.view-ability,.ability-group')].filter(e=>{
+      const parent=e.closest('.ability-group')??e.closest('.sheet-block');if(!parent)return false;const a=rect(e),b=rect(parent);return a.width>0&&a.height>0&&(a.left<b.left-1||a.right>b.right+1||a.top<b.top-1||a.bottom>b.bottom+1);
+     }).map(e=>({tag:e.tagName,label:e.getAttribute('aria-label'),class:e.className}));
+     return {overlaps,escaped,overflow:sheet.scrollWidth>sheet.clientWidth+1,abilities:sheet.querySelectorAll('.ability-group,.sheet-ability,.view-ability').length};
+    });
+    if(geometry.overlaps.length||geometry.escaped.length||geometry.overflow||geometry.abilities!==6)issues.push({system,filled,width,edit,...geometry});
+    if(edit)await p.locator('.sheet').getByRole('button',{name:'Готово',exact:true}).click();
+   }
+  }
+  await closeSheet(p);await p.setViewportSize({width:1280,height:900});
+ }
+ assert.deepEqual(issues,[],JSON.stringify(issues));await p.close();
+});
+
+test('Alpha tools: capabilities instead of width; player creation removed, ruler/GM tools and Alt ping work',{timeout:90000},async()=>{
+ const mouse=await browser.newContext({viewport:{width:360,height:850},hasTouch:false,storageState:await player.storageState()});const p=await pageFor(mouse);
+ assert.equal(await p.getByRole('button',{name:'Пинг',exact:true}).count(),0);
+ assert.equal(await p.getByRole('button',{name:'Токен',exact:true}).count(),0);
+ await p.getByRole('button',{name:'Линейка',exact:true}).click();const r=await p.locator('canvas').boundingBox();
+ await p.mouse.move(r.x+100,r.y+100);await p.mouse.down();await p.mouse.move(r.x+180,r.y+160,{steps:4});
+ assert.equal(await p.evaluate(()=>window.observedStage.measureLabel.visible),true);await p.mouse.up();
+ await p.getByRole('button',{name:'Выбор',exact:true}).click();const prior=control.received.length;
+ await p.keyboard.down('Alt');await p.locator('canvas').click({position:{x:170,y:220}});await p.keyboard.up('Alt');
+ await until(()=>control.received.slice(prior).find(m=>m.type==='ping'&&m.author==='Regression player'),'desktop Alt ping');
+ await mouse.close();
+ const touch=await browser.newContext({viewport:{width:1280,height:900},hasTouch:true,storageState:await gm.storageState()});const g=await pageFor(touch);
+ assert.equal(await g.getByRole('button',{name:'Пинг',exact:true}).count(),1);
+ assert.equal(await g.getByRole('button',{name:'Выбор',exact:true}).count(),1);
+ for(const label of ['Токен','Стены и двери','Стереть','Туман'])assert.equal(await g.getByRole('button',{name:label,exact:true}).count(),1);
+ assert.notEqual(await g.getByRole('button',{name:'Пинг',exact:true}).locator('path').getAttribute('d'),await g.getByRole('button',{name:'Выбор',exact:true}).locator('path').getAttribute('d'));
+ await touch.close();
+});
+
+test('Alpha chat: open, hide from chat, return, preserve draft; rotate and resize canvas',{timeout:90000},async()=>{
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,storageState:await player.storageState()});const p=await pageFor(context);
+ const open=p.getByRole('button',{name:'Открыть панели',exact:true});await open.tap();
+ const chat=p.locator('.chat');const input=chat.locator('input,textarea').last();await input.fill('Черновик после сворачивания');
+ await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();assert.equal(await p.locator('.sidebar').isVisible(),false);
+ const b=await open.boundingBox();assert.ok(b.width>=44&&b.height>=44);await open.tap();
+ assert.equal(await input.inputValue(),'Черновик после сворачивания');
+ await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();
+ for(const viewport of [{width:844,height:390},{width:390,height:844},{width:1024,height:768},{width:360,height:850}]){
+  await p.setViewportSize(viewport);await open.tap();await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();
+  await until(()=>p.evaluate(()=>{const c=document.querySelector('.scene'),r=c.getBoundingClientRect();return window.observedStage.app.screen.width===Math.round(r.width)&&Math.abs(window.observedStage.app.screen.height-r.height)<1;}),'canvas follows container');
+ }
+ await context.close();
+});
+
+test('Alpha skills: grouped main controls, expertise/manual/automatic bonuses, search and server rolls preserve data',{timeout:90000},async()=>{
+ const p=await pageFor(gm);const c=(await command('character.create',{name:'Skills preserved'})).payload.character;
+ await command('character.update',{id:c.id,set:{'abilities.str.score':18,'abilities.str.save':2,'abilities.str.save_bonus':9,proficiency:3,'skills.athletics.prof':2,'skills.athletics.bonus':13,'info.class':'Воин'}});
+ await until(()=>p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id]?.data.skills?.athletics?.bonus===13,c.id),'skills delivered');
+ await p.evaluate(()=>localStorage.setItem('lanterna.sheetTab','skills'));await openSheet(p,c.id);
+ assert.equal(await p.locator('.sheet').getByRole('tab',{name:'Главное',exact:true}).getAttribute('aria-selected'),'true');
+ const group=p.getByRole('article',{name:'Сила',exact:true});await group.waitFor();
+ assert.equal(await group.getByRole('button',{name:'Атлетика',exact:true}).count(),1);assert.equal(await p.locator('.ability-check').count(),24);
+ assert.equal(await group.locator('[data-path="skills.athletics"] .check-bonus').textContent(),'+13*');
+ const before=p.received.length;await group.getByRole('button',{name:'Атлетика',exact:true}).click();
+ await until(()=>p.received.slice(before).some(m=>m.type==='chat'&&m.message.roll?.formula==='1d20+13'),'server skill roll');
+ await p.locator('.sheet').getByRole('button',{name:'Редактировать',exact:true}).click();
+ const manual=p.getByRole('textbox',{name:'Атлетика: свой бонус',exact:true});await manual.fill('');await manual.press('Enter');
+ const prof=p.getByRole('combobox',{name:'Атлетика: владение',exact:true});await prof.selectOption('1');
+ await p.locator('.sheet').getByRole('button',{name:'Готово',exact:true}).click();
+ await until(async()=> (await group.locator('[data-path="skills.athletics"] .check-bonus').textContent())==='+7','computed bonus');
+ await group.getByRole('button',{name:'Атлетика: владение',exact:true}).click();
+ await until(async()=> (await group.locator('[data-path="skills.athletics"] .check-bonus').textContent())==='+10','expertise');
+ assert.equal(await group.locator('[data-path="abilities.str"] .check-bonus').textContent(),'+9*');
+ await p.getByRole('searchbox',{name:'Поиск по листу'}).fill('Атлетика');assert.match(await p.locator('.search-results').textContent(),/Атлетика.*\+10/);
+ const stored=(await(await p.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id).data;
+ assert.equal(stored.info.class,'Воин');assert.equal(stored.abilities.str.save_bonus,9);assert.equal(stored.skills.athletics.prof,2);assert.equal(stored.skills.athletics.bonus,null);
+ await p.close();
+});
+
+test('Alpha token settings: linked controls removed without data loss; legacy and unlinked tokens remain usable',{timeout:90000},async()=>{
+ const p=await pageFor(gm);const c=(await command('character.create',{name:'Linked legacy'})).payload.character;
+ const image=await gm.request.post(`${api}/api/uploads`,{data:await p.locator('canvas').screenshot(),headers:{'Content-Type':'image/png'}});assert.equal(image.status(),200);const url=(await image.json()).url;
+ const point=await p.evaluate(()=>window.observedStage.freeCellNearCenter());
+ const linked=(await command('token.add',{...point,character_id:c.id,image_url:url})).payload.token;
+ await until(()=>stageToken(p,linked.id),'legacy token');await p.evaluate(id=>window.observedStage.select(id),linked.id);
+ await p.getByRole('button',{name:'настройки токена',exact:true}).click();
+ assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),0);
+ assert.equal(await p.locator('.token-card input[type=file]').count(),0);
+ assert.equal(await p.getByRole('button',{name:'Сменить картинку',exact:true}).count(),0);
+ await p.getByRole('button',{name:'Большой',exact:true}).click();
+ await until(async()=> (await scene(p)).tokens.find(t=>t.id===linked.id)?.size===2,'size update');
+ const nameInput=p.locator('.token-card-settings form input');await nameInput.fill('Legacy renamed');await nameInput.press('Enter');
+ await p.getByRole('checkbox',{name:'Скрыт от игроков',exact:true}).check();
+ await until(async()=>{const t=(await scene(p)).tokens.find(t=>t.id===linked.id);return t.name==='Legacy renamed'&&t.layer==='gm';},'name/layer update');
+ let token=(await scene(p)).tokens.find(t=>t.id===linked.id);assert.equal(token.image_url,url);assert.equal(token.character_id,c.id);
+ await p.getByRole('button',{name:'Открыть лист',exact:true}).click();await p.locator('.sheet').waitFor();await closeSheet(p);
+ // Double click still uses the actual Pixi pointer handler.
+ const pos=await atToken(p,linked.id);await p.mouse.dblclick(pos.x,pos.y);await p.locator('.sheet').waitFor();await closeSheet(p);
+ const plain=(await command('token.add',{x:point.x+210,y:point.y,name:'Plain object'})).payload.token;await until(()=>stageToken(p,plain.id),'plain token');
+ await p.evaluate(id=>window.observedStage.select(id),plain.id);await p.getByRole('button',{name:'настройки токена',exact:true}).click();
+ assert.equal(await p.locator('.token-card input[type=file]').count(),1);assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),1);
+ await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).selectOption(c.id);
+ await until(async()=> (await scene(p)).tokens.find(t=>t.id===plain.id)?.character_id===c.id,'link existing plain token');
+ assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),0);
+ await p.close();
 });

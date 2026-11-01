@@ -126,3 +126,18 @@ test("damage consumes temporary hp before current hp", async () => {
   assert.deepEqual(hpChanges(dnd5e, data, 6), { "vitals.hp.current": 16, "vitals.hp.temp": 0 });
   assert.deepEqual(hpChanges(dnd5e, data, 25), { "vitals.hp.current": 25 });
 });
+
+test("main tab preserves every skill/save path and removes the separate skills tab", () => {
+  assert.equal(dnd5e.tabs.some(t => t.id === "skills" || t.title === "Навыки"), false);
+  const main = dnd5e.tabs.find(t => t.id === "main")!;
+  const skillBlock = main.blocks.find(b => b.kind === "checklist" && b.path === "skills");
+  const saveBlock = main.blocks.find(b => b.kind === "checklist" && b.path === "abilities");
+  assert.ok(skillBlock?.kind === "checklist" && saveBlock?.kind === "checklist");
+  assert.equal(skillBlock.items.length, 18);
+  assert.deepEqual(saveBlock.items.map(i => i.key), ["str", "dex", "con", "int", "wis", "cha"]);
+  assert.equal(new Set(skillBlock.items.map(i=>i.key)).size,18);
+  for(const row of skillBlock.items) assert.ok(saveBlock.items.some(a=>a.key===row.ability));
+  assert.deepEqual(skillBlock.fields.map(f=>f.key), ["prof", "bonus"]);
+  assert.deepEqual(saveBlock.fields.map(f=>f.key), ["save", "save_bonus"]);
+  assert.ok(main.blocks.some(b=>b.kind==="table"&&b.path==="tools"));
+});

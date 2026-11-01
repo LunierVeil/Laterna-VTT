@@ -16,11 +16,13 @@ const TABS: { id: SideTab; label: string; gm?: boolean }[] = [
 /** Правая колонка: чат и всё, что раньше висело кнопками в шапке. */
 export function Sidebar({
   socket,
+  onHide,
   sceneId,
   onOpenScene,
   stageRef,
 }: {
   socket: SceneSocket;
+  onHide?: () => void;
   sceneId: string;
   onOpenScene: (id: string) => void;
   stageRef: React.MutableRefObject<SceneStage | null>;
@@ -29,7 +31,8 @@ export function Sidebar({
   const isGm = useUi((s) => s.isGm);
 
   return (
-    <aside className="sidebar">
+    <aside id="table-sidebar" className="sidebar">
+      <button className="sidebar-close tool" aria-label="Скрыть чат" onClick={onHide}>Скрыть чат ›</button>
       <div className="side-tabs" role="tablist">
         {TABS.filter((t) => isGm || !t.gm).map((t) => (
           <button

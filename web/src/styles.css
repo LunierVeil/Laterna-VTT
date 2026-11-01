@@ -291,7 +291,7 @@ button[type="submit"] {
 .view-field dt { font-size: 11px; }
 .view-field dd { margin: 0; font-size: 15px; }
 .view-long { flex: 1 1 100%; white-space: pre-wrap; line-height: 1.5; }
-.view-abilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.view-abilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); gap: 10px; }
 .view-ability {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 4px;
@@ -330,10 +330,11 @@ button[type="submit"] {
   width: 100%; resize: vertical; font: inherit; color: var(--text);
   background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
 }
-.sheet-abilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sheet-abilities { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr)); gap: 8px; }
 .sheet-ability { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; }
 .sheet-mod { font-size: 16px; font-weight: 700; min-height: 20px; }
-.sheet-save { display: flex; align-items: center; gap: 4px; }
+.sheet-save { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; max-width: 100%; }
+.sheet-save .prof-select { min-width: 0; max-width: 100%; }
 .sheet-checklist { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .sheet-check-row { display: flex; align-items: center; gap: 6px; }
 .sheet-check-row input[type="text"], .sheet-check-row input:not([type]) { padding: 2px 4px; }
@@ -779,17 +780,12 @@ button.portrait:hover { filter: brightness(1.15); }
   .sheet-table.view-table td { border: 0; border-radius: 0; padding: 8px; }
   /* The native proficiency select and its caption used to impose a 129px
      min-content width on each of three ~93px ability columns. */
-  .sheet-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sheet-save { flex-direction: column; max-width: 100%; }
   .sheet-save .prof-select { min-width: 0; max-width: 100%; }
   .sheet-table td input, .sheet-table td input:not([style]) { min-width: 0; max-width: 100%; width: 100%; }
   .sheet-input-wrap { max-width: 100%; flex-wrap: wrap; }
   .sheet-tabs { gap: 0; }
   .sheet-tab { padding: 8px; }
-  .mobile-panels { display: flex; position: fixed; bottom: 6px; left: 6px; z-index: 40; gap: 4px; }
-  .hide-sidebar .sidebar, .hide-rail .rail { display: none; }
-  .sidebar { position: absolute; right: 0; top: 0; bottom: 0; z-index: 35; max-width: calc(100vw - 50px); }
-  .app main { position: relative; }
   /* Nonshrinking header groups widened the layout viewport on mobile.
      Reflow the header instead of clipping the page or raising overlay z-index. */
   .topbar { flex-wrap: wrap; gap: 8px 12px; }
@@ -799,4 +795,35 @@ button.portrait:hover { filter: brightness(1.15); }
   .topbar-right .me { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .topbar-right .users { flex: 1; }
   .topbar-right .icon-btn, .gm-badge { flex-shrink: 0; }
+}
+
+/* Checks follow the schema's ability association, keeping all existing JSON paths. */
+.ability-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+.ability-group { min-width: 0; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.ability-group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ability-group-head h4 { margin: 0; flex: 1; font-family: var(--serif); font-size: 22px; }
+.ability-group-head .view-mod { font-size: 23px; }
+.ability-check { display: grid; grid-template-columns: minmax(0, 1fr) 28px 38px; align-items: center; gap: 6px; padding: 4px 0; }
+.ability-check .roll-name { overflow-wrap: anywhere; }
+.ability-check:has(.prof-select) { grid-template-columns: minmax(0, 1fr) 88px 48px; }
+.ability-check .sheet-input-wrap, .ability-check .prof-select { width: 100%; min-width: 0; }
+.ability-check input { min-width: 0; max-width: 100%; }
+.check-bonus { text-align: right; font-family: var(--mono); color: var(--accent); }
+.check-prof { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--panel); color: var(--muted); cursor: pointer; }
+.check-trained, .check-expert { color: var(--accent); border-color: var(--accent); }
+.rail-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rail-group + .rail-group { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+.sidebar-close { display: none; }
+@media (max-width: 1100px) and (min-width: 761px) {
+  .sheet-overlay { inset: 0; }
+  .sheet { width: calc(100vw - 24px); }
+}
+@media (max-width: 760px), (any-pointer: coarse) {
+  .mobile-panels { display: flex; position: fixed; bottom: 6px; left: 6px; z-index: 40; gap: 4px; max-width: calc(100vw - 12px); }
+  .mobile-panels button { min-width: 44px; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); cursor: pointer; }
+  .hide-sidebar .sidebar, .hide-rail .rail { display: none; }
+  .sidebar { position: absolute; right: 0; top: 0; bottom: 0; z-index: 35; max-width: calc(100vw - 50px); }
+  .sidebar-close { display: block; min-height: 44px; flex: none; }
+  .app main { position: relative; }
+  .check-prof { min-height: 36px; }
 }

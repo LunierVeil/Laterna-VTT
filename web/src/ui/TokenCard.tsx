@@ -123,7 +123,7 @@ export function TokenCard({
           )}
         </>
       )}
-      {!character && editable && <p className="muted token-card-note">Без листа. Привязать - в настройках.</p>}
+      {!selected.character_id && editable && <p className="muted token-card-note">Без листа. Привязать - в настройках.</p>}
 
       <div className="token-card-actions">
         {character && (
@@ -362,8 +362,10 @@ function TokenEditor({ token, socket }: { token: SelectedToken; socket: SceneSoc
           Скрыт от игроков
         </label>
       )}
-      <TokenImage token={token} socket={socket} />
-      <CharacterLink token={token} socket={socket} />
+      {!token.character_id && <>
+        <TokenImage token={token} socket={socket} />
+        <CharacterLink token={token} socket={socket} />
+      </>}
       <div className="sizes">
         {SIZES.map((s) => (
           <button

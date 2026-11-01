@@ -137,7 +137,7 @@ export const useUi = create<UiState>((set) => ({
       return {
         me,
         isGm,
-        tool: !isGm && (s.tool === "wall" || s.tool === "erase" || s.tool === "fog") ? "select" : s.tool,
+        tool: !isGm && (s.tool === "token" || s.tool === "wall" || s.tool === "erase" || s.tool === "fog") ? "select" : s.tool,
         sideTab: !isGm && (s.sideTab === "scenes" || s.sideTab === "players") ? "chat" : s.sideTab,
       };
     }),

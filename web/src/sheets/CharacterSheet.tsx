@@ -992,6 +992,52 @@ function Portrait({
   );
 }
 
+type AbilityBlock = Extract<Block, { kind: "abilities" }>;
+type CheckBlock = Extract<Block, { kind: "checklist" }>;
+
+/** Only layout is grouped. Existing JSON paths, bonuses and server rolls stay unchanged. */
+function AbilityChecks({ block, checks, data, editing, set, roll }: {
+  block: AbilityBlock; checks: CheckBlock[]; data: unknown; editing: boolean;
+  set: (path: string, value: unknown) => void; roll: RollFn;
+}) {
+  return <section className="sheet-block sheet-block-wide ability-section">
+    <h3>{block.title}</h3>
+    <div className="ability-groups">
+      {block.items.map(ability => <article className="ability-group" key={ability.key} aria-label={ability.label}>
+        <header className="ability-group-head">
+          <h4>{ability.label}</h4>
+          {editing ? <FieldInput field={{key: "score", label: ability.label, kind: "number", width: 3, min: block.min, max: block.max}}
+            value={get(data, `${block.path}.${ability.key}.score`)} onCommit={v=>set(`${block.path}.${ability.key}.score`,v)} />
+            : <span className="view-score">{String(get(data, `${block.path}.${ability.key}.score`) ?? "—")}</span>}
+          <span className="view-mod">{modText(get(data, `${block.path}.${ability.key}.score`)) || "—"}</span>
+        </header>
+        {checks.map(check => check.items.filter(item=>item.ability===ability.key).map(item=>{
+          const path=`${check.path}.${item.key}`;
+          const flag=check.fields.find(f=>f.kind==="prof"||f.kind==="checkbox");
+          const manual=check.fields.find(f=>f.kind==="number");
+          const level=flag?profLevel(get(data,`${path}.${flag.key}`)):0;
+          const bonus=check.bonus?checkBonus(check.bonus,path,item.ability,data):{value:undefined,manual:false};
+          const save=check.path===block.path;
+          const label=save?`${ability.label}: спасбросок`:item.label;
+          return <div className="ability-check" key={path} data-path={path}>
+            <button className="roll-name" aria-label={label} disabled={!check.roll||bonus.value===undefined}
+              title="Бросить; Shift - преимущество, Alt - помеха" onClick={e=>{
+                if(!check.roll||bonus.value===undefined)return;
+                const edge=edgeOf(e);
+                roll(`${check.roll.d20[edge]}${signed(bonus.value)}`,`${item.label} - ${check.roll.label}${EDGE_LABEL[edge]}`);
+              }}>{save?"Спасбросок":item.label}</button>
+            {flag && (editing?<FieldInput field={{...flag,label:`${label}: владение`}} value={get(data,`${path}.${flag.key}`)} onCommit={v=>set(`${path}.${flag.key}`,v)} />:
+              <button className={`check-prof ${level===2?"check-expert":level?"check-trained":""}`} aria-label={`${label}: владение`}
+                title={level===2?"Мастерство":level?"Владение":"Нет владения"} onClick={()=>set(`${path}.${flag.key}`,(level+1)%3)}>{level===2?"◉":level?"●":"○"}</button>)}
+            {editing&&manual?<FieldInput field={{...manual,label:`${label}: свой бонус`}} value={get(data,`${path}.${manual.key}`)} onCommit={v=>set(`${path}.${manual.key}`,v)} />:
+              <span className="check-bonus" title={bonus.manual?"Свой бонус":"Посчитано"}>{signed(bonus.value)}{bonus.manual?"*":""}</span>}
+          </div>;
+        }))}
+      </article>)}
+    </div>
+  </section>;
+}
+
 const TAB_KEY = "lanterna.sheetTab";
 
 /** Лист персонажа поверх сцены. Сам ничего не хранит: правки - командами. */
@@ -1050,11 +1096,16 @@ export function CharacterSheet({ character, socket }: { character: Character; so
         ) as string[])
       : [],
   );
-  const views = current?.blocks.map((b) => ({
+  const abilityBlock = current?.blocks.find((b): b is AbilityBlock => b.kind === "abilities");
+  const groupedChecks = current?.blocks.filter((b): b is CheckBlock => b.kind === "checklist" && !!abilityBlock && b.bonus?.abilities === abilityBlock.path && b.items.every(item => abilityBlock.items.some(a=>a.key===item.ability))) ?? [];
+  const visibleBlocks = current?.blocks.filter(b=>!groupedChecks.includes(b as CheckBlock));
+  const groupedView = (b: Block) => b.kind === "abilities" && groupedChecks.length
+    ? <AbilityChecks block={b} checks={groupedChecks} data={character.data} editing={editing} set={set} roll={roll} /> : null;
+  const views = visibleBlocks?.map((b) => ({
     b,
     view: editing
       ? null
-      : ViewBlock({
+      : groupedView(b) ?? ViewBlock({
           block: b,
           data: character.data,
           inSummary,
@@ -1156,7 +1207,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
                 </nav>
                 <div className="sheet-body">
                   {editing
-                    ? current?.blocks.map((b) => <EditBlock key={b.title} block={b} data={character.data} set={set} />)
+                    ? visibleBlocks?.map((b) => <div className="sheet-cell" key={b.title}>{groupedView(b) ?? <EditBlock block={b} data={character.data} set={set} />}</div>)
                     : views?.map(
                         ({ b, view }) =>
                           view && (

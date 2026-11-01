@@ -159,6 +159,7 @@ export class SceneStage {
   // центром под курсор.
   private dragging: {
     view: TokenView;
+    pingOnClick: boolean;
     from: { x: number; y: number };
     grab: { x: number; y: number };
   } | null = null;
@@ -885,10 +886,15 @@ export class SceneStage {
     }
     if (this.tool !== "select") return;
     e.stopPropagation();
+    if (e.altKey && !this.canEdit(view.data.owner_id)) {
+      const p = this.toScene(e);
+      this.cb.onPing(p.x, p.y);
+      return;
+    }
     // Двойной клик - открыть лист. Одиночный выбирает и тащит: лист,
     // выскакивающий на каждом ходе, мешал бы.
     const now = performance.now();
-    if (now - view.lastDown < 350) {
+    if (!e.altKey && now - view.lastDown < 350) {
       view.lastDown = 0;
       this.cb.onOpenToken(view.data);
       return;
@@ -902,6 +908,7 @@ export class SceneStage {
     const p = this.toScene(e);
     this.dragging = {
       view,
+      pingOnClick: e.altKey,
       from: { x: view.data.x, y: view.data.y },
       grab: { x: p.x - view.data.x, y: p.y - view.data.y },
     };
@@ -1106,10 +1113,13 @@ export class SceneStage {
     this.clearMeasure();
 
     if (this.dragging) {
-      const { view, from } = this.dragging;
+      const { view, from, pingOnClick } = this.dragging;
       this.dragging = null;
       const to = { x: view.node.position.x, y: view.node.position.y };
-      if (to.x === from.x && to.y === from.y) return;
+      if (to.x === from.x && to.y === from.y) {
+        if (pingOnClick) this.cb.onPing(to.x, to.y);
+        return;
+      }
       this.cb.onMoveToken(view.data.id, to.x, to.y, from);
     }
   };

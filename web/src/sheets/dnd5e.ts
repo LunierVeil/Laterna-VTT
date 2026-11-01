@@ -162,12 +162,6 @@ export const dnd5e: SheetSchema = {
             ],
           },
         },
-      ],
-    },
-    {
-      id: "skills",
-      title: "Навыки",
-      blocks: [
         {
           kind: "checklist",
           title: "Спасброски",
