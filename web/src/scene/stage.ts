@@ -1,5 +1,6 @@
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Combat, FogRect, Scene, Token, Wall, Tool, TokenPreview } from "../types";
+import type { CharacterStats } from "../entities/token/model/presentation";
 
 const COLORS = {
   background: 0x121318,
@@ -56,18 +57,6 @@ export interface StageCallbacks {
   onFog: (mode: "cover" | "reveal", x: number, y: number, w: number, h: number) => string;
   /** Ctrl+Z, когда последним своим действием был туман. */
   onFogUndo: () => void;
-}
-
-/**
- * Что показать на токене из привязанного листа. Приходит из React (листы
- * живут там) по id персонажа; у кого листа нет - у того и полоски нет.
- */
-export interface CharacterStats {
-  hp?: number;
-  max?: number;
-  badge?: string;
-  /** Скорость в футах - подпись при перетаскивании: "25 / 30 фт". */
-  speed?: number;
 }
 
 /**
