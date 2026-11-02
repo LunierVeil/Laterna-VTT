@@ -171,5 +171,3 @@ export interface SceneInfo {
   id: string;
   name: string;
 }
-
-export type Tool = "ping" | "select" | "wall" | "token" | "erase" | "ruler" | "fog";

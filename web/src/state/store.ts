@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, Token, Tool, UserInfo } from "../types";
+import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, Token, UserInfo } from "../types";
+import type { Tool } from "../entities/scene/model/tool";
 
 /** Что нужно карточки токена. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
