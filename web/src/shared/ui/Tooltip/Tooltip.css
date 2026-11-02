@@ -1,0 +1,9 @@
+.ds-tooltip-anchor { display: inline-flex; max-width: 100%; }
+.ds-tooltip {
+  position: fixed; z-index: 100; width: max-content; max-width: min(var(--sidebar), calc(100vw - 2 * var(--panel-gap)));
+  max-height: calc(100dvh - 2 * var(--panel-gap)); overflow-y: auto; box-sizing: border-box;
+  padding: var(--field-padding-block) var(--field-padding-inline); border: var(--control-border-width) solid var(--color-border);
+  border-radius: var(--field-radius); background: var(--color-surface); color: var(--color-text);
+  font: var(--control-font-size) var(--sans); overflow-wrap: anywhere; white-space: normal;
+}
+@media (prefers-reduced-motion: reduce) { .ds-tooltip { animation: none; transition: none; } }

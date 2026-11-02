@@ -1,0 +1,15 @@
+.ds-dialog {
+  width: min(380px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px);
+  box-sizing: border-box; padding: var(--dialog-padding-block) var(--dialog-padding-inline);
+  color: var(--color-text); background: var(--color-panel); border: var(--control-border-width) solid var(--color-border);
+  border-radius: var(--panel-radius); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.ds-dialog[open] { display: flex; flex-direction: column; gap: 10px; }
+.ds-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.ds-dialog-title { margin: 0; font-size: 16px; overflow-wrap: anywhere; flex: none; }
+.ds-dialog-body { min-height: 0; overflow-y: auto; overflow-wrap: anywhere; color: var(--text-2); font-size: 14px; }
+.ds-dialog-body p { margin: 0 0 4px; }
+.ds-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--panel-gap); margin-top: var(--control-gap); flex: none; }
+.ds-dialog-actions .ds-button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+.ds-dialog-error { color: var(--color-danger); }
+.ds-dialog:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }

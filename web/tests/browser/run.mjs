@@ -7,7 +7,7 @@ export const groups = {
   sheets: ['sheets'],
   tokens: ['tokens', 'network'],
   scenes: ['scenes', 'auth'],
-  interaction: ['chat-dice', 'ui', 'smoke', 'design-system'],
+  interaction: ['chat-dice', 'ui', 'smoke', 'design-system', 'components-v03'],
 };
 export const suites = Object.values(groups).flat();
 const args = process.argv.slice(2);

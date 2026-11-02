@@ -49,3 +49,41 @@ test("Checkbox and Panel preserve native semantics and caller-provided attribute
   assert.match(panel, /^<div /); assert.match(panel, /class="ds-panel custom"/);
   assert.match(panel, /role="region"/); assert.match(panel, /Содержимое/);
 });
+
+const { Tabs } = await import("../src/shared/ui/Tabs/Tabs.tsx");
+const { Dialog } = await import("../src/shared/ui/Dialog/Dialog.tsx");
+const { Tooltip } = await import("../src/shared/ui/Tooltip/Tooltip.tsx");
+const { Select } = await import("../src/shared/ui/Select/Select.tsx");
+
+test("Tabs renders linked ARIA panels, retains inactive content and omits permission-hidden tabs", () => {
+  const html = renderToStaticMarkup(createElement(Tabs, {value:"chat",onValueChange:()=>{},size:"compact",items:[
+    {value:"chat",label:"Чат",content:"Черновик"}, {value:"other",label:"Другая",content:"Локальное состояние",disabled:true},
+    {value:"gm",label:"Секрет",content:"Секрет",hidden:true},
+  ]}));
+  assert.match(html, /role="tablist"/); assert.match(html, /role="tabpanel"/);
+  assert.match(html, /aria-selected="true"/); assert.match(html, /tabindex="0"/);
+  assert.match(html, /disabled=""/); assert.match(html, /hidden=""/);
+  assert.match(html, /Локальное состояние/); assert.doesNotMatch(html, /Секрет/);
+  const controls = [...html.matchAll(/aria-controls="([^"]+)"/g)].map(m=>m[1]);
+  for (const id of controls) assert.ok(html.includes(`id="${id}"`));
+});
+
+test("Select preserves native options, labels, controlled selection, error and loading descriptions", () => {
+  const html = renderToStaticMarkup(createElement(Select, {label:"Режим",value:"b",loading:true,error:"Ошибка", "aria-describedby":"hint",options:[{value:"a",label:"Первый",disabled:true},{value:"b",label:"Второй"}],onChange:()=>{}}));
+  const id = html.match(/<select[^>]* id="([^"]+)"/)![1];
+  assert.ok(html.includes(`for="${id}"`)); assert.match(html, /<select /);
+  assert.match(html, /disabled=""/); assert.match(html, /aria-busy="true"/);
+  assert.match(html, /value="b" selected=""/); assert.match(html, /aria-invalid="true"/);
+  assert.ok(html.includes(`aria-describedby="hint ${id}-error ${id}-loading"`));
+  assert.match(html, /role="status"/); assert.match(html, /role="alert"/);
+});
+
+test("Tooltip leaves child semantics and existing description intact before interaction", () => {
+  const html = renderToStaticMarkup(createElement(Tooltip, {content:"Помощь",children:createElement("button", {"aria-describedby":"hint"},"Кнопка")}));
+  assert.match(html, /<button aria-describedby="hint">Кнопка<\/button>/);
+  assert.doesNotMatch(html, /role="tooltip"/);
+});
+
+test("Closed Dialog does not render or expose background modal semantics", () => {
+  assert.equal(renderToStaticMarkup(createElement(Dialog, {open:false,title:"Удалить?",confirmLabel:"Удалить",onConfirm:()=>{},onClose:()=>{}})), "");
+});

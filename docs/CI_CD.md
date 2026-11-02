@@ -21,10 +21,10 @@ Ref один раз разрешается в SHA. Backend, frontend и все C
 | sheets | sheets | 8 |
 | tokens | tokens, network | 8 |
 | scenes | scenes, auth | 5 |
-| interaction | chat-dice, ui, smoke, design-system | 10 |
+| interaction | chat-dice, ui, smoke, design-system, components-v03 | 14 |
 
-Всего 30 UI-тестов и самостоятельный smoke_test.py (31 проверка, включая три
-проверки Design System Foundation): исходный B10 разделён
+Всего 34 UI-теста и самостоятельный smoke_test.py (35 проверок, включая три
+проверки Design System Foundation и четыре Components v0.3): исходный B10 разделён
 на PC/NPC с теми же вкладками, режимами, ширинами и assertions. Каждый
 случай имеет исходный лимит 120 секунд; лимит не увеличен. Каждая suite
 имеет отдельную временную SQLite, uploads, ключ, API/Vite, порты, браузер и contexts.

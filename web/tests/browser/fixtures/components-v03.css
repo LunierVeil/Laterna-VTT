@@ -1,0 +1,6 @@
+html, body { overflow: auto; height: auto; }
+.v03-fixture { padding: 16px; display: grid; gap: 20px; }
+.v03-fixture section { min-width: 0; display: grid; gap: 8px; }
+.v03-tabs-demo { width: min(340px, 100%); }
+.v03-fixture textarea, .v03-fixture input { max-width: 100%; box-sizing: border-box; }
+.v03-edge { position: fixed; right: 8px; top: 8px; }
