@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { observeTokenLink, tokenLinkClientState, matchingLinkUpdate, saveTokenLinkFailure } from './token-link-diagnostics.mjs';
 import { browser, base, api, gm, player, sceneId, control, setSceneId,
   until, probe, command, pageFor, openSheet, closeSheet, scene, capture,
   stageToken, atToken, nextToken } from './fixture.mjs';
@@ -95,9 +96,26 @@ test('Alpha token settings: linked controls removed without data loss; legacy an
  const plain=(await command('token.add',{x:point.x+210,y:point.y,name:'Plain object'})).payload.token;await until(()=>stageToken(p,plain.id),'plain token');
  await p.evaluate(id=>window.observedStage.select(id),plain.id);await p.getByRole('button',{name:'настройки токена',exact:true}).click();
  assert.equal(await p.locator('.token-card input[type=file]').count(),1);assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),1);
- await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).selectOption(c.id);
- await until(async()=> (await scene(p)).tokens.find(t=>t.id===plain.id)?.character_id===c.id,'link existing plain token');
- assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),0);
+ const receivedStart=await observeTokenLink(p,plain.id);
+ try{
+  const link=p.getByRole('combobox',{name:'Персонаж токена',exact:true});
+  await link.selectOption(c.id);
+  const bound=await until(async()=>{const token=(await scene(p)).tokens.find(t=>t.id===plain.id);return token?.character_id===c.id?token:null;},'link existing plain token');
+  assert.equal(bound.character_id,c.id);
+  // HTTP can observe the commit before token.updated reaches the app and React.
+  const update=await until(()=>matchingLinkUpdate(p.received.slice(receivedStart),plain.id,c.id),`link update/snapshot for ${plain.id}`);
+  const client=await until(async()=>{
+   const state=await tokenLinkClientState(p,plain.id);
+   return state.stageAlive&&Number.isInteger(state.socketSequence)&&state.socketSequence>=update.seq&&state.stageToken?.id===plain.id&&state.stageToken.character_id===c.id&&
+    state.selected?.id===plain.id&&state.selected.character_id===c.id?state:null;
+  },`applied link in SceneSocket, SceneStage and selected for ${plain.id}`);
+  assert.equal(client.stageToken.character_id,c.id);assert.equal(client.selected.character_id,c.id);
+  await link.waitFor({state:'detached'});
+  assert.equal(await p.getByRole('combobox',{name:'Персонаж токена',exact:true}).count(),0);
+ }catch(error){
+  await saveTokenLinkFailure(p,()=>scene(p),plain.id,c.id,receivedStart,error).catch(diagnostic=>console.error('Token link diagnostics failed:',diagnostic));
+  throw error;
+ }
  await p.close();
 });
 
