@@ -14,8 +14,9 @@ const web = resolve(import.meta.dirname, '../..'), root = resolve(web, '..');
 export let browser, server, vite, dir, base, api, gm, player, sceneId, control;
 let key;
 export function setSceneId(id) { sceneId = id; }
-const errors = [];
+export const errors = [];
 let serverLog = "", viteLog = "";
+const startupRecords = [];
 export async function port() {
   const s = createServer(); await new Promise(r => s.listen(0, '127.0.0.1', r));
   const n = s.address().port; await new Promise(r => s.close(r)); return n;
@@ -44,6 +45,7 @@ export async function command(name, payload = {}, page = control) {
   assert.notEqual(result.type, 'error', JSON.stringify(result)); return result;
 }
 export async function pageFor(context, options = {}) {
+  const started = Date.now();
   const p = await context.newPage();
   const startupConsole=[];p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')startupConsole.push(m.text());});
   if(options.trackSockets)await p.addInitScript(()=>{const Native=window.WebSocket;window.sceneSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/ws/scene/'))window.sceneSockets.push(this);}};});
@@ -55,17 +57,24 @@ export async function pageFor(context, options = {}) {
     await route.fulfill({response, body: `import {SceneStage as ObservedStage} from '/src/scene/stage.ts';
 const originalMount=ObservedStage.prototype.mount;
 window.observedStages=[];
+window.stageMounts=[];
 Object.defineProperty(window,'observedStage',{get:()=>window.observedStages.findLast(s=>s.isAlive&&s.app.canvas.isConnected)});
-ObservedStage.prototype.mount=async function(...args){await originalMount.apply(this,args);window.observedStages.push(this);};
+ObservedStage.prototype.mount=async function(...args){
+  const timing={start:performance.now(),finish:null};window.stageMounts.push(timing);
+  try {await originalMount.apply(this,args);window.observedStages.push(this);}
+  finally {timing.finish=performance.now();}
+};
 ` + source});
   });
   await p.goto(base);
   try { await p.locator('canvas').waitFor(); }
   catch(error) {
+    startupRecords.push({elapsedMs:Date.now()-started,failed:true,console:startupConsole,mounts:await p.evaluate(()=>window.stageMounts??[])});
     console.error('Canvas startup diagnostics', startupConsole, await p.evaluate(()=>({url:location.href,ready:document.readyState,canvases:[...document.querySelectorAll('canvas')].map(c=>({connected:c.isConnected,width:c.width,height:c.height,rect:c.getBoundingClientRect().toJSON()})),stages:window.observedStages?.length,resources:performance.getEntriesByType('resource').map(r=>({name:r.name.replace(location.origin,''),start:r.startTime,duration:r.duration})).slice(-35),text:document.body.innerText.slice(0,500)})));
     throw error;
   }
   await until(() => p.evaluate(async () => (await import('/src/state/store.ts')).useUi.getState().connected && window.observedStage?.isAlive), 'app connected');
+  startupRecords.push({elapsedMs:Date.now()-started,failed:false,console:startupConsole,mounts:await p.evaluate(()=>window.stageMounts??[]),pages:context.pages().length,contexts:browser.contexts().length});
   return p;
 }
 export async function openSheet(p, id) {
@@ -103,6 +112,7 @@ after(async () => {
   for(const p of [vite,server]) if(p && p.exitCode===null) {p.kill('SIGTERM'); await new Promise(r=>{p.once('exit',r);setTimeout(()=>{p.kill('SIGKILL');r();},3000).unref();});}
   const out=process.env.BROWSER_RESULTS_DIR||resolve(tmpdir(),'laterna-browser-results',suite);
   await mkdir(out,{recursive:true});
+  await writeFile(resolve(out,'startup.json'),JSON.stringify(startupRecords,null,2));
   await writeFile(resolve(out,'server.log'),serverLog); await writeFile(resolve(out,'vite.log'),viteLog);
   if(dir) await rm(dir,{recursive:true,force:true});
   assert.deepEqual(errors,[], 'browser page errors');

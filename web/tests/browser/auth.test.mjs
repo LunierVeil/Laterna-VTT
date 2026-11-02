@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { browser, base, api, gm, player, sceneId, control, setSceneId,
+import { browser, errors, base, api, gm, player, sceneId, control, setSceneId,
   until, probe, command, pageFor, openSheet, closeSheet, scene, capture,
   stageToken, atToken, nextToken } from './fixture.mjs';
 
