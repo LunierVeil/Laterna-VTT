@@ -1,0 +1,15 @@
+.ds-tabs { min-width: 0; max-width: 100%; }
+.ds-tabs-list { display: flex; overflow-x: auto; border-bottom: 1px solid var(--line-soft); }
+.ds-tab {
+  flex: 1 0 auto; white-space: nowrap; padding: var(--control-padding-inline) var(--field-padding-inline);
+  border: 0; border-bottom: var(--focus-ring-width) solid transparent; background: transparent;
+  color: var(--text-2); font: var(--control-font-weight) 14px var(--sans); cursor: pointer;
+}
+.ds-tabs--compact .ds-tab { min-height: var(--control-height-compact); padding: var(--control-gap) var(--field-padding-inline); font-size: var(--control-font-size); }
+.ds-tab:not(:disabled):hover { color: var(--color-text); background: var(--color-surface-hover); }
+.ds-tab:not(:disabled):active { background: var(--color-surface); }
+.ds-tab[aria-selected="true"] { color: var(--color-accent); border-bottom-color: var(--color-accent); font-weight: var(--control-font-weight-strong); }
+.ds-tab:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.ds-tab:disabled { opacity: var(--control-disabled-opacity); cursor: default; }
+.ds-tab-panel { padding: var(--panel-padding); overflow-wrap: anywhere; }
+.ds-tab-panel[hidden] { display: none; }
