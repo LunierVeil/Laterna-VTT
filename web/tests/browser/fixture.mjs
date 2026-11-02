@@ -101,7 +101,15 @@ before(async () => {
   gm = await browser.newContext({viewport:{width:1280,height:900}});
   const login = await gm.request.post(`${api}/api/gm/login`, {data:{key,name:'Regression GM',password:randomUUID()}}); assert.equal(login.status(),200);
   // Cookie hostname is shared by API and Vite; ports do not scope cookies.
-  control = await pageFor(gm); sceneId = (await (await gm.request.get(`${api}/api/campaign`)).json()).active_scene_id; await probe(control,sceneId);
+  // This actor only sends protocol commands and records events. Loading the
+  // SPA kept an unused software WebGL renderer active for the entire suite,
+  // competing with the actual GM/player/touch canvases on CI runners.
+  control = await gm.newPage();
+  control.received = capture(control);
+  control.on('pageerror', error => errors.push(error.message));
+  await control.goto(`${base}/api/health`);
+  sceneId = (await (await gm.request.get(`${api}/api/campaign`)).json()).active_scene_id;
+  await probe(control,sceneId);
   const inv = await command('invite.create');
   player = await browser.newContext({viewport:{width:1280,height:900}});
   const accepted = await player.request.post(`${api}/api/invite/accept`,{data:{token:inv.payload.token,name:'Regression player',password:randomUUID()}}); assert.equal(accepted.status(),200);

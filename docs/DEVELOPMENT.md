@@ -121,3 +121,10 @@ Engine не менялись. При повторном падении срав�
 В touch preview snapshot может прийти раньше нового renderer. После смены сцены
 тест ждёт новый живой SceneStage и сразу проверяет отсутствие previews; ожидание
 не подменяется polling до исчезновения неправильного preview.
+
+
+Управляющий protocol-клиент фикстуры открывает `/api/health` на origin Vite,
+использует cookies ГМ и probe WebSocket. Он не загружает SPA и не создаёт Pixi
+renderer: его canvas нигде не проверялся, а постоянный software WebGL redraw
+конкурировал с реальными GM/player/touch страницами. Все игровые страницы по-прежнему
+запускаются через pageFor с прежним ожиданием canvas и проверками StrictMode.
