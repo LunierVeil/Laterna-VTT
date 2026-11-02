@@ -83,9 +83,9 @@ candidate (SHA, existing tag validation)
 
 ## Кандидат без публикации
 
-После согласованного первого push, Actions -> Windows release -> Run workflow:
+Для ручной проверки кандидата: Actions -> Windows release -> Run workflow:
 
-- workflow branch: master;
+- workflow branch: master после merge; до merge — ветка с новой конфигурацией CI;
 - candidate_ref: конкретный полный SHA;
 - publish: false;
 - release_tag: пусто.
@@ -106,20 +106,39 @@ gh workflow run windows-release.yml --ref master -f candidate_ref=FULL_SHA -f pu
 4. В environment `release` после bootstrap настроить разрешённые tags и approval владельца/доверенного reviewer. Для единственного владельца не запрещать собственное approval. Без environment protection GitHub не добавляет ручной барьер автоматически; tag-trigger всё равно требует всех jobs.
 5. Только после success и approval публикуется prerelease. Проверить SHA и checksum на GitHub. Production-релизы и смена prerelease-статуса пока отдельное решение.
 
-В Cloud доступен Linux, а не Windows. Реальный Windows ZIP/startup/smoke и исполнение Actions до согласованного push НЕ проверены. Зависимости Python пока имеют диапазоны; каждый кандидат заново устанавливает их и проверяет собранный пакет. Полного побитового воспроизведения между датами/платформами не обещаем.
+Локальная Cloud Environment работает на Linux. Windows ZIP/startup/smoke проверены на GitHub Windows runner для указанного ниже candidate; интерактивный launcher и Porthole остаются ручными проверками. Зависимости Python пока имеют диапазоны; каждый кандидат заново устанавливает их и проверяет собранный пакет. Полного побитового воспроизведения между датами/платформами не обещаем.
 
 
-## Проверка ветки оптимизации без публикации
+## Подготовка PR и защита master
 
-Push в `ci/restore-pipeline-optimization` также запускает Windows release в режиме
-candidate-only: событие не является тегом `v*`, поэтому publish=false. Цепочка
-candidate → Full CI → Windows ZIP → extracted-package smoke выполняется на SHA
-этого push; publish job пропускается. Это временный триггер проверки рабочей ветки,
-а не запуск релизов при обычных push в master.
+Временный push-триггер Windows candidate для рабочей ветки удалён. Обычный push
+в любую ветку и события PR не запускают Windows release. Сохранены теги `v*` и
+ручной workflow_dispatch. Для candidate выбирайте publish=false и пустой release_tag.
+До merge выбирайте workflow branch `ci/restore-pipeline-optimization`, чтобы
+использовать новую конфигурацию Full CI; candidate_ref задавайте полным SHA.
 
-После push проверьте в Actions четыре Chromium jobs, CI required и Windows smoke.
-Скачайте ZIP/sha256, сверьте checksum и проверьте запуск на Windows/Porthole вручную.
-Для повторного ручного запуска выбирайте workflow из ветки оптимизации,
-candidate_ref=полный SHA, publish=false, release_tag пустой. Ничего не публикуйте.
-Нужен доступ к GitHub Actions; локальная Cloud Environment может иметь Git push,
-но не иметь доступа к api.github.com для наблюдения/dispatch через gh.
+Для PR из рабочей ветки в master проверьте Full CI: backend, frontend,
+четыре browser-группы и CI required. PR должен быть готовым к review (не draft).
+Сверьте refs/pull/<number>/merge с SHA resolve/checkout и tested_sha успешного gate,
+а его родителей — с актуальными head/base. После изменения head/base нужен новый
+полный прогон; старые результаты кандидата не подтверждают новый merge-коммит.
+Windows release и publish на событии PR должны отсутствовать.
+
+Для master настройте Branch Protection или активный Ruleset:
+
+- Require a pull request before merging.
+- Require status checks to pass: `CI required` из Full CI, источник GitHub Actions.
+  Выберите точное имя контекста после появления проверки на PR; не подставляйте
+  `checks / CI required` из reusable Windows candidate. Gate уже требует backend,
+  frontend и все четыре Chromium-группы; Fast CI его не заменяет.
+- Require branches to be up to date before merging (strict required checks).
+- Запретить force-push и удаление master; исключить обход обязательного PR/gate,
+  в том числе административный bypass.
+
+Для единственного владельца не задавайте обязательный чужой approval без
+доступного reviewer. Merge queue не включайте без добавления события merge_group
+в workflow. Настройки защиты в рамках этой подготовки не изменяются.
+
+Проверенный Windows candidate: [run 41454906403](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41454906403),
+SHA e95f9d19b3ea43b33fc63fc4ba4094d255738ae7: Full CI и Windows ZIP smoke успешны,
+publish пропущен. Этот результат не заменяет проверку будущего merge-коммита PR.

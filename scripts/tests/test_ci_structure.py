@@ -55,11 +55,15 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual(self.release['on']['workflow_dispatch']['inputs']['publish']['default'], 'false')
         self.assertEqual(jobs['publish']['if'], "needs.candidate.outputs.publish == 'true'")
 
-    def test_branch_push_selects_candidate_without_publication(self):
+    def test_release_triggers_only_tags_and_manual_dispatch(self):
+        self.assertEqual(set(self.release['on']), {'push', 'workflow_dispatch'})
+        self.assertEqual(self.release['on']['push'], {'tags': ['v*']})
+
+    def test_manual_dispatch_selects_candidate_without_publication(self):
         step = next(step for step in self.release['jobs']['candidate']['steps'] if step.get('id') == 'resolve')
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp)/'outputs'
-            env = dict(os.environ, EVENT='push', REF='refs/heads/ci/restore-pipeline-optimization', REQUEST_PUBLISH='', RELEASE_TAG='', GITHUB_OUTPUT=str(output))
+            env = dict(os.environ, EVENT='workflow_dispatch', REF='refs/heads/ci/restore-pipeline-optimization', REQUEST_PUBLISH='', RELEASE_TAG='', GITHUB_OUTPUT=str(output))
             subprocess.run(['bash', '-c', step['run']], cwd=ROOT, env=env, check=True, capture_output=True)
             values = dict(line.split('=',1) for line in output.read_text().splitlines())
             self.assertEqual(values['publish'], 'false')
