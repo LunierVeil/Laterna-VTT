@@ -2,10 +2,13 @@
 
 ## Статус и границы
 
-Проектное предложение к базе `1b215596cb9cb1917ba8fce3f249d1c7789d2df5`.
+План миграции к базе `1b215596cb9cb1917ba8fce3f249d1c7789d2df5`.
 [AS-IS, evidence и классификация проблем](FSD_AUDIT.md).
-Ни один описанный ниже перенос не выполнен. Stage 2, commit/push и PR требуют
-отдельного согласования; одобрение аудита не означает одобрение всех решений.
+D1–D7 согласованы пользователем 03.11.2026 как направление миграции; принятые
+ADR и ограничения зафиксированы в разделе 6. Это не разрешение на выполнение
+переносов. Ни один описанный ниже перенос не выполнен. Stage 2 не начинается до
+объединения документации в master и отдельного задания. Новый commit/push и создание
+PR документации требуют отдельных разрешений; merge не выполняется автоматически.
 
 Цель — уменьшить область влияния изменений и подготовить несколько НРИ, сохранив D&D 5e как
 полноценный эталон. FSD здесь — направления зависимостей и ownership, не обязательное
@@ -63,8 +66,8 @@ upward imports из features и не дробить на независимые 
 ## 2. TO-BE: дерево
 
 Пример целевой структуры после согласованных шагов. Имена slice уточняются перед
-конкретным PR; пустые каталоги не создаются. `systems/` — вариант B, не стандарт FSD
-и не обязательный результат первых переносов.
+конкретным PR; пустые каталоги не создаются. `systems/dnd5e` — согласованная будущая граница НРИ, не стандарт FSD
+и не обязательный результат первых переносов. Немедленного переноса не будет.
 
 ```text
 web/src/
@@ -112,21 +115,20 @@ web/src/
     ui/{Button,TextField,Checkbox,Panel,Tabs,Dialog,Tooltip,Select}/
     ui/{ConfirmDialog,icons}/       compatibility dialog; отдельный от native Dialog
     styles/tokens.css              без перемещений/переназначения legacy aliases
-  systems/                         [опциональный вариант B]
+  systems/                         [согласованная будущая граница, не немедленный move]
     dnd5e/
       model/{dnd5e.ts,mob.ts,equipment.ts,bonus.ts,tokenStats.ts}
       ui/HpControls.tsx            после извлечения; дальнейшие system renderers по мере нужды
   state/store.ts                   [только переходный compatibility bridge; удалить в PR-08]
 ```
 
-Вариант A вместо top-level systems: те же definitions/model в
-`entities/character/legacy-dnd5e/`, system-specific UI остаётся в sheet slice до
-выделения policy. Registry всё равно принадлежит app, не renderer и не shared.
-Выбор A/B должен предшествовать переносу этих файлов, чтобы не делать два пустых
-переезда. Рекомендуется B при подтверждённом направлении multi-system; A достаточен
-для первых механических PR и не препятствует дальнейшим системам.
+Принят вариант B — systems/dnd5e. Рассмотренный вариант A
+`entities/character/legacy-dnd5e/` сохраняется здесь как история альтернативы,
+но не является выбранной целью миграции. Создание новой границы и перенос
+существующих definitions планируются отдельными небольшими PR позднее;
+registry остаётся статическим и принадлежит app. Plugin SDK не вводится.
 
-### Зависимости опционального systems
+### Зависимости будущего systems
 
 `app → systems/dnd5e → entities/shared`; widgets получают resolved definition и
 UI slots из композиции. Domain rules системы не импортируют app, widgets, features,
@@ -139,8 +141,7 @@ UI slots из композиции. Domain rules системы не импор�
 
 Левые ссылки — существующие файлы на базе аудита. Правые пути — проект, ещё не
 существующие файлы; относительно `web/src`. До разрешения не создавать их.
-Префикс `DND/` означает `systems/dnd5e/model` (B) либо
-`entities/character/legacy-dnd5e` (A), решение D2. Механический move не меняет export,
+Префикс `DND/` означает будущий `systems/dnd5e/model` согласно принятому D2. Механический move не меняет export,
 JSON key, command payload, CSS class или runtime policy.
 
 | Сейчас | Предлагаемое место / решение | Потребители и imports | PR |
@@ -260,9 +261,9 @@ re-export указывает только на canonical implementation, не о
 
 | PR | Одна цель и файлы | Изменяемые imports | Главный риск и локальная регрессия | Done |
 | --- | --- | --- | --- | --- |
-| 00 | согласовать этот аудит и D1–D7 | нет | пути/граф/docs-only scope | решения приняты либо отложены явно; Stage 2 отдельно разрешён |
+| 00 | зафиксировать принятые D1–D7 и завершить документационный Stage 1 | нет | пути/граф/docs-only scope, CI актуального merge SHA | документация объединена в master; Stage 2 требует отдельного задания |
 | 01 | нейтральные contracts: types→protocol, Tool/SelectedToken/CharacterStats и narrow stage ports; маленькие под-PR при необходимости | type consumers из таблицы, socket/stage DTO imports, test DTO imports | type-only не должен стать runtime Pixi import; typecheck/unit + tokens/scenes | интерфейсы wire неизменны, нет upward type edges из models в widget |
-| 02 | низкорисковые leaves: icons/input/ConfirmDialog move; отдельно extract HpControls из CharacterSheet в существующий sheets/HpControls до D2/09 | consumers old ui; TokenCard и CharacterSheet больше не импортируют друг друга | CSS/focus, pointer capability, damage/temp HP; design-system/components-v03, sheets, tokens, ui | прежний API Cancel/Escape и HP commands; не заменять ConfirmDialog новым native Dialog |
+| 02 | низкорисковые leaves: icons/input/ConfirmDialog move; отдельно extract HpControls из CharacterSheet в существующий sheets/HpControls до будущего переноса по D2/09 | consumers old ui; TokenCard и CharacterSheet больше не импортируют друг друга | CSS/focus, pointer capability, damage/temp HP; design-system/components-v03, sheets, tokens, ui | прежний API Cancel/Escape и HP commands; не заменять ConfirmDialog новым native Dialog |
 | 03 | transport/upload physical move в shared/api | App, 14 type consumers, upload consumers, socket unit и diagnostics URL | один class/prototype, seq/reconnect/old socket rollback; socket unit + tokens/network/scenes | payload/timers/seq/order неизменны; canonical import наблюдает тот же сокет |
 | 04a | выделить app/session из App, оставив прежние эффекты/буферизацию; не менять JSX layout | App→session, session→shared api/legacy store | module-time gm/invite, cleanup, старые replies, до-mount snapshot, dice history; auth/scenes/network/chat-dice | один socket на session, тот же порядок snapshot/events и безопасный StrictMode |
 | 04b | вынести access/table composition в pages, App в app, main URL оставить | main/App, Login access page, pages→widgets/пока legacy UI | component keys, draft, login/setup/invite, GM vs active scene; auth/ui/scenes | только composition/import changes, без нового router и отмены guards |
@@ -285,6 +286,12 @@ system boundary: не превращать D&D controls в shared из удоб�
 PR-07a не обещает немедленную независимость registry: PR-09 убирает временные direct
 imports. Нарушения перечисляются, а не скрываются за public barrel.
 
+PR-01 разрешается разделять на независимые небольшие PR, если это снижает риск
+и облегчает ревью. Например: wire DTO, frontend types и renderer ports могут
+рассматриваться отдельно при соблюдении их зависимостей. Каждый под-PR должен
+собираться самостоятельно, сохранять API и поведение, иметь свои проверки и
+успешный CI; разделение не означает разрешения на Stage 2.
+
 ### Когда безопасно заниматься Zustand
 
 Не первым PR и не одновременно с перемещением App/renderer или rules extraction.
@@ -300,8 +307,11 @@ sheet, selected/event/snapshot, chat cap=200, flash timers, dice preference.
    Чистые selectors получают state параметром, не скрытый singleton. Не вводить Redux Toolkit
    ради слова «actions»; dependencies остаются прежними. Business rules bonus/hp/dice
    не становятся store actions, transport lifecycle остаётся app/session.
-2. **08b:** app connectors подписываются на store и передают каждому widget view props
-   и callbacks; локальные drafts остаются внутри прежних компонентов. По одному
+2. **08b:** способ подключения consumers выбирается отдельным миграционным PR.
+   App connectors и view props/callbacks — вариант, а не обязательная схема для
+   каждого компонента. Не протягивать state/actions через длинные цепочки
+   промежуточных компонентов только ради чистоты папок. Использовать узкие
+   selectors и существующие подходящие context boundaries; локальные drafts остаются внутри прежних компонентов. По одному
    consumer family на PR, без массового prop rewiring всего UI. Pure selectors
    сущности принимают её собственный state shape, не импортируют RootState из app.
 3. **08c:** когда lower consumers перестали импортировать legacy useUi, перенести
@@ -310,30 +320,39 @@ sheet, selected/event/snapshot, chat cap=200, flash timers, dice preference.
    connector в app импортирует widget и передаёт результат сверху через page.
 
 Если такой объём подключения не оправдан, допустимо отложить 08b/c и оставить legacy
-store с явно согласованным исключением D5. Это лучше фиктивной FSD-чистоты. Отдельные
+store с контролируемым временным исключением по D1/D5 и явным условием удаления. Это лучше фиктивной FSD-чистоты. Отдельные
 stores по каждой entity — иной архитектурный выбор, не рекомендуемый default этой
 миграции. Высокочастотные Pixi coordinates/previews не переносятся в Zustand ни в
 одном варианте.
 
-## 6. Решения для согласования
+## 6. Согласованные ADR D1–D7
 
-Это предложения аудита, не уже принятые ADR. До соответствующего PR нужен выбор.
+**Статус всех семи ADR: согласовано пользователем 03.11.2026.** Они задают
+направление, но не утверждают детали каждого будущего PR и не разрешают Stage 2.
+Варианты из аудита сохранены как контекст выбора, не как открытое голосование.
+Изменение принятого направления требует нового согласования.
 
-| ID | Решение | Рекомендация | Альтернатива / последствие | До какого шага |
+| ADR | Принятое решение | Обязательные ограничения | Контекст альтернатив и последствия | Этап применения |
 | --- | --- | --- | --- | --- |
-| D1 | глубина FSD и исключения legacy | направления зависимостей + короткий allowlist; без пустых слоёв/каталога на каждый click | строгий textbook FSD потребует больше DI и entity decomposition сейчас | 01 |
-| D2 | место игровых систем | B: optional systems/dnd5e с app-owned static registry; не plugin SDK | A: entities/character/legacy-dnd5e; выбор не меняет wire system=mob | 07a, не первый move |
-| D3 | кто владеет wire/domain types | shared/api — точные DTO; entities — минимальные projections, type-only aliases когда достаточно | сразу полный mapping DTO↔entity создаст дублирование без текущего потребителя | 01 |
-| D4 | renderer boundary/ports | сохранить imperative engine; narrow ports по реальным вызовам | вынести весь stage в shared/entity как «универсальный» преждевременно; rewriting React renderer не рассматривается | 01/05 |
-| D5 | store ownership и момент подключения | один store; actions/selectors отдельно; app composition + connectors только отдельной серией | временно legacy store с allowlist; много независимых store требует нового ADR и tests | 08 |
-| D6 | насколько обобщать rules/measurement | сохранить прежний 5e policy и UI; interfaces только для projections/resolver/используемых ports | новая система единиц, правила боя или dynamic plugins — отдельный вертикальный этап, не FSD | 09 |
-| D7 | import aliases и public APIs | сначала relative imports/узкие exports, временные однонаправленные bridges | aliases потребуют одинакового resolution в Vite, TS, Node tests и browser evaluate; не выбирать их только ради вида | 01/03 |
+| D1 | Упрощённый FSD: контроль направлений зависимостей и временный legacy allowlist | Исключения перечисляются, новые зависимости от legacy контролируются, условия удаления явные; без искусственных слоёв | Строгий textbook FSD потребовал бы больше DI и декомпозиции сразу. Выбранный подход уменьшает объём изменений, но требует сопровождения allowlist | 01 и все последующие |
+| D2 | systems/dnd5e — будущая граница НРИ; registry статический в app | Без plugin SDK и немедленного переноса; wire system=mob, JSON и сохранения остаются прежними | entities/character/legacy-dnd5e рассмотрен, но не выбран. Отдельная граница яснее изолирует НРИ, добавляя нестандартный для FSD каталог | Поздние небольшие PR, начиная с согласованного scope 07a/09 |
+| D3 | Точные wire DTO в shared/api; минимальные entity projections | Сохранить payload/seq/сериализацию; не дублировать все DTO ради entities | Полный DTO↔entity mapping дал бы большую независимость ценой лишних адаптеров. Выбраны только проекции с реальными потребителями | 01 |
+| D4 | Сохранить императивный SceneStage и callbacks | Порты только для реальных потребителей; сохраняются lifecycle, PixiJS/React bridge, optimistic rollback и порядок событий | Раннее дробление engine или перенос всего класса в shared повышает риск. Фасад сохраняет стабильность; внутренний размер класса не исправляется одним move | 01/05 |
+| D5 | Один Zustand store; отдельная миграция после App/scene | Без преждевременного дробления и чрезмерного prop drilling; actions/selectors без игровых правил; детали подключения проверяются отдельно | Множество stores усложнило бы согласованность/reset. Централизованный вариант сохраняет единый lifecycle, но требует аккуратного уменьшения связанности | 08, после 04/05 |
+| D6 | Сохранить текущие правила D&D 5e; обобщать только реально необходимые интерфейсы | Без попутной смены measurement/combat/HP semantics, DB или протокола; универсальность не означает преждевременный SDK | Полное обобщение заранее расширило бы scope и потребовало backend-решений. Выбран постепенный путь с 5e как эталоном | 09 |
+| D7 | Относительные импорты и узкие public API | Aliases не обязательны; временные re-export однонаправленные и с условием удаления | Aliases сократили бы пути, но потребовали согласовать TS/Vite/Node/browser resolution. Выбрана совместимость с текущими инструментами | 01/03 и далее |
+
+Уточнение к PR-01 также согласовано: он может быть разделён на независимые
+небольшие PR ради уменьшения риска и упрощения проверки. Это не разрешение
+переносить модули до завершения документационного Stage 1.
 
 ## 7. Критерии завершения и следующая граница
 
 Stage 1 завершён, когда AS-IS подтверждён кодом/графом, потенциальные риски отделены
-от дефектов, текущие пути проверены, D1–D7 видимы и предложена проверяемая очередность.
-Это не разрешение на Stage 2.
+от дефектов, текущие пути проверены, D1–D7 зафиксированы как согласованные ADR и
+есть проверяемая очередность. Документация должна пройти обязательный CI на актуальном
+merge SHA и быть объединена в master с отдельного разрешения. До этого Stage 2
+не начинается; после объединения для него также нужно отдельное задание.
 
 Каждый migration PR завершён, когда его цель ограничена, paths/tests обновлены,
 нет новых import cycles/необъявленных upward edges, DOM/права/commands/data сохраняются,
