@@ -1,10 +1,12 @@
-name: CI
+name: Full CI
 
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -18,9 +20,10 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: full-ci-${{ github.workflow }}-${{ inputs.ref || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,16 +32,28 @@ jobs:
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
+      full: ${{ steps.commit.outputs.full }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - id: commit
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        shell: bash
+        env:
+          IS_DRAFT: ${{ github.event.pull_request.draft || false }}
+        run: |
+          set -euo pipefail
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [[ "$IS_DRAFT" == true ]]; then echo 'full=false' >> "$GITHUB_OUTPUT"; else echo 'full=true' >> "$GITHUB_OUTPUT"; fi
 
   backend:
     needs: resolve
+    if: needs.resolve.outputs.full == 'true'
+    outputs:
+      tested_sha: ${{ steps.tested.outputs.sha }}
+      run_id: ${{ steps.tested.outputs.run_id }}
+      attempt: ${{ steps.tested.outputs.attempt }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -62,8 +77,23 @@ jobs:
           name: backend-diagnostics
           path: artifacts/
 
+      - id: tested
+        env:
+          TESTED_SHA: ${{ needs.resolve.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "sha=$TESTED_SHA" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
   frontend:
     needs: resolve
+    if: needs.resolve.outputs.full == 'true'
+    outputs:
+      tested_sha: ${{ steps.tested.outputs.sha }}
+      run_id: ${{ steps.tested.outputs.run_id }}
+      attempt: ${{ steps.tested.outputs.attempt }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -84,10 +114,25 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      - id: tested
+        env:
+          TESTED_SHA: ${{ needs.resolve.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "sha=$TESTED_SHA" >> "$GITHUB_OUTPUT"
+          echo "run_id=$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
   browser:
     needs: resolve
+    if: needs.resolve.outputs.full == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [sheets, tokens, scenes, interaction]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -110,21 +155,30 @@ jobs:
         working-directory: web
       - run: npx --no-install playwright install --with-deps chromium
         working-directory: web
-      - name: All Chromium scenarios and isolated smoke-test
+      - name: Chromium group and isolated evidence
         env:
-          BROWSER_RESULTS_DIR: ${{ github.workspace }}/artifacts/browser
+          BROWSER_RESULTS_DIR: ${{ github.workspace }}/artifacts/browser/${{ matrix.group }}
+          BROWSER_JUNIT: ${{ github.workspace }}/artifacts/browser/${{ matrix.group }}/results.xml
+          BROWSER_GROUP: ${{ matrix.group }}
+          TESTED_SHA: ${{ needs.resolve.outputs.sha }}
         working-directory: web
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$BROWSER_RESULTS_DIR"
-          npm run test:browser 2>&1 | tee "$BROWSER_RESULTS_DIR/runner.log"
+          npm run test:browser -- --group "$BROWSER_GROUP" 2>&1 | tee "$BROWSER_RESULTS_DIR/runner.log"
+          ../server/.venv/bin/python ../scripts/ci_gate.py evidence --group "$BROWSER_GROUP" --sha "$TESTED_SHA" --junit "$BROWSER_JUNIT" --out "$BROWSER_RESULTS_DIR/evidence.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
-          name: chromium-diagnostics
-          path: artifacts/browser/
+          name: chromium-diagnostics-${{ matrix.group }}
+          path: artifacts/browser/${{ matrix.group }}/
           if-no-files-found: warn
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: chromium-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.group }}
+          path: artifacts/browser/${{ matrix.group }}/evidence.json
+          if-no-files-found: error
 
   required:
     name: CI required
@@ -133,16 +187,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      tested_sha: ${{ needs.resolve.outputs.sha }}
+      tested_sha: ${{ steps.gate.outputs.tested_sha }}
     steps:
-      - name: Require every check
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: chromium-evidence-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: artifacts/evidence
+      - name: Reject missing, skipped, failed or stale results
+        id: gate
         env:
-          RESOLVE: ${{ needs.resolve.result }}
-          BACKEND: ${{ needs.backend.result }}
-          FRONTEND: ${{ needs.frontend.result }}
-          BROWSER: ${{ needs.browser.result }}
-        run: |
-          test "$RESOLVE" = success
-          test "$BACKEND" = success
-          test "$FRONTEND" = success
-          test "$BROWSER" = success
+          GH_TOKEN: ${{ github.token }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+          CI_CANDIDATE: ${{ inputs.ref }}
+        run: python3 scripts/ci_gate.py gate --evidence-dir artifacts/evidence

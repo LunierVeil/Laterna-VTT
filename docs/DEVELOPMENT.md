@@ -38,7 +38,7 @@ npm run test:browser
 
 В Linux для системного Chromium допустим `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`; CI устанавливает версию браузера из package-lock Playwright. На Windows разработчику browser fixture сейчас требуется POSIX-структура `server/.venv/bin` - полный браузерный прогон выполняйте в WSL/Linux; Windows ZIP отдельно проверяется в Windows Actions.
 
-Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py`, затем 26 сценариев с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
+Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 27 UI-тестов с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
 
 ## Работа через PR
 
@@ -69,3 +69,62 @@ npm run build
 Compose использует тестовые PostgreSQL credentials и bind mounts для разработки, не для production. Обычный `docker compose down` не удаляет именованный volume pgdata. Не использовать `down -v` или volume prune для пользовательских данных. `make clean` очищает только web/dist. Dockerfile frontend использует тот же Node 24 и npm ci, что локальная разработка/CI.
 
 Для Codex инструкции находятся в корневом AGENTS.md. CLAUDE.md может существовать только как локальный игнорируемый файл; в Initial Commit он не включается.
+
+
+### Изолированные Chromium suites
+
+`npm run test:browser` запускает восемь независимых файлов последовательно:
+`sheets`, `tokens`, `scenes`, `network`, `chat-dice`, `auth`, `ui`, `smoke`.
+Каждый файл получает собственные SQLite, uploads, ключ, API/Vite, браузер и
+контексты аккаунтов. Общая фикстура — `web/tests/browser/fixture.mjs`.
+Итого: 27 UI-тестов и один самостоятельный repository smoke (28 проверок).
+Исходный B10 разделён на PC/NPC с теми же assertions и лимитом 120 с для каждого.
+Assertions и исходные таймауты при разделении сохранены.
+
+Из каталога `web` можно запускать только нужную часть:
+
+```bash
+CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --suite scenes
+CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --group tokens
+```
+
+Группы для будущей матрицы CI: `sheets` (sheets), `tokens` (tokens/network),
+`scenes` (scenes/auth), `interaction` (chat-dice/ui/smoke).
+Runner отклоняет неизвестное имя вместо пустого успешного прогона.
+`BROWSER_RESULTS_DIR` автоматически получает подпапку по имени suite,
+чтобы параллельные процессы не перезаписывали логи и скриншоты.
+После сценария фикстура закрывает дополнительные contexts, в том числе при
+ошибке; после suite закрывает браузер, серверы и временные данные.
+
+`BROWSER_JUNIT=/absolute/path/results.xml` включает JUnit вместе с обычным stdout;
+runner удаляет старый файл перед запуском. CI принимает только полный отчёт текущего запуска.
+
+
+### Диагностика Final scenes
+
+При восстановлении CI локальный полный прогон прошёл 27/27, а отдельная группа
+scenes/auth — 5/5. Зависание третьего canvas не воспроизведено. В дополнительном
+прогоне под нагрузкой mount мобильного renderer занял около 5,2 с; общий запуск
+страницы — около 8 с (таймаут canvas отсчитывается после навигации).
+Это наблюдение, не доказательство первопричины прежней ошибки.
+
+Фикстура сохраняет startup.json: длительность pageFor, интервалы SceneStage.mount,
+число contexts/pages, предупреждения консоли и признак ошибки. Существующие
+таймауты, проверки StrictMode и assertions сценариев сохранены. Приложение и Scene
+Engine не менялись. При повторном падении сравнивайте mount с загрузкой ресурсов,
+ошибками страницы и серверными логами; не увеличивайте таймаут вслепую.
+
+
+По результатам первого GitHub run 41449174292 B10 исчерпал общий лимит на
+перебор двух типов листа. Теперь PC/NPC выполняются как самостоятельные тесты;
+все шесть ширин, вкладки, view/edit и проверки переполнения сохранены.
+В touch preview snapshot может прийти раньше нового renderer. После смены сцены
+тест ждёт новый живой SceneStage и сразу проверяет отсутствие previews; ожидание
+не подменяется polling до исчезновения неправильного preview.
+
+
+Управляющий protocol-клиент фикстуры открывает `/api/health` на origin Vite,
+использует cookies ГМ и probe WebSocket. Он не загружает SPA и не создаёт Pixi
+renderer: его canvas нигде не проверялся, а постоянный software WebGL redraw
+конкурировал с реальными GM/player/touch страницами. Все игровые страницы по-прежнему
+запускаются через pageFor с прежним ожиданием canvas и проверками StrictMode.

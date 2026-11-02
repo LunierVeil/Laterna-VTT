@@ -11,6 +11,7 @@ Self-hosted VTT: FastAPI, React/TypeScript, PixiJS 8 и Zustand для UI.
 - Не изменять пользовательские базы и сохранения без явного разрешения.
 - Новые функции сопровождать тестами. Для затронутых компонентов запускать backend pytest,
   frontend tests, TypeScript, production build и browser tests; не ослаблять проверки ради CI.
+- Все сообщения Git-коммитов писать на русском языке. Допустимы префиксы Conventional Commits; описание после двоеточия — на русском.
 - Commit, push, merge, force-push, релизы и разрушительные операции требуют разрешения пользователя.
 
 Планы, а не реализованная архитектура: Design System → упрощённый FSD → централизованный
