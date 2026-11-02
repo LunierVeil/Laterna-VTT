@@ -3,6 +3,8 @@ name: Windows release
 on:
   push:
     tags: ['v*']
+    # Candidate-only verification on this development branch; no tag => no publish.
+    branches: [ci/restore-pipeline-optimization]
   workflow_dispatch:
     inputs:
       candidate_ref:
@@ -74,6 +76,7 @@ jobs:
       ref: ${{ needs.candidate.outputs.sha }}
     permissions:
       contents: read
+      pull-requests: read
 
   windows:
     needs: [candidate, checks]

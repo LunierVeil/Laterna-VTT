@@ -1,15 +1,63 @@
 # CI/CD и выпуск кандидата
 
-## CI
+## Fast CI и Full CI
 
-`.github/workflows/ci.yml`: push в master, PR в master и `workflow_call` из release. Официальные checkout/setup/upload/download Actions закреплены по проверенным commit SHA (Node 24 runtime; версии указаны рядом). Обновлять pins отдельным PR с проверкой action.yml, не подставлять непроверенный latest. Только `contents: read`; нет `pull_request_target` и секретов пользовательской установки. Устаревшие проверки одной ветки/PR отменяются. Сначала ref однократно разрешается в SHA; все jobs checkout именно его, без сохранённых Git credentials.
+`fast-ci.yml` запускает backend и frontend при push в рабочие ветки и для draft PR.
+Он проверяет pytest, служебные unittest, TypeScript, frontend unit и production build.
+Chromium не устанавливается. Этот workflow не создаёт контекст `CI required`.
 
-- backend: Python 3.12, pip cache по requirements, все pytest (включая миграции SQLite) и unittest безопасности снимка/экспорта; JUnit при падении.
-- frontend: Node 24 LTS, npm cache по lockfile, `npm ci`, typecheck, unit, production build.
-- browser: отдельный venv, npm ci, `playwright install --with-deps chromium`, полный существующий browser fixture и исходный smoke. Таймаут job 40 минут; ожидания и требования самих тестов не увеличены. `pipefail` сохраняет ненулевой код при записи runner.log через tee. Артефакты содержат screenshots, runner/server/Vite logs; тестовые БД и ключи не загружаются.
-- `CI required`: выполняется и при ошибке/пропуске зависимости, требует success всех jobs. Именно его контекст используется защитой master. Выход `tested_sha` доступен release только после полного успеха.
+`ci.yml` (Full CI) запускается для готовых PR в master, после push в master,
+вручную через workflow_dispatch и как reusable workflow для Windows candidate.
+События ready_for_review и converted_to_draft учитываются явно. Для draft полный
+набор не запускается, а gate не становится зелёным: быстрые проверки не дают
+разрешения на merge. Устаревшие запуски одного PR/ветки отменяются.
 
-Fixture завершает свои процессы штатно; при принудительном таймауте/cancel очистку потомков дополнительно выполняет GitHub runner. npm/pip cache хранит загрузки, не готовые node_modules/venv или данные кампаний. Внешние установки и workflow не исполнялись на настоящих GitHub runners в рамках подготовки: локальная валидация не заменяет первый Actions run.
+Ref один раз разрешается в SHA. Backend, frontend и все Chromium-группы получают
+одинаковый checkout. Backend/frontend сообщают SHA, run ID и attempt только после
+успешных проверок. Chromium работает четырьмя независимыми jobs (fail-fast=false):
+
+| Группа | Suites | Проверок |
+| --- | --- | --- |
+| sheets | sheets | 7 |
+| tokens | tokens, network | 8 |
+| scenes | scenes, auth | 5 |
+| interaction | chat-dice, ui, smoke | 7 |
+
+Всего 26 исходных UI-сценариев и самостоятельный smoke_test.py. Каждая suite
+имеет отдельную временную SQLite, uploads, ключ, API/Vite, порты, браузер и contexts.
+Запуск внутри группы последовательный; группы работают на разных GitHub runners.
+`BROWSER_RESULTS_DIR` разделён по группе и suite. В диагностику входят runner.log,
+JUnit, server/Vite logs, screenshots и startup.json с временами создания canvas.
+Базы и ключи в artifacts не включаются.
+
+`scripts/ci_gate.py` проверяет реальные JUnit testcase: нулевой, неполный,
+failed/skipped/disabled прогон не создаёт успешный evidence. Четыре evidence
+артефакта связываются с SHA, github.run_id и github.run_attempt. `CI required`
+исполняется через always() и отклоняет failed/cancelled/skipped jobs, отсутствующие
+или повторные группы, старые SHA/run/attempt и несоответствие candidate SHA.
+Выход tested_sha появляется только после полного успешного gate.
+
+Для PR gate повторно читает GitHub API: PR должен оставаться открытым и готовым,
+head/base SHA должны совпадать с событием, merge_commit_sha — с проверенным SHA.
+При push master проверяется, что ветка не продвинулась. Ошибка API закрывает gate.
+Частичный Re-run failed jobs может содержать результаты прежней попытки и будет
+отклонён; используйте Re-run all jobs. Gate не ищет зелёные результаты других runs.
+
+После завершения gate PR/ветка ещё могут измениться. Защита master должна требовать
+`CI required` и актуальность ветки относительно base (strict required checks).
+Без настройки branch protection локальная логика workflow не может атомарно
+запретить merge. Изменения защиты master в этой задаче не выполняются.
+
+Все Actions закреплены по SHA; checkout не сохраняет credentials. Нет
+pull_request_target. Full CI получает contents:read и pull-requests:read;
+право contents:write остаётся только у отдельного publish job.
+Пакетные кэши привязаны к lockfile/requirements, готовые venv/node_modules и
+кампании не кэшируются. Backend requirements пока задают диапазоны версий.
+
+Локальная проверка workflow: actionlint 1.7.7, `server/.venv/bin/python -m unittest
+discover -s scripts/tests -v`. Контрактные тесты проверяют покрытие всех suites
+матрицей, количество тестов, pins Actions и цепочку Windows candidate.
+Локальные результаты не заменяют настоящий запуск GitHub Actions.
 
 ## Windows release
 
@@ -57,3 +105,19 @@ gh workflow run windows-release.yml --ref master -f candidate_ref=FULL_SHA -f pu
 5. Только после success и approval публикуется prerelease. Проверить SHA и checksum на GitHub. Production-релизы и смена prerelease-статуса пока отдельное решение.
 
 В Cloud доступен Linux, а не Windows. Реальный Windows ZIP/startup/smoke и исполнение Actions до согласованного push НЕ проверены. Зависимости Python пока имеют диапазоны; каждый кандидат заново устанавливает их и проверяет собранный пакет. Полного побитового воспроизведения между датами/платформами не обещаем.
+
+
+## Проверка ветки оптимизации без публикации
+
+Push в `ci/restore-pipeline-optimization` также запускает Windows release в режиме
+candidate-only: событие не является тегом `v*`, поэтому publish=false. Цепочка
+candidate → Full CI → Windows ZIP → extracted-package smoke выполняется на SHA
+этого push; publish job пропускается. Это временный триггер проверки рабочей ветки,
+а не запуск релизов при обычных push в master.
+
+После push проверьте в Actions четыре Chromium jobs, CI required и Windows smoke.
+Скачайте ZIP/sha256, сверьте checksum и проверьте запуск на Windows/Porthole вручную.
+Для повторного ручного запуска выбирайте workflow из ветки оптимизации,
+candidate_ref=полный SHA, publish=false, release_tag пустой. Ничего не публикуйте.
+Нужен доступ к GitHub Actions; локальная Cloud Environment может иметь Git push,
+но не иметь доступа к api.github.com для наблюдения/dispatch через gh.
