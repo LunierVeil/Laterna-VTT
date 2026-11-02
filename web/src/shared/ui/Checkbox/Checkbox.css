@@ -1,0 +1,6 @@
+.ds-checkbox { display: inline-flex; align-items: center; gap: var(--field-label-gap); cursor: pointer; }
+.ds-checkbox-input { flex: none; margin: 0; padding: 0; accent-color: var(--color-accent); }
+.ds-checkbox-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset);
+}
+.ds-checkbox[data-disabled] { opacity: var(--control-disabled-opacity); cursor: default; }

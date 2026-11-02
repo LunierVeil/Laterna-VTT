@@ -1,0 +1,61 @@
+:root {
+  /* Единственный источник значений UI; существующие имена сохранены. */
+  --bg: #121318;
+  --panel: #17181e;
+  --surface: #1f2129;
+  --surface-hover: #22242c;
+  --line: #2c2f3a;
+  --line-soft: #262833;
+  --line-hover: #3a3e4b;
+  --text: #e9e6df;
+  --text-2: #c9c5bc;
+  --muted: #a9a6a0;
+  --accent: #f0b14a;
+  --accent-bg: #2b2416;
+  --accent-text: #f6d39a;
+  --on-accent: #1a1408;
+  --ok: #6cc070;
+  --danger: #c75c5c;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --serif: "Cormorant Garamond", Georgia, serif;
+  --sidebar: 340px;
+  color-scheme: dark;
+
+  /* Семантические имена для новых компонентов, без второй палитры. */
+  --color-background: var(--bg);
+  --color-panel: var(--panel);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-success: var(--ok);
+  --color-danger: var(--danger);
+  --color-on-danger: #fff;
+
+  /* Значения существующих .btn, input, .dialog и .icon-btn. */
+  --control-gap: 6px;
+  --control-height: 40px;
+  --control-height-compact: 34px;
+  --control-padding-inline: 14px;
+  --control-border-width: 1px;
+  --control-radius: 8px;
+  --control-font-size: 13px;
+  --control-font-weight: 500;
+  --control-font-weight-strong: 600;
+  --control-disabled-opacity: 0.5;
+  --field-padding-block: 7px;
+  --field-padding-inline: 10px;
+  --field-radius: 6px;
+  --field-label-gap: 8px;
+  --panel-padding: 12px;
+  --panel-radius: 12px;
+  --panel-gap: 8px;
+  --dialog-padding-block: 18px;
+  --dialog-padding-inline: 20px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--accent);
+}

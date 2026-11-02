@@ -1,6 +1,6 @@
 # Локальная разработка и Pull Request
 
-Функциональная альфа завершена. Design System, упрощённый FSD с Zustand store/actions/selectors и модульный монолит FastAPI - следующие отдельные задачи. Здесь они не начаты. B01/B02 через Porthole и исходный выход рамки листа B14 остаются открытыми: см. docs/BUGS.md.
+Функциональная альфа завершена. Первый слой Design System Foundation описан в docs/DESIGN_SYSTEM.md. Упрощённый FSD с Zustand store/actions/selectors и модульный монолит FastAPI остаются отдельными следующими этапами; они не начаты. B01/B02 через Porthole и исходный выход рамки листа B14 остаются открытыми: см. docs/BUGS.md.
 
 ## Окружение
 
@@ -38,7 +38,7 @@ npm run test:browser
 
 В Linux для системного Chromium допустим `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`; CI устанавливает версию браузера из package-lock Playwright. На Windows разработчику browser fixture сейчас требуется POSIX-структура `server/.venv/bin` - полный браузерный прогон выполняйте в WSL/Linux; Windows ZIP отдельно проверяется в Windows Actions.
 
-Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 27 UI-тестов с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
+Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 30 UI-тестов с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
 
 ## Работа через PR
 
@@ -73,11 +73,11 @@ Compose использует тестовые PostgreSQL credentials и bind mou
 
 ### Изолированные Chromium suites
 
-`npm run test:browser` запускает восемь независимых файлов последовательно:
-`sheets`, `tokens`, `scenes`, `network`, `chat-dice`, `auth`, `ui`, `smoke`.
+`npm run test:browser` запускает девять независимых файлов последовательно:
+`sheets`, `tokens`, `scenes`, `network`, `chat-dice`, `auth`, `ui`, `smoke`, `design-system`.
 Каждый файл получает собственные SQLite, uploads, ключ, API/Vite, браузер и
 контексты аккаунтов. Общая фикстура — `web/tests/browser/fixture.mjs`.
-Итого: 27 UI-тестов и один самостоятельный repository smoke (28 проверок).
+Итого: 30 UI-тестов и один самостоятельный repository smoke (31 проверка).
 Исходный B10 разделён на PC/NPC с теми же assertions и лимитом 120 с для каждого.
 Assertions и исходные таймауты при разделении сохранены.
 
@@ -89,7 +89,7 @@ CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --group tokens
 ```
 
 Группы для будущей матрицы CI: `sheets` (sheets), `tokens` (tokens/network),
-`scenes` (scenes/auth), `interaction` (chat-dice/ui/smoke).
+`scenes` (scenes/auth), `interaction` (chat-dice/ui/smoke/design-system).
 Runner отклоняет неизвестное имя вместо пустого успешного прогона.
 `BROWSER_RESULTS_DIR` автоматически получает подпапку по имени suite,
 чтобы параллельные процессы не перезаписывали логи и скриншоты.
@@ -128,3 +128,5 @@ Engine не менялись. При повторном падении срав�
 renderer: его canvas нигде не проверялся, а постоянный software WebGL redraw
 конкурировал с реальными GM/player/touch страницами. Все игровые страницы по-прежнему
 запускаются через pageFor с прежним ожиданием canvas и проверками StrictMode.
+
+Design System Foundation: [токены, компоненты и проверки](DESIGN_SYSTEM.md).
