@@ -18,12 +18,14 @@ Ref один раз разрешается в SHA. Backend, frontend и все C
 
 | Группа | Suites | Проверок |
 | --- | --- | --- |
-| sheets | sheets | 7 |
+| sheets | sheets | 8 |
 | tokens | tokens, network | 8 |
 | scenes | scenes, auth | 5 |
 | interaction | chat-dice, ui, smoke | 7 |
 
-Всего 26 исходных UI-сценариев и самостоятельный smoke_test.py. Каждая suite
+Всего 27 UI-тестов и самостоятельный smoke_test.py: исходный B10 разделён
+на PC/NPC с теми же вкладками, режимами, ширинами и assertions. Каждый
+случай имеет исходный лимит 120 секунд; лимит не увеличен. Каждая suite
 имеет отдельную временную SQLite, uploads, ключ, API/Vite, порты, браузер и contexts.
 Запуск внутри группы последовательный; группы работают на разных GitHub runners.
 `BROWSER_RESULTS_DIR` разделён по группе и suite. В диагностику входят runner.log,

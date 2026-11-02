@@ -52,9 +52,9 @@ test('B05: damage from sheet and token card consumes temporary hp and broadcasts
 });
 
 
-test('B10: populated PC and mob sheets fit every mobile tab in view and edit modes',{timeout:120000},async()=>{
-  const p=await pageFor(gm),failures=[];
-  for(const system of ['dnd5e','mob']) {
+function mobileSheetTest(system) {
+  return async () => {
+    const p=await pageFor(gm),failures=[];
     const c=(await command('character.create',{name:`Mobile ${system}`,system})).payload.character;
     if(system==='dnd5e') {
       await command('character.list',{id:c.id,path:'weapons',op:'add',item:{name:'Long weapon name',attack:5,damage:'1d8+3'}});
@@ -63,6 +63,7 @@ test('B10: populated PC and mob sheets fit every mobile tab in view and edit mod
     await until(()=>p.evaluate(async id=>!!(await import('/src/state/store.ts')).useUi.getState().characters[id],c.id),'mobile sheet delivered');
     await openSheet(p,c.id);
     for(const width of [360,390,430,768,1024,1280]) {
+      const started = Date.now();
       await p.setViewportSize({width,height:850});
       const bounds=await p.locator('.sheet').boundingBox();
       // Preserve the original fullscreen requirement on phones; desktop is a modal beside the chat.
@@ -77,11 +78,15 @@ test('B10: populated PC and mob sheets fit every mobile tab in view and edit mod
         }
         if(edit)await p.locator('.sheet').getByRole('button',{name:'Готово',exact:true}).click();
       }
+      console.log('B10 viewport', JSON.stringify({system,width,elapsedMs:Date.now()-started}));
     }
     await closeSheet(p);await p.setViewportSize({width:1280,height:900});
-  }
-  assert.deepEqual(failures,[],JSON.stringify(failures));await p.close();
-});
+    assert.deepEqual(failures,[],JSON.stringify(failures));await p.close();
+  };
+}
+
+test('B10 PC: populated sheet fits every mobile tab in view and edit modes', {timeout:120000}, mobileSheetTest('dnd5e'));
+test('B10 NPC: populated sheet fits every mobile tab in view and edit modes', {timeout:120000}, mobileSheetTest('mob'));
 
 test('Alpha layout: empty/populated PC and mob, view/edit, six widths; controls stay inside cards',{timeout:240000},async()=>{
  const p=await pageFor(gm),issues=[];

@@ -60,12 +60,12 @@ class RequiredGateTests(unittest.TestCase):
         self.assertEqual(gate.validate(self.needs, self.records, '123', '2', SHA), SHA)
 
     def test_junit_rejects_zero_missing_failed_skipped_or_disabled_tests(self):
-        valid = '<testsuites><testsuite>' + '<testcase name="test"/>'*7 + '</testsuite></testsuites>'
+        valid = '<testsuites><testsuite>' + '<testcase name="test"/>'*8 + '</testsuite></testsuites>'
         variants = [valid.replace('<testcase name="test"/>', '', 1), valid.replace('<testcase name="test"/>', '<testcase><skipped/></testcase>', 1), valid.replace('<testsuite>', '<testsuite disabled="1">'), valid.replace('<testcase name="test"/>', '<testcase><failure/></testcase>', 1), '<testsuites/>']
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'results.xml'
             path.write_text(valid)
-            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 7)
+            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 8)
             for invalid in variants:
                 path.write_text(invalid)
                 with self.subTest(invalid=invalid[:90]), self.assertRaises(ValueError): gate.browser_evidence('sheets', SHA, '123', '2', path)

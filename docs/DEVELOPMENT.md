@@ -38,7 +38,7 @@ npm run test:browser
 
 В Linux для системного Chromium допустим `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`; CI устанавливает версию браузера из package-lock Playwright. На Windows разработчику browser fixture сейчас требуется POSIX-структура `server/.venv/bin` - полный браузерный прогон выполняйте в WSL/Linux; Windows ZIP отдельно проверяется в Windows Actions.
 
-Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 26 исходных сценариев с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
+Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 27 UI-тестов с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
 
 ## Работа через PR
 
@@ -77,7 +77,8 @@ Compose использует тестовые PostgreSQL credentials и bind mou
 `sheets`, `tokens`, `scenes`, `network`, `chat-dice`, `auth`, `ui`, `smoke`.
 Каждый файл получает собственные SQLite, uploads, ключ, API/Vite, браузер и
 контексты аккаунтов. Общая фикстура — `web/tests/browser/fixture.mjs`.
-Итого: 26 исходных UI-сценариев и один самостоятельный repository smoke.
+Итого: 27 UI-тестов и один самостоятельный repository smoke (28 проверок).
+Исходный B10 разделён на PC/NPC с теми же assertions и лимитом 120 с для каждого.
 Assertions и исходные таймауты при разделении сохранены.
 
 Из каталога `web` можно запускать только нужную часть:
@@ -112,3 +113,11 @@ scenes/auth — 5/5. Зависание третьего canvas не воспр�
 таймауты, проверки StrictMode и assertions сценариев сохранены. Приложение и Scene
 Engine не менялись. При повторном падении сравнивайте mount с загрузкой ресурсов,
 ошибками страницы и серверными логами; не увеличивайте таймаут вслепую.
+
+
+По результатам первого GitHub run 41449174292 B10 исчерпал общий лимит на
+перебор двух типов листа. Теперь PC/NPC выполняются как самостоятельные тесты;
+все шесть ширин, вкладки, view/edit и проверки переполнения сохранены.
+В touch preview snapshot может прийти раньше нового renderer. После смены сцены
+тест ждёт новый живой SceneStage и сразу проверяет отсутствие previews; ожидание
+не подменяется polling до исчезновения неправильного preview.
