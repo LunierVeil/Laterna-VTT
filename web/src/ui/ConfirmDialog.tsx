@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Button } from "../shared/ui/Button/Button";
 
 /**
  * Маленький диалог подтверждения вместо window.confirm: тот блокирует
@@ -43,12 +44,12 @@ export function ConfirmDialog({
         </h3>
         {text && <div className="dialog-text">{text}</div>}
         <div className="dialog-actions">
-          <button ref={cancel} className="btn" onClick={onCancel}>
+          <Button ref={cancel} onClick={onCancel}>
             Отмена
-          </button>
-          <button className={danger ? "btn btn-danger" : "btn btn-accent"} onClick={onConfirm}>
+          </Button>
+          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

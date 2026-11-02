@@ -1,0 +1,13 @@
+.ds-text-field { display: flex; flex-direction: column; gap: var(--field-label-gap); }
+.ds-field-label { font-size: var(--control-font-size); font-weight: var(--control-font-weight-strong); }
+.ds-text-input {
+  width: 100%; min-width: 0; background: var(--color-surface); color: var(--color-text);
+  border: var(--control-border-width) solid var(--color-border); border-radius: var(--field-radius);
+  padding: var(--field-padding-block) var(--field-padding-inline); font: inherit;
+}
+.ds-text-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset);
+}
+.ds-text-input[aria-invalid="true"] { border-color: var(--color-danger); }
+.ds-text-input:disabled { opacity: var(--control-disabled-opacity); cursor: default; }
+.ds-field-error { color: var(--color-danger); font-size: var(--control-font-size); }
