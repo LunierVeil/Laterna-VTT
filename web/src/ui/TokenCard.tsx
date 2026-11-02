@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi, type SelectedToken } from "../state/store";
+import { useUi } from "../state/store";
+import type { SelectedToken } from "../entities/token/model/selection";
 import { uploadImage } from "../net/upload";
 import type { SceneSocket } from "../net/socket";
 import type { SceneStage } from "../scene/stage";
