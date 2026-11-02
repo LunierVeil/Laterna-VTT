@@ -1,3 +1,4 @@
+import { equipmentBlock } from "./equipment.ts";
 import type { SheetSchema } from "./schema";
 
 /**
@@ -123,5 +124,6 @@ export const mob: SheetSchema = {
         },
       ],
     },
+    {id: "gear", title: "Снаряжение", blocks: [{...equipmentBlock, weight: undefined}]},
   ],
 };

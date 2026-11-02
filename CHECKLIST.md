@@ -742,3 +742,102 @@ Console, отдельный WebSocket) или `smoke_test`. Руками дос�
 Новые файлы/изменения: `web/src/scene/stage.ts`, `SceneView.tsx`, `ui/SelectionBar.tsx`, `ui/ToolRail.tsx`, `App.tsx`, `state/store.ts`, `styles.css`, существующие backend/browser-тесты, документация. Серверная архитектура, зависимости и схема БД для этого дополнения не менялись. Workflow существующего релиза обновляет notes и заменяет Windows-архив после проверки.
 
 Итог дополнения: **150 backend + 31 frontend + 20 Chromium, 0 failed/0 skipped**; typecheck, production build и исходный smoke_test.py - PASS. После полного прогона групповой сценарий дополнительно повторён со скрытым токеном непосредственно внутри рамки: игрок выбирает только восемь разрешённых видимых объектов, скрытый id не попадает в группу; PASS. B01/B02 по-прежнему ждут проверки через Porthole на двух физических компьютерах.
+
+
+## Финальная стабилизация альфы — текущий черновик
+
+Изменения поверх v0.1.2-alpha; прежние тесты сохранены. Новых зависимостей, глобальной системы аккаунтов, Design System, FSD и модульного монолита нет. Commit/push/merge/релиз не выполнялись.
+
+### Матрица приёмки
+
+| Изменение | Подтверждение | Ограничение |
+| --- | --- | --- |
+| Листы: средняя кнопка | `Final sheets`: PC/mob, просмотр/редактирование; native MiddleClickAutoscroll включён, default отменён, геометрия и scroll родителей неизменны; обычное колесо, конец содержимого и повторное открытие доступны | Исходный выход внешней рамки не воспроизведён; B14 открыт до исходного устройства |
+| Общая ссылка | Backend: несколько пользователей с одним токеном, существующий вход и continue без дублей, пауза, ротация, отзыв, неизменность ролей/паролей/сессий; чужая кампания и не-ГМ отклонены | Адрес доступного извне сервера задаёт окружение/ГМ; реальный Tunnel/Porthole — вручную |
+| Безопасность приглашения | Стойкий token_urlsafe(32), серверная проверка, info/accept 120/IP/мин; новые регистрации 20/IP и 40/ссылку за 10 минут; тесты 429 и недействительных токенов; GM-данные не попадают игроку; Cache-Control:no-store | In-memory лимиты на процесс, не распределённая антибот-система; перезапуск сбрасывает счётчики |
+| Копирование/вход | `Final shared invite`: clipboard, внешний origin без ?gm, два независимых браузерных аккаунта, повторный вход, пауза, continue и отзыв; сессии сохраняются | Внешний адрес должен быть достижим с устройства игрока |
+| Сцены | `Final scenes` + прежний `v012 scenes`: статусы открытой ГМ/активной игрокам, preview в один клик/тап, rename без переключения, повторные настройки, папки/порядок/перенос/приватные превью | Обычные права и модель сцен сохранены |
+| NPC/моб | Backend и `Final NPC equipment`: общий equipment JSON, карточки и DocEditor, CRUD/описание/количество, reload, мобильные 360/390/430/768 px, отсутствие данных у игрока | Нет лута, торговли и расчёта грузоподъёмности NPC |
+| Preview: сервер | Два настоящих WS-клиента: начало/шаги/commit, seq и DB не меняются до token.move, отказ стен, отмена/разрыв/новый снимок; unit: TTL, порядок, rate limit, права, fog/GM-layer, гонка смены сцены во время чтения | Preview временный; нет поиска пути и гарантии допустимости до финальной команды |
+| Preview: Chromium desktop | Реальные ghosts/линия/изображение, исходный токен остаётся, промежуточные позиции, удержание >2 с, commit/reject/Escape/disconnect/reconnect, старые пакеты, три быстрых drag; подписка Zustand не обновляется на движение | Полный нагрузочный многопользовательский сетевой тест остаётся ручным |
+| Preview: Chromium touch | CDP touchStart/Move/End/Cancel, очистка без ожидания TTL, GM-layer, скрытое назначение под туманом, смена сцены | Физические Android/iOS и обрыв реальной сети — вручную |
+| Старая альфа | Все прежние 20 сценариев: листы/6 ширин/навыки, чат, инструменты, токены, изображения/туман, папки, кубики, Shift-выделение | B01/B02 требуют Porthole |
+
+### Данные и эксплуатация
+
+- [x] Добавочные nullable-колонки Invite: reusable, paused, token_value. Существующая проверка схемы создаёт их при запуске. Тест миграции старой SQLite проверяет прежнюю строку/хеш/связь password-reset, NULL новых полей и повторный безопасный запуск. Другие таблицы и JSON старых кампаний не переписываются.
+- [x] NULL reusable сохраняет одноразовую семантику старых приглашений; сброс пароля остаётся отдельным. Новая ссылка не имеет лимита использований/истечения срока, пока не отозвана; серверные лимиты регистрации сохраняются. Пауза блокирует новые аккаунты, но разрешает вход существующих. Отзыв/ротация не отнимает доступ уже вступивших.
+- [x] Полный многоразовый bearer-токен восстанавливаемо хранится в Invite.token_value для копирования ГМ после reload/с другого устройства; поиск — по SHA-256. База и её backup содержат этот секрет приглашения. Это не мастер-ключ; endpoint и события с ним доступны только ГМ. Прежние одноразовые токены, сессии и reset-коды остаются hash-only.
+- [x] URL строится от текущего внешнего public_url либо location.origin; ГМ может указать адрес для игроков. Разрешены http(s), credentials отклонены, path/query/fragment исходного адреса отбрасываются; добавляется только invite. localhost не зашит.
+- [x] Preview: отдельные token.preview/token.preview.end, максимум 10 Hz/соединение, UUID/step/base_seq, без DB write/seq increment. Сервер проверяет владельца и видимость источника/назначения на каждого получателя. Пакет не содержит URL/листа/HP; ghost использует уже доступную Pixi-текстуру. Закрытые UUID/старые шаги отбрасываются, TTL 2 с, heartbeat ограничен тем же rate limit. Смена сцены, fog/scene update, token update/remove, отказ, native cancel, blur и disconnect очищают ghost.
+- [ ] Проверить добавочную миграцию на копии настоящей PostgreSQL-базы (если используется); текущий полный автопрогон использует SQLite.
+
+### Ручная приёмка перед финальной альфой
+
+- [ ] B01/B02: два физических компьютера через настоящий Steam/Porthole; cover/reveal и несколько смен сцен при перетаскивании, затем потеря сети/повторный вход; сравнить сцену, картинки и туман. Не закрывать по локальному Chromium.
+- [ ] Повторить через Cloudflare Tunnel и LAN: скопированную общую ссылку открыть с двух независимых устройств, зарегистрироваться, войти повторно, поставить паузу, отозвать/заменить ссылку; старые игроки должны оставаться в кампании.
+- [ ] B14: исходный браузер/ОС и мышь со средней кнопкой, длинные PC/NPC/mob в просмотре/правке; движение за край, колёсико, доступ к концу, закрытие/открытие. Не считать исходный выход рамки подтверждённо исправленным заранее.
+- [ ] Физические Android/iPhone: touch-drag, системная отмена жеста/сворачивание приложения, поворот, сцены и снаряжение; у второго клиента ghost исчезает, секретные токены/картинки не появляются.
+- [ ] Несколько реальных игроков: одновременные drag разных токенов, быстрые последовательные движения, отключение источника, высокая задержка; после отказа/смены сцены нет зависших ghosts и возврата устаревших позиций.
+
+### Изменённые файлы этого этапа
+
+- Backend: server/app/{auth.py,handlers.py,main.py,models.py,drag_preview.py}.
+- Frontend: web/src/{App.tsx,types.ts,styles.css,net/socket.ts,scene/SceneView.tsx,scene/stage.ts,sheets/CharacterSheet.tsx,sheets/dnd5e.ts,sheets/mob.ts,sheets/equipment.ts,ui/Login.tsx,ui/PlayersPanel.tsx,ui/ScenesPanel.tsx}.
+- Проверки: server/tests/{test_handlers.py,test_drag_preview.py,test_scene_upgrade.py}, web/tests/{socket.test.ts,mob.test.ts,browser/bugs.test.mjs}.
+- Документация: BUGS.md, CHECKLIST.md, ARCHITECTURE.md, ROADMAP.md, README.md.
+
+Следующие этапы после приёмки: **Design System → упрощённый FSD с централизованными Zustand store/actions/selectors в стиле RTK → модульный монолит FastAPI**. Реализация этих этапов в данный черновик не входит.
+
+
+### Полный прогон: журнал проверки
+
+- Backend: `server/.venv/bin/python -m pytest server/tests -q` — **169 passed**. Одно предупреждение о deprecated-совместимости Starlette/httpx.
+- Frontend: `npm test` — **33 passed**, 0 failed/0 skipped.
+- `npm run typecheck` — **PASS**; `npm run build` — **PASS**. Сохранено предупреждение Vite о chunk >500 kB, лимит не подавлялся.
+- Исходный `smoke_test.py` выполняется браузерным fixture на отдельной временной SQLite/uploads — **PASS**.
+- Первый полный Chromium: **25 passed, 1 failed, 0 skipped**. `Final scenes` достиг таймаута прежнего `pageFor` (8 с) при запуске canvas в новом мобильном контексте; последующий failure screenshot уже содержит отрисованную сцену с подключением, pageerror отсутствуют. Все 20 прежних сценариев и остальные пять новых прошли. Это не подтверждение поломки действий сцен и не зелёный полный прогон.
+- Тот же `Final scenes` повторён отдельно без изменения кода, требований или таймаутов: **1 passed**, smoke PASS. После этого запущен повторный полный набор; его итог записывается ниже по факту завершения.
+
+- Повторный полный набор без изменений: снова **25/26**, тот же таймаут. Третий диагностический полный набор: **25/26**, собраны console/resource/canvas данные; ошибок console/pageerror нет, API и модули завершились примерно к 1,4 с, инструментирование показало два mount StrictMode. Поэтому таймаут не объявляется случайным или устранённым простым повтором.
+- Найдена лишняя работа: немедленный mount первого StrictMode-effect запускал WebGL, хотя cleanup уже отменил effect и ждал окончания init. SceneView теперь проверяет отмену перед началом mount в микрозадаче; destroy безопасен и до app.init (getter canvas тоже защищён). Таймауты и количество параллельных клиентов в тесте не менялись; добавлены проверки единственного init desktop/mobile. После этого выполняются сфокусированные и полные проверки.
+
+
+### Итог после исправления жизненного цикла Pixi
+
+**169 backend + 33 frontend + 26 Chromium: PASS, 0 failed/0 skipped.** Проверка TypeScript, production build и исходный smoke_test.py — PASS. После изменения SceneView/destroy повторены frontend unit/typecheck/build, три focused-браузерных сценария и весь браузерный набор; backend-код с момента прогона 169 тестов не менялся. Последний полный Chromium завершён с кодом 0 за 727,32 с. Требования прежних тестов, восемь секунд ожидания canvas и количество одновременных клиентов сохранены; новые проверки одного init усиливают регрессию. Ошибок pageerror нет. История трёх красных полных прогонов выше сохранена.
+
+B16 подтверждён полным прогоном после исправления. **B14 (исходный выход рамки), B01/B02 и перечисленная полевая приёмка остаются открытыми.** Production-код после этого полного прогона не менялся; обновлена только документация. Новые этапы архитектуры не начинались, Git-публикация не выполнялась.
+
+Все браузерные сценарии последнего полного прогона:
+
+| № | Точное имя сценария | Результат |
+| --- | --- | --- |
+| 1 | B03: open PC and mob sheets retain geometry without overlaps after a scene switch | PASS |
+| 2 | B04: GM button, player button and drag/drop place a linked token owned by the player | PASS |
+| 3 | B05: damage from sheet and token card consumes temporary hp and broadcasts the remainder | PASS |
+| 4 | B12: mobile panels collapse and restore map space | PASS |
+| 5 | B01/B02: live player renders fog events and the correct snapshot when GM changes scene | PASS |
+| 6 | B06: portrait edits and mob deletion update both live scenes after automatic reconnect | PASS |
+| 7 | B08/B09: actual dragging keeps distance clear of token card and Alt disables snapping | PASS |
+| 8 | B11: explicit ping tool on touch device broadcasts to the GM | PASS |
+| 9 | B07: deleting a mob detaches the rendered tokens on both connected clients | PASS |
+| 10 | B10: populated PC and mob sheets fit every mobile tab in view and edit modes | PASS |
+| 11 | Alpha layout: empty/populated PC and mob, view/edit, six widths; controls stay inside cards | PASS |
+| 12 | Alpha tools: capabilities instead of width; player creation removed, ruler/GM tools and Alt ping work | PASS |
+| 13 | Alpha chat: open, hide from chat, return, preserve draft; rotate and resize canvas | PASS |
+| 14 | Alpha skills: grouped main controls, expertise/manual/automatic bonuses, search and server rolls preserve data | PASS |
+| 15 | Alpha token settings: linked controls removed without data loss; legacy and unlinked tokens remain usable | PASS |
+| 16 | Fog images: repeated reveal restores sprite pixels without rebuilding stage or leaking hidden tokens | PASS |
+| 17 | v012 scenes: folder CRUD, menu/order/drag, private lazy previews and persistence without scene data loss | PASS |
+| 18 | v012 dice: seven types, server faces/totals on two clients, chat history, secret rolls and nonblocking cleanup | PASS |
+| 19 | v012 dice mobile: viewport fit, close/quick roll, disable preference, reduced motion, rapid bounded rolls | PASS |
+| 20 | v012 multi-select: Shift clicks and rectangle, permission-aware Delete/button, fog/removal and snapshot cleanup | PASS |
+| 21 | Final sheets: native middle autoscroll cannot escape the sheet; wheel and reopening work | PASS |
+| 22 | Final shared invite: one copied link for independent users, repeat login, pause and revoke | PASS |
+| 23 | Final NPC equipment: shared card editor CRUD, document, reload and player privacy | PASS |
+| 24 | Final scenes: explicit current/active labels, one-tap preview, rename without switching and settings | PASS |
+| 25 | Final preview desktop: real intermediate ghosts, unchanged DB, commit/reject/cancel, disconnect and stale packets | PASS |
+| 26 | Final preview touch and secrecy: touch drag/cancel, GM-layer, fog destination, scene switch | PASS |
+
+Строка B01/B02 подтверждает только локальную автоматическую проверку; исходные сетевые баги через Porthole не закрыты. Для воспроизведения: из web выполнить `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`.

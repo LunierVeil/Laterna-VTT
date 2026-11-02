@@ -17,6 +17,9 @@ interface Pending {
 export class SceneSocket {
   private ws: WebSocket | null = null;
   private listeners = new Set<Listener>();
+  private disconnectListeners = new Set<() => void>();
+  get sequence() { return this.lastSeq; }
+  onDisconnect(listener: () => void) {this.disconnectListeners.add(listener); return () => {this.disconnectListeners.delete(listener);};}
   private pending = new Map<string, Pending>();
   private lastSeq = -1;
   private closedByUs = false;
@@ -60,6 +63,7 @@ export class SceneSocket {
       // знаем, дошли они или нет. Снапшот при переподключении всё равно
       // перезатрёт состояние.
       this.revertAll();
+      for (const listener of this.disconnectListeners) listener();
       this.retry += 1;
       this.retryTimer = setTimeout(() => this.connect(), Math.min(1000 * this.retry, 8000));
     };
@@ -72,6 +76,7 @@ export class SceneSocket {
     clearTimeout(this.retryTimer);
     clearInterval(this.watchdog);
     this.closedByUs = true;
+    for (const listener of this.disconnectListeners) listener();
     this.ws?.close();
   }
 
@@ -90,6 +95,10 @@ export class SceneSocket {
   }
 
   private async onMessage(msg: ServerMessage) {
+    if (msg.type === "token_preview") {
+      if (msg.end || msg.base_seq === this.lastSeq) this.emit(msg);
+      return;
+    }
     if (msg.type === "snapshot") {
       this.lastSeq = msg.seq;
       this.revertAll();

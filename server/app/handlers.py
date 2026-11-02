@@ -595,6 +595,17 @@ async def scene_create(db: AsyncSession, campaign: Campaign, actor: Actor, paylo
     return "scene.created", {"id": scene.id}
 
 
+async def scene_rename(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    scene = await _campaign_scene(db, campaign, payload)
+    name = str(payload.get("name") or "").strip()[:200]
+    if not name:
+        raise CommandError("нужно название сцены")
+    scene.name = name
+    await db.flush()
+    return "scene.renamed", {"id": scene.id}
+
+
 async def scene_activate(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
     _require_gm(actor)
     scene = await _campaign_scene(db, campaign, payload)
@@ -639,6 +650,35 @@ async def invite_create(db: AsyncSession, campaign: Campaign, actor: Actor, payl
         user_id = user.id
     token = await auth.create_invite(db, campaign, user_id)
     return "invite.created", {"token": token, "user_id": user_id}
+
+
+async def invite_shared(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    existing = list((await db.execute(select(Invite).where(Invite.campaign_id == campaign.id, Invite.reusable.is_(True)))).scalars())
+    if existing and not payload.get("rotate"):
+        return "invite.shared", {"id": existing[0].token_hash}
+    for invite in existing:
+        await db.delete(invite)
+    token = secrets.token_urlsafe(32)
+    from datetime import timedelta
+    invite = Invite(token_hash=auth._digest(token), campaign_id=campaign.id, user_id=None,
+                    reusable=True, paused=False, token_value=token,
+                    expires_at=datetime.now(timezone.utc) + timedelta(days=3650))
+    db.add(invite)
+    await db.flush()
+    return "invite.shared", {"id": invite.token_hash}
+
+
+async def invite_pause(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
+    _require_gm(actor)
+    invite = await db.get(Invite, str(payload.get("id") or ""))
+    if invite is None or invite.campaign_id != campaign.id or not invite.reusable:
+        raise CommandError("нет общей ссылки")
+    if not isinstance(payload.get("enabled"), bool):
+        raise CommandError("enabled - логическое значение")
+    invite.paused = not payload["enabled"]
+    await db.flush()
+    return "invite.paused", {"id": invite.token_hash}
 
 
 async def invite_revoke(db: AsyncSession, campaign: Campaign, actor: Actor, payload: dict):
@@ -1129,8 +1169,11 @@ CAMPAIGN_HANDLERS = {
     "scene.move": scene_move,
     "scene.create": scene_create,
     "scene.activate": scene_activate,
+    "scene.rename": scene_rename,
     "scene.delete": scene_delete,
     "invite.create": invite_create,
+    "invite.shared": invite_shared,
+    "invite.pause": invite_pause,
     "invite.revoke": invite_revoke,
     "player.delete": player_delete,
     "character.create": character_create,

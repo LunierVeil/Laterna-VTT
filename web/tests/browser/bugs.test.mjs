@@ -38,8 +38,11 @@ async function command(name, payload = {}, page = control) {
     (name === 'character.delete' && m.type === 'character_deleted' && m.id === payload.id)), {id,name,payload}), name);
   assert.notEqual(result.type, 'error', JSON.stringify(result)); return result;
 }
-async function pageFor(context) {
-  const p = await context.newPage(); p.received=capture(p); p.setDefaultTimeout(8000); p.on('pageerror', e => errors.push(e.message));
+async function pageFor(context, options = {}) {
+  const p = await context.newPage();
+  const startupConsole=[];p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')startupConsole.push(m.text());});
+  if(options.trackSockets)await p.addInitScript(()=>{const Native=window.WebSocket;window.sceneSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/ws/scene/'))window.sceneSockets.push(this);}};});
+  p.received=capture(p); p.setDefaultTimeout(8000); p.on('pageerror', e => errors.push(e.message));
   if(sceneId) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
   await p.route('**/src/main.tsx', async route => {
     const response = await route.fetch();
@@ -51,7 +54,12 @@ Object.defineProperty(window,'observedStage',{get:()=>window.observedStages.find
 ObservedStage.prototype.mount=async function(...args){await originalMount.apply(this,args);window.observedStages.push(this);};
 ` + source});
   });
-  await p.goto(base); await p.locator('canvas').waitFor();
+  await p.goto(base);
+  try { await p.locator('canvas').waitFor(); }
+  catch(error) {
+    console.error('Canvas startup diagnostics', startupConsole, await p.evaluate(()=>({url:location.href,ready:document.readyState,canvases:[...document.querySelectorAll('canvas')].map(c=>({connected:c.isConnected,width:c.width,height:c.height,rect:c.getBoundingClientRect().toJSON()})),stages:window.observedStages?.length,resources:performance.getEntriesByType('resource').map(r=>({name:r.name.replace(location.origin,''),start:r.startTime,duration:r.duration})).slice(-35),text:document.body.innerText.slice(0,500)})));
+    throw error;
+  }
   await until(() => p.evaluate(async () => (await import('/src/state/store.ts')).useUi.getState().connected && window.observedStage?.isAlive), 'app connected');
   return p;
 }
@@ -74,7 +82,7 @@ before(async () => {
   let logs = ''; server.stderr.on('data', x => logs += x); server.stdout.resume();
   vite = spawn(process.execPath, [resolve(web,'node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(webPort),'--strictPort'], {cwd:web,env:{...process.env,VITE_API_TARGET:api},stdio:'ignore'});
   await ready(`${api}/api/health`); await ready(base);
-  browser = await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:['--no-sandbox']});
+  browser = await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:['--no-sandbox','--enable-blink-features=MiddleClickAutoscroll']});
   gm = await browser.newContext({viewport:{width:1280,height:900}});
   const login = await gm.request.post(`${api}/api/gm/login`, {data:{key,name:'Regression GM',password:randomUUID()}}); assert.equal(login.status(),200);
   // Cookie hostname is shared by API and Vite; ports do not scope cookies.
@@ -659,4 +667,137 @@ test('v012 multi-select: Shift clicks and rectangle, permission-aware Delete/but
  }finally{
   sceneId=original;await command('scene.activate',{id:original});await probe(control,original);await command('scene.delete',{id:temp});
  }
+});
+
+
+test('Final sheets: native middle autoscroll cannot escape the sheet; wheel and reopening work',{timeout:120000},async()=>{
+ const p=await pageFor(gm);await p.setViewportSize({width:1024,height:620});
+ await p.evaluate(()=>document.addEventListener('mousedown',e=>{if(e.button===1)window.middleEvents.push(e.defaultPrevented);}));
+ for(const system of ['dnd5e','mob']){
+  const c=(await command('character.create',{system,name:`Autoscroll ${system}`})).payload.character;
+  const notes=Array(150).fill('Long accessible sheet content').join('\n');await command('character.update',{id:c.id,set:{notes}});
+  for(const editing of [false,true]){
+   await openSheet(p,c.id);if(system==='dnd5e')await p.locator('.sheet').getByRole('tab',{name:'О персонаже',exact:true}).click();
+   const sheet=p.locator('.sheet');if(editing)await sheet.getByRole('button',{name:'Редактировать',exact:true}).click();
+   await sheet.evaluate(e=>e.scrollTop=0);await p.evaluate(()=>window.middleEvents=[]);
+   const before=await sheet.boundingBox();await p.mouse.click(before.x+before.width-30,before.y+70,{button:'middle'});await p.mouse.move(before.x+before.width-30,610);await p.waitForTimeout(500);
+   const after=await sheet.boundingBox(),data=await p.evaluate(()=>({root:document.scrollingElement.scrollTop,overlay:document.querySelector('.sheet-overlay').scrollTop,sheet:document.querySelector('.sheet').scrollTop,middle:window.middleEvents}));
+   assert.deepEqual(data.middle,[true]);assert.equal(data.root,0);assert.equal(data.overlay,0);assert.equal(data.sheet,0);assert.deepEqual(after,before);assert.ok(after.y>=-1&&after.y+after.height<=621);
+   assert.equal(await sheet.evaluate(e=>getComputedStyle(e).overflowY),'auto');
+   await p.mouse.move(before.x+before.width-25,before.y+before.height/2);await p.mouse.wheel(0,500);await until(()=>sheet.evaluate(e=>e.scrollTop>0),'ordinary wheel remains available');
+   await sheet.evaluate(e=>e.scrollTop=e.scrollHeight);assert.equal(await sheet.evaluate(e=>e.scrollTop+e.clientHeight>=e.scrollHeight-1),true,'all sheet content is reachable');
+   await sheet.evaluate(e=>e.scrollTop=0);await closeSheet(p);await openSheet(p,c.id);assert.ok((await sheet.boundingBox()).y>=0);await closeSheet(p);
+  }
+  assert.equal((await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id).data.notes,notes);
+ }
+ await p.close();
+});
+
+test('Final shared invite: one copied link for independent users, repeat login, pause and revoke',{timeout:120000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);await master.getByRole('tab',{name:'Игроки',exact:true}).click();
+ await master.getByRole('button',{name:'Создать общую ссылку',exact:true}).click();
+ const link=master.getByRole('textbox',{name:'Общая ссылка-приглашение'});await link.waitFor();
+ await master.getByRole('textbox',{name:'Адрес сервера для игроков'}).fill('https://table.example:9443/path?gm=must-not-copy');
+ const copied=await link.inputValue();assert.equal(new URL(copied).origin,'https://table.example:9443');assert.equal(new URL(copied).searchParams.has('gm'),false);
+ await gm.grantPermissions(['clipboard-read','clipboard-write'],{origin:base});await master.getByRole('button',{name:'Копировать общую ссылку',exact:true}).click();assert.equal(await master.evaluate(()=>navigator.clipboard.readText()),copied);
+ const token=new URL(copied).searchParams.get('invite');assert.ok(token.length>=40);
+ const sessions=[];
+ for(const name of ['Shared browser A','Shared browser B']){
+  const ctx=await browser.newContext({viewport:{width:1280,height:900}}),p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));
+  await p.goto(`${base}/?invite=${encodeURIComponent(token)}`);await p.getByPlaceholder('Имя',{exact:true}).fill(name);await p.getByPlaceholder('Пароль, от 8 символов',{exact:true}).fill('browserpass123');await p.getByPlaceholder('Пароль ещё раз',{exact:true}).fill('browserpass123');await p.getByRole('button',{name:'Создать и войти',exact:true}).click();await p.locator('canvas').waitFor();
+  assert.equal(await p.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().isGm),false);assert.equal(new URL(p.url()).searchParams.has('invite'),false);sessions.push({ctx,p,name});
+ }
+ const before=(await(await gm.request.get(`${api}/api/campaign`)).json()).users.length;
+ const ctx=await browser.newContext(),again=await ctx.newPage();await again.goto(`${base}/?invite=${token}`);await again.getByRole('checkbox',{name:'У меня есть аккаунт'}).check();await again.getByPlaceholder('Имя',{exact:true}).fill(sessions[0].name);await again.getByPlaceholder('Пароль, от 8 символов',{exact:true}).fill('browserpass123');await again.getByRole('button',{name:'Войти в кампанию',exact:true}).click();await again.locator('canvas').waitFor();assert.equal((await(await gm.request.get(`${api}/api/campaign`)).json()).users.length,before);
+ await master.getByRole('checkbox',{name:'Приём новых игроков'}).uncheck();await until(async()=>!(await master.getByRole('checkbox',{name:'Приём новых игроков'}).isChecked())&&(await master.getByRole('checkbox',{name:'Приём новых игроков'}).isEnabled()),'pause applied');
+ const info=await sessions[1].ctx.request.post(`${api}/api/invite/info`,{data:{token}});assert.equal((await info.json()).paused,true);
+ await sessions[1].p.goto(`${base}/?invite=${token}`);await sessions[1].p.getByRole('button',{name:`Продолжить как ${sessions[1].name}`}).click();await sessions[1].p.locator('canvas').waitFor();
+ const refused=await observer.request.post(`${api}/api/invite/accept`,{data:{token,name:'Paused new browser',password:'browserpass123'}});assert.equal(refused.status(),403);
+ await master.getByRole('button',{name:'Отозвать общую ссылку',exact:true}).click();await master.getByRole('button',{name:'Создать общую ссылку',exact:true}).waitFor();assert.equal((await observer.request.post(`${api}/api/invite/info`,{data:{token}})).status(),404);
+ for(const s of sessions)assert.equal((await s.ctx.request.get(`${api}/api/me`)).status(),200);
+ assert.equal(JSON.stringify(observer.received).includes(token),false);assert.equal(await observer.getByRole('tab',{name:'Игроки',exact:true}).count(),0);
+ for(const s of sessions)await s.ctx.close();await ctx.close();await master.close();await observer.close();
+});
+
+test('Final NPC equipment: shared card editor CRUD, document, reload and player privacy',{timeout:90000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);const c=(await command('character.create',{name:'Private equipment NPC',system:'mob'})).payload.character;
+ await openSheet(master,c.id);await master.getByRole('tab',{name:'Снаряжение',exact:true}).click();await master.getByRole('button',{name:'+ Предмет',exact:true}).click();
+ const editor=master.locator('.card-editing');await editor.getByPlaceholder('Название',{exact:true}).fill('Secret NPC sabre');await editor.getByLabel('Кол-во',{exact:true}).fill('2');await editor.locator('.ProseMirror').fill('Hidden silver properties');await editor.getByRole('button',{name:'Сохранить',exact:true}).click();
+ await master.locator('.card-title').filter({hasText:'Secret NPC sabre'}).waitFor();
+ let stored=(await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id);assert.equal(stored.data.equipment[0].qty,2);assert.match(JSON.stringify(stored.data.equipment[0].doc),/Hidden silver properties/);
+ for(const width of [360,390,430,768]){await master.setViewportSize({width,height:850});const sheet=master.locator('.sheet'),r=await sheet.boundingBox();assert.ok(r.x>=-1&&r.x+r.width<=width+1);assert.equal(await sheet.evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);}
+ await master.setViewportSize({width:1280,height:900});
+ await master.reload();await master.locator('canvas').waitFor();await openSheet(master,c.id);await master.getByRole('tab',{name:'Снаряжение',exact:true}).click();
+ await master.locator('.card').filter({hasText:'Secret NPC sabre'}).getByTitle('править',{exact:true}).click();await editor.getByPlaceholder('Название',{exact:true}).fill('Secret NPC axe');await editor.getByLabel('Кол-во',{exact:true}).fill('3');await editor.getByRole('button',{name:'Сохранить',exact:true}).click();
+ stored=(await until(async()=>{const s=(await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id);return s.data.equipment[0]?.name==='Secret NPC axe'?s:null;},'NPC edit persisted'));assert.equal(stored.data.equipment[0].qty,3);
+ const card=master.locator('.card').filter({hasText:'Secret NPC axe'});await card.getByTitle('удалить',{exact:true}).click();await card.getByRole('button',{name:'Удалить?',exact:true}).click();await until(async()=>!(await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id).data.equipment.length,'NPC item removed');
+ assert.equal(JSON.stringify(observer.received).includes('Secret NPC'),false);assert.equal((await(await player.request.get(`${api}/api/characters`)).json()).some(x=>x.id===c.id),false);
+ await closeSheet(master);await master.close();await observer.close();
+});
+
+test('Final scenes: explicit current/active labels, one-tap preview, rename without switching and settings',{timeout:90000},async()=>{
+ const master=await pageFor(gm),observer=await pageFor(player);assert.equal(await master.evaluate(()=>window.observedStages.length),1,'StrictMode must not initialize a discarded WebGL renderer');await master.getByRole('tab',{name:'Сцены',exact:true}).click();
+ const created=(await command('scene.create',{name:'UX hidden card'})).payload.id;const card=()=>master.locator(`.scene-row[data-scene-id="${created}"]`);await card().waitFor();
+ await card().getByRole('button',{name:'Действия сцены UX hidden card',exact:true}).click();await card().getByRole('button',{name:'Переименовать сцену',exact:true}).click();await card().getByRole('textbox',{name:'Новое название сцены'}).fill('UX renamed hidden');await card().getByRole('button',{name:'Сохранить название',exact:true}).click();await card().getByText('UX renamed hidden',{exact:true}).waitFor();
+ assert.equal((await master.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName)).includes('UX renamed hidden'),false,'rename does not open scene');
+ await card().getByRole('button',{name:'Открыть сцену UX renamed hidden',exact:true}).click();await until(()=>master.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'preview opens scene');
+ await card().getByText('Открыта у ГМ',{exact:true}).waitFor();assert.equal(await card().getByText('видят игроки',{exact:true}).count(),0);
+ await master.getByRole('button',{name:'Настройки открытой сцены',exact:true}).click();assert.equal(await master.locator('details.scene-settings').getAttribute('open'),'');await master.getByRole('button',{name:'Загрузить карту',exact:true}).waitFor();
+ await master.locator('details.scene-settings > summary').click();await card().getByRole('button',{name:'Действия сцены UX renamed hidden',exact:true}).click();await card().getByRole('button',{name:'Настройки сцены',exact:true}).click();assert.equal(await master.locator('details.scene-settings').getAttribute('open'),'');
+ const touchContext=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,storageState:await gm.storageState()}),touch=await pageFor(touchContext);
+ assert.equal(await touch.evaluate(()=>window.observedStages.length),1,'mobile StrictMode initializes one renderer');await touch.getByRole('button',{name:'Открыть панели',exact:true}).tap();await touch.getByRole('tab',{name:'Сцены',exact:true}).tap();await touch.getByRole('button',{name:'Открыть сцену UX renamed hidden',exact:true}).tap();await until(()=>touch.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'touch scene opens');assert.equal(await touch.locator('.sidebar').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);await touchContext.close();
+ assert.equal(JSON.stringify(observer.received).includes('UX renamed hidden'),false);
+ await card().getByRole('button',{name:'Показать',exact:true}).click();await until(()=>observer.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'player active label');await card().getByText('видят игроки',{exact:true}).waitFor();
+ await command('scene.activate',{id:sceneId});await command('scene.delete',{id:created});await master.close();await observer.close();
+});
+
+test('Final preview desktop: real intermediate ghosts, unchanged DB, commit/reject/cancel, disconnect and stale packets',{timeout:120000},async()=>{
+ const original=sceneId,temp=(await command('scene.create',{name:'Drag preview regression'})).payload.id;await command('scene.activate',{id:temp});sceneId=temp;await probe(control,temp);
+ try{
+  const master=await pageFor(gm),owner=await pageFor(player,{trackSockets:true});
+  const ownerId=await owner.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().me.id);
+  const upload=await gm.request.post(`${api}/api/uploads`,{data:await master.locator('canvas').screenshot(),headers:{'Content-Type':'image/png'}});const image=(await upload.json()).url;
+  const tok=(await command('token.add',{x:245,y:455,owner_id:ownerId,image_url:image})).payload.token;
+  await until(async()=> (await stageToken(owner,tok.id))?.imageVisible,'owner portrait loaded');await until(async()=> (await stageToken(master,tok.id))?.imageVisible,'observer portrait loaded');
+  const ghosts=p=>p.evaluate(()=>[...window.observedStage.movementPreviews].map(([id,v])=>({id,tokenId:v.tokenId,x:v.image.x,y:v.image.y,step:v.step,image:v.image.visible,width:v.image.texture.width})));
+  const begin=async()=>{const at=await atToken(owner,tok.id);await owner.mouse.move(at.x,at.y);await owner.mouse.down();return at;};
+  const before=await scene(master),start=await begin();
+  for(const p of [master,owner])await p.evaluate(async()=>{window.previewUiUpdates=0;window.offPreviewUi=(await import('/src/state/store.ts')).useUi.subscribe(()=>window.previewUiUpdates++);});
+  await owner.mouse.move(start.x+70,start.y,{steps:5});const first=await until(async()=>{const all=await ghosts(master);return all.find(v=>v.tokenId===tok.id&&v.x===315);},'first real preview');assert.equal(first.image,true);assert.ok(first.width>1);
+  assert.equal((await stageToken(master,tok.id)).data.x,245);assert.equal((await stageToken(owner,tok.id)).data.x,245);assert.equal(await owner.evaluate(id=>window.observedStage.tokens.get(id).node.x,tok.id),245,'origin stays visible');assert.deepEqual(await scene(master),before);
+  await owner.waitForTimeout(2300);assert.equal((await ghosts(master)).length,1,'held drag stays visible beyond expiry through bounded heartbeat');
+  await owner.waitForTimeout(130);await owner.mouse.move(start.x+140,start.y,{steps:5});await until(async()=> (await ghosts(master)).some(v=>v.x===385),'second intermediate preview');
+  for(const p of [master,owner]){assert.equal(await p.evaluate(()=>window.previewUiUpdates),0,'preview does not update Zustand');await p.evaluate(()=>window.offPreviewUi());}
+  await owner.mouse.up();await until(async()=> (await stageToken(master,tok.id))?.data.x===385&&(await ghosts(master)).length===0,'authoritative commit');assert.equal((await scene(master)).seq,before.seq+1);
+  await master.evaluate(({id,token})=>window.observedStage.applyTokenPreview({type:'token_preview',id:token,drag_id:id,step:999,base_seq:0,end:false,x:999,y:455}),{id:first.id,token:tok.id});assert.equal((await ghosts(master)).length,0,'closed drag cannot resurrect');
+  const wall=(await command('wall.add',{x1:455,y1:420,x2:455,y2:490})).payload.wall;
+  const rejected=await begin();await owner.mouse.move(rejected.x+140,rejected.y,{steps:6});await until(async()=> (await ghosts(master)).some(v=>v.x===525),'preview beyond wall');await owner.mouse.up();
+  await until(async()=> (await ghosts(master)).length===0,'rejected preview cleared');await until(()=>owner.getByText('стена на пути',{exact:true}).count(),'server movement rejection');assert.equal((await stageToken(master,tok.id)).data.x,385);assert.equal(nextToken(await scene(master),tok.id).x,385);
+  await command('wall.remove',{id:wall.id});const cancelled=await begin();await owner.mouse.move(cancelled.x+70,cancelled.y,{steps:5});await until(async()=> (await ghosts(master)).length===1,'cancel ghost started');await owner.keyboard.press('Escape');await owner.mouse.up();await until(async()=> (await ghosts(master)).length===0,'Escape cancels preview');assert.equal(nextToken(await scene(master),tok.id).x,385);
+  const disconnected=await begin();await owner.mouse.move(disconnected.x+70,disconnected.y,{steps:5});await until(async()=> (await ghosts(master)).length===1,'disconnect ghost started');const snaps=owner.received.filter(m=>m.type==='snapshot').length;
+  await owner.evaluate(()=>window.sceneSockets.find(s=>s.readyState===1).close());await owner.mouse.up();await until(async()=> (await ghosts(master)).length===0,'disconnect clears peer ghost');await until(()=>owner.received.filter(m=>m.type==='snapshot').length>snaps,'fresh reconnect snapshot');assert.equal((await ghosts(owner)).length,0);assert.equal(nextToken(await scene(master),tok.id).x,385);
+  for(let i=0;i<3;i++){const x=nextToken(await scene(master),tok.id).x,at=await begin();await owner.mouse.move(at.x+70,at.y,{steps:3});await until(async()=>(await ghosts(master)).some(v=>v.x===x+70),'rapid drag starts');await owner.mouse.up();await until(async()=>nextToken(await scene(master),tok.id).x===x+70&&(await ghosts(master)).length===0,'rapid drag committed');}
+  await master.close();await owner.close();
+ }finally{sceneId=original;await command('scene.activate',{id:original});await probe(control,original);await command('scene.delete',{id:temp});}
+});
+function nextToken(s,id){return s.tokens.find(t=>t.id===id);}
+
+test('Final preview touch and secrecy: touch drag/cancel, GM-layer, fog destination, scene switch',{timeout:120000},async()=>{
+ const original=sceneId,temp=(await command('scene.create',{name:'Touch preview privacy'})).payload.id;await command('scene.activate',{id:temp});sceneId=temp;await probe(control,temp);
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,storageState:await player.storageState()});
+ try{
+  const master=await pageFor(gm),owner=await pageFor(context),ownerId=await owner.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().me.id);
+  const tok=(await command('token.add',{x:105,y:245,owner_id:ownerId})).payload.token;await until(()=>stageToken(owner,tok.id),'touch token');
+  const cdp=await context.newCDPSession(owner),point=await atToken(owner,tok.id);
+  const touch=async(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'||type==='touchCancel'?[]:[{x,y,id:1}]});
+  await touch('touchStart',point.x,point.y);await touch('touchMove',point.x+70,point.y+70);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===1),'touch preview');assert.equal(nextToken(await scene(master),tok.id).x,105);await touch('touchEnd');await until(async()=>nextToken(await scene(master),tok.id).x===175,'touch commit');
+  const q=await atToken(owner,tok.id);await touch('touchStart',q.x,q.y);await touch('touchMove',q.x+70,q.y);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===1),'touch cancel preview');await touch('touchCancel');await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===0),'touch cancellation');assert.equal(nextToken(await scene(master),tok.id).x,175);
+  const secret=(await command('token.add',{x:525,y:315,layer:'gm'})).payload.token;const seq=(await scene(master)).seq,drag=crypto.randomUUID(),from=owner.received.length;
+  await control.evaluate(({id,seq,drag})=>window.probe.send(JSON.stringify({name:'token.preview',payload:{id,base_seq:seq,drag_id:drag,step:1,x:595,y:315}})),{id:secret.id,seq,drag});await until(()=>master.evaluate(id=>window.observedStage.movementPreviews.has(id),drag),'GM sees private ghost');await control.evaluate(()=>window.probe.send(JSON.stringify({name:'chat.say',payload:{text:'private-preview-barrier'}})));await until(()=>owner.received.slice(from).some(m=>m.type==='chat'&&m.message.text==='private-preview-barrier'),'privacy barrier');assert.equal(JSON.stringify(owner.received.slice(from)).includes(secret.id),false);
+  await command('fog.cover',{x:210,y:210,w:120,h:120});const visible=(await command('token.add',{x:175,y:175})).payload.token;await until(()=>stageToken(owner,visible.id),'visible NPC outside fog');const fogDrag=crypto.randomUUID(),fogSeq=(await scene(master)).seq,fogStart=owner.received.length;
+  await control.evaluate(({id,seq,drag})=>window.probe.send(JSON.stringify({name:'token.preview',payload:{id,base_seq:seq,drag_id:drag,step:1,x:245,y:245}})),{id:visible.id,seq:fogSeq,drag:fogDrag});await until(()=>master.evaluate(id=>window.observedStage.movementPreviews.has(id),fogDrag),'GM ghost inside fog');await control.evaluate(()=>window.probe.send(JSON.stringify({name:'chat.say',payload:{text:'fog-preview-barrier'}})));await until(()=>owner.received.slice(fogStart).some(m=>m.type==='chat'&&m.message.text==='fog-preview-barrier'),'fog barrier');assert.equal(owner.received.slice(fogStart).some(m=>m.type==='token_preview'&&!m.end&&m.drag_id===fogDrag),false);
+  await command('fog.clear');const r=await atToken(owner,tok.id);await touch('touchStart',r.x,r.y);await touch('touchMove',r.x+70,r.y);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===1),'before scene switch');
+  const next=(await command('scene.create',{name:'Switch during touch preview'})).payload.id;await command('scene.activate',{id:next});await touch('touchEnd');await until(()=>owner.received.some(m=>m.type==='snapshot'&&m.scene.id===next),'new scene snapshot');assert.equal(await owner.evaluate(()=>window.observedStage.movementPreviews.size),0);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===0),'old scene preview cleared');await command('scene.activate',{id:temp});await command('scene.delete',{id:next});
+  await master.close();await owner.close();
+ }finally{await context.close();sceneId=original;await command('scene.activate',{id:original});await probe(control,original);await command('scene.delete',{id:temp});}
 });

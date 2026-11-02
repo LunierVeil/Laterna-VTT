@@ -208,17 +208,18 @@ export function GmSetupScreen({ gmKey, onDone }: { gmKey: string; onDone: (me: U
  * игрок, забывший пароль, задаёт новый. Ссылка одноразовая.
  */
 export function InviteScreen({ token, onDone }: { token: string; onDone: (me: UserInfo) => void }) {
-  const [info, setInfo] = useState<{ kind: "join" | "reset"; name?: string | null } | null>(null);
+  const [info, setInfo] = useState<{ kind: "join" | "reset" | "shared"; name?: string | null; paused?: boolean; signed_in?: UserInfo | null } | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [existing, setExisting] = useState(false);
 
   useEffect(() => {
     void post("/api/invite/info", { token }).then(({ ok, data }) =>
-      ok ? setInfo(data) : setFatal(data.detail || "приглашение не найдено или истекло"),
+      ok ? (setInfo(data), data.paused && setExisting(true)) : setFatal(data.detail || "приглашение не найдено или истекло"),
     );
   }, [token]);
 
@@ -236,18 +237,21 @@ export function InviteScreen({ token, onDone }: { token: string; onDone: (me: Us
   }
   if (!info) return <div className="gate-wait">Проверяю приглашение...</div>;
 
-  const join = info.kind === "join";
+  const join = info.kind !== "reset";
+  const shared = info.kind === "shared";
+  const login = shared && existing;
   return (
     <Gate>
       <form
         className="gate-form"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (password !== repeat) return setError("пароли не совпадают");
+          if (!login && password !== repeat) return setError("пароли не совпадают");
           setBusy(true);
           setError(null);
           const { ok, data } = await post("/api/invite/accept", {
             token,
+            mode: shared ? (login ? "login" : "register") : "auto",
             name: join ? name.trim() : undefined,
             password,
           });
@@ -256,7 +260,15 @@ export function InviteScreen({ token, onDone }: { token: string; onDone: (me: Us
           else setError(data.detail || "не получилось");
         }}
       >
-        <h2>{join ? "Новый игрок" : "Новый пароль"}</h2>
+        <h2>{shared ? "Присоединиться к кампании" : join ? "Новый игрок" : "Новый пароль"}</h2>
+        {shared && <>
+          {info.signed_in && <button type="button" className="btn" disabled={busy} onClick={async () => {
+            setBusy(true); const {ok,data} = await post("/api/invite/accept", {token, mode:"continue"}); setBusy(false);
+            if (ok) onDone(data); else setError(data.detail || "не получилось войти");
+          }}>Продолжить как {info.signed_in.name}</button>}
+          <label><input type="checkbox" checked={existing} disabled={info.paused} onChange={e => setExisting(e.target.checked)} /> У меня есть аккаунт</label>
+          {info.paused && <p className="muted">Приём новых игроков временно отключён. Участники могут войти со своим паролем.</p>}
+        </>}
         <p className="muted">
           {join
             ? "Мастер пригласил тебя в игру. Придумай имя и пароль - дальше будешь входить ими."
@@ -271,18 +283,18 @@ export function InviteScreen({ token, onDone }: { token: string; onDone: (me: Us
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Пароль, от 8 символов"
-          autoComplete="new-password"
+          autoComplete={login ? "current-password" : "new-password"}
         />
-        <input
+        {!login && <input
           type="password"
           value={repeat}
           onChange={(e) => setRepeat(e.target.value)}
           placeholder="Пароль ещё раз"
           autoComplete="new-password"
-        />
+        />}
         {error && <p className="gate-error">{error}</p>}
         <button type="submit" className="gate-submit" disabled={busy || (join && !name.trim()) || !password}>
-          {join ? "Создать и войти" : "Сменить и войти"}
+          {login ? "Войти в кампанию" : join ? "Создать и войти" : "Сменить и войти"}
         </button>
       </form>
     </Gate>

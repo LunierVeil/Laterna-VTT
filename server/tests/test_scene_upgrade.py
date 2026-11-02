@@ -37,3 +37,16 @@ def test_preview_rejects_urls_traversal_corrupt_and_oversized_images(tmp_path, m
     monkeypatch.setattr(previews, "MAX_PIXELS", 99)
     assert preview_file("/uploads/" + name) is None
     assert not (tmp_path / "private").exists()
+
+
+def test_existing_one_use_invite_upgrade_preserves_hash_and_reset_semantics(tmp_path):
+    engine=create_engine(f"sqlite:///{tmp_path / 'invites.db'}")
+    with engine.begin() as conn:
+        conn.exec_driver_sql('CREATE TABLE invites (token_hash VARCHAR(64) PRIMARY KEY, campaign_id VARCHAR(36), user_id VARCHAR(36), created_at DATETIME, expires_at DATETIME)')
+        conn.exec_driver_sql("INSERT INTO invites VALUES ('old-hash','old-campaign','old-player',CURRENT_TIMESTAMP,'2030-01-01')")
+        before=dict(conn.execute(text('SELECT * FROM invites')).mappings().one())
+        Base.metadata.create_all(conn);_check_columns(conn);_check_columns(conn)
+        after=dict(conn.execute(text('SELECT * FROM invites')).mappings().one())
+        for key in ('reusable','paused','token_value'):assert after.pop(key) is None
+        assert after==before
+    engine.dispose()

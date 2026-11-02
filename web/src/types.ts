@@ -107,7 +107,16 @@ export interface FogRect {
   h: number;
 }
 
+export interface TokenPreview {
+  type: "token_preview";
+  id: string; drag_id: string; step: number; base_seq: number;
+  end: boolean; final?: boolean;
+  x?: number; y?: number; origin_x?: number; origin_y?: number;
+  author?: string; ttl_ms?: number;
+}
+
 export type ServerMessage =
+  | TokenPreview
   // you есть только в снапшоте из сокета; при resync через REST его нет.
   | { type: "snapshot"; seq: number; scene: Scene; you?: UserInfo }
   | { type: "event"; seq: number; name: string; payload: any; cmd_id: string | null }
@@ -118,7 +127,7 @@ export type ServerMessage =
   | { type: "ping"; x: number; y: number; author: string; color: string }
   // scenes приходит только ГМ; игрок узнаёт лишь, какая сцена активна.
   // scenes и invites - только ГМ.
-  | { type: "campaign"; active_scene_id: string; scenes?: SceneInfo[]; folders?: SceneFolder[]; users: UserInfo[]; invites?: InviteInfo[] }
+  | { type: "campaign"; active_scene_id: string; active_scene_name?: string; scenes?: SceneInfo[]; folders?: SceneFolder[]; users: UserInfo[]; invites?: InviteInfo[] }
   // Сессии нет или она кончилась - на экран входа.
   | { type: "auth_required" }
   // Лист приходит только владельцу и мастерам.
@@ -146,6 +155,9 @@ export interface UserInfo {
 
 /** Ожидающее приглашение. user_id - сброс пароля этого игрока, null - новый игрок. */
 export interface InviteInfo {
+  reusable?: boolean;
+  paused?: boolean;
+  token?: string;
   id: string;
   user_id: string | null;
   expires_at: string;

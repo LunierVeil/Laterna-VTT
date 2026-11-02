@@ -1120,8 +1120,12 @@ export function CharacterSheet({ character, socket }: { character: Character; so
 
   return (
     <SheetOpsContext.Provider value={ops}>
-    <div className="sheet-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="sheet" role="dialog" aria-label={`Лист: ${character.name}`}>
+    <div className="sheet-overlay" onMouseDown={(e) => e.button === 0 && e.target === e.currentTarget && close()}>
+      <div className="sheet" role="dialog" aria-label={`Лист: ${character.name}`} onMouseDownCapture={e => {
+        // Native Chromium autoscroll belongs to the browser, not the sheet.
+        // Keep wheel scrolling and middle-click opening of real links intact.
+        if (e.button === 1 && !(e.target as HTMLElement).closest("a[href]")) e.preventDefault();
+      }}>
         <header className="sheet-head">
           {schema?.portrait && (
             <Portrait

@@ -41,6 +41,9 @@ from .previews import preview_file
 from .db import SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
+from .drag_preview import DragPreviews
+
+previews = DragPreviews(hub)
 from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
 from .roles import Actor, gm_key_notice, is_gm_key
 
@@ -53,7 +56,19 @@ async def lifespan(app: FastAPI):
     await init_db()
     await ensure_demo_scene()
     print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
-    yield
+    async def expire_previews():
+        while True:
+            await asyncio.sleep(0.25)
+            await previews.expire()
+    expiry = asyncio.create_task(expire_previews())
+    try:
+        yield
+    finally:
+        expiry.cancel()
+        from contextlib import suppress
+        with suppress(asyncio.CancelledError):
+            await expiry
+        await previews.clear_scene()
 
 
 app = FastAPI(title="Laterna VTT", lifespan=lifespan)
@@ -122,8 +137,11 @@ async def campaign_view(db: AsyncSession, campaign: Campaign, actor: Actor) -> d
     # Список игроков видят все: имена и так видны в чате и присутствии, а
     # клиенту он нужен, чтобы показать, чей это токен.
     users = await campaign_users(db, campaign)
+    active = await db.get(Scene, campaign.active_scene_id) if campaign.active_scene_id else None
     if not actor.is_gm:
-        return protocol.campaign(campaign.active_scene_id, None, users)
+        message = protocol.campaign(campaign.active_scene_id, None, users)
+        message["active_scene_name"] = active.name if active else ""
+        return message
     scenes = (
         await db.execute(
             select(Scene).where(Scene.campaign_id == campaign.id).order_by(Scene.sort_order.asc().nulls_last(), Scene.created_at, Scene.id)
@@ -136,6 +154,7 @@ async def campaign_view(db: AsyncSession, campaign: Campaign, actor: Actor) -> d
         campaign.active_scene_id, [{"id": s.id, "name": s.name, "folder_id": s.folder_id,
             "preview_url": f"/api/scenes/{s.id}/preview?v={s.background_url.rsplit('/', 1)[-1]}" if s.background_url else None} for s in scenes], users
     )
+    msg["active_scene_name"] = active.name if active else ""
     folders = (await db.execute(select(SceneFolder).where(SceneFolder.campaign_id == campaign.id).order_by(SceneFolder.created_at, SceneFolder.id))).scalars()
     msg["folders"] = [f.to_dict() for f in folders]
     # Ожидающие приглашения - только мастеру, и без самих кодов.
@@ -153,6 +172,7 @@ async def publish_campaign(db: AsyncSession, campaign: Campaign) -> None:
     """
     gm_view = await campaign_view(db, campaign, Actor(id="", name="", is_gm=True))
     player_view = protocol.campaign(campaign.active_scene_id, None, gm_view["users"])
+    player_view["active_scene_name"] = gm_view["active_scene_name"]
     existing = {s["id"] for s in gm_view["scenes"]}
     alive = {u["id"] for u in gm_view["users"]}
     for scene_id, ws, actor in hub.connections():
@@ -416,6 +436,7 @@ class LoginBody(BaseModel):
 
 class InviteBody(BaseModel):
     token: str
+    mode: str = "auto"
     name: str | None = None
     password: str = ""
 
@@ -440,6 +461,17 @@ async def me(request: Request, db: AsyncSession = Depends(get_session)) -> dict 
 login_limiter = LoginLimiter(LOGIN_MAX_FAILURES, LOGIN_WINDOW)
 ip_limiter = LoginLimiter(LOGIN_MAX_FAILURES_PER_IP, LOGIN_WINDOW)
 name_limiter = LoginLimiter(LOGIN_MAX_FAILURES_PER_NAME, LOGIN_NAME_WINDOW)
+invite_request_limiter = LoginLimiter(120, 60)
+registration_ip_limiter = LoginLimiter(20, 600)
+registration_link_limiter = LoginLimiter(40, 600)
+
+
+def _invite_request_limit(request: Request) -> None:
+    key = client_ip(request)
+    wait = invite_request_limiter.retry_after(key)
+    if wait:
+        raise HTTPException(429, "слишком много запросов приглашения", headers={"Retry-After": str(wait)})
+    invite_request_limiter.fail(key)
 
 
 def _is_loopback(ip: str) -> bool:
@@ -537,12 +569,16 @@ async def gm_login(
 
 
 @app.post("/api/invite/info")
-async def invite_info(body: InviteBody, db: AsyncSession = Depends(get_session)) -> dict:
+async def invite_info(body: InviteBody, request: Request, db: AsyncSession = Depends(get_session)) -> dict:
     """Что за приглашение: новый игрок или сброс пароля (и чей)."""
+    _invite_request_limit(request)
     invite = await auth.find_invite(db, body.token)
     await db.commit()  # просроченное find_invite удаляет
     if invite is None:
         raise HTTPException(404, "приглашение не найдено или истекло")
+    if invite.reusable:
+        user = await auth.session_user(db, request.cookies.get(auth.SESSION_COOKIE))
+        return {"kind": "shared", "paused": bool(invite.paused), "signed_in": user.to_dict() if user and not user.is_gm and user.campaign_id == invite.campaign_id else None}
     if invite.user_id:
         user = await db.get(User, invite.user_id)
         return {"kind": "reset", "name": user.name if user else None}
@@ -551,16 +587,43 @@ async def invite_info(body: InviteBody, db: AsyncSession = Depends(get_session))
 
 @app.post("/api/invite/accept")
 async def invite_accept(
-    body: InviteBody, response: Response, db: AsyncSession = Depends(get_session)
+    body: InviteBody, response: Response, request: Request, db: AsyncSession = Depends(get_session)
 ) -> dict:
+    _invite_request_limit(request)
     async with hub.lock("campaign"):
         campaign = await get_campaign(db)
         invite = await auth.find_invite(db, body.token)
-        if invite is None:
+        if invite is None or invite.campaign_id != campaign.id:
             await db.commit()
             raise HTTPException(404, "приглашение не найдено или истекло")
         try:
-            user = await auth.accept_invite(db, campaign, invite, body.name, body.password)
+            if invite.reusable:
+                if body.mode == "continue":
+                    user = await auth.session_user(db, request.cookies.get(auth.SESSION_COOKIE))
+                    if user is None or user.is_gm or user.campaign_id != campaign.id:
+                        raise HTTPException(401, "нужно войти как игрок")
+                else:
+                    who = auth.clean_name(body.name)
+                    ip, limit_name = client_ip(request), who.casefold()
+                    _check_login_limit(ip, limit_name)
+                    user = await auth.find_user(db, campaign, who)
+                    if user is not None or body.mode == "login":
+                        valid = await auth.verify_password(user.password_hash if user else None, body.password)
+                        if not valid or user is None or user.is_gm:
+                            _login_failed(ip, limit_name)
+                            raise HTTPException(401, "неверное имя или пароль игрока")
+                        login_limiter.reset(f"{ip}|{limit_name}")
+                    else:
+                        if invite.paused:
+                            raise HTTPException(403, "приём новых игроков временно отключён")
+                        wait = registration_ip_limiter.retry_after(ip) or registration_link_limiter.retry_after(invite.token_hash)
+                        if wait:
+                            raise HTTPException(429, "слишком много новых регистраций", headers={"Retry-After": str(wait)})
+                        registration_ip_limiter.fail(ip)
+                        registration_link_limiter.fail(invite.token_hash)
+                        user = await auth.create_user(db, campaign, who, body.password, is_gm=False)
+            else:
+                user = await auth.accept_invite(db, campaign, invite, body.name, body.password)
         except auth.AuthError as exc:
             raise HTTPException(400, str(exc))
         _set_session(response, await auth.create_session(db, user))
@@ -587,7 +650,8 @@ async def logout(request: Request, response: Response, db: AsyncSession = Depend
 
 
 @app.get("/api/campaign")
-async def get_campaign_view(request: Request, db: AsyncSession = Depends(get_session)) -> dict:
+async def get_campaign_view(request: Request, response: Response, db: AsyncSession = Depends(get_session)) -> dict:
+    response.headers["Cache-Control"] = "no-store"
     actor = await require_actor(request, db)
     return await campaign_view(db, await get_campaign(db), actor)
 
@@ -729,6 +793,7 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
     except (WebSocketDisconnect, WebSocketDisconnected):
         pass
     finally:
+        await asyncio.shield(previews.drop_socket(websocket))
         hub.leave(scene_id, websocket)
         await hub.broadcast_all(protocol.presence(hub.users()))
 
@@ -738,6 +803,23 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         command = protocol.Command.model_validate_json(raw)
     except ValidationError:
         await hub.send(websocket, protocol.error("битая команда"))
+        return
+
+    if command.name in ("token.preview", "token.preview.end"):
+        if not any(sid == scene_id and ws is websocket for sid, ws, _ in hub.connections()):
+            return
+        if command.name == "token.preview" and not previews.allowed(websocket):
+            return
+        async with hub.lock(scene_id):
+            async with SessionLocal() as db:
+                scene = await db.get(Scene, scene_id)
+                campaign = await get_campaign(db)
+                if scene is None or not can_see(actor, campaign, scene_id):
+                    return
+                try:
+                    await previews.handle(db, scene, actor, websocket, command.payload, command.name.endswith(".end"))
+                except CommandError as exc:
+                    await hub.send(websocket, protocol.error(str(exc), command.id))
         return
 
     if command.name in CAMPAIGN_HANDLERS:
@@ -778,6 +860,8 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 await db.commit()
             except CommandError as exc:
                 await db.rollback()
+                if command.name == "token.move":
+                    await previews.clear_token(scene_id, command.payload.get("id"), websocket)
                 await hub.send(websocket, protocol.error(str(exc), command.id))
                 return
             except Exception:
@@ -791,6 +875,10 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         async with SessionLocal() as db:
             await prepare_token_views(db, payload)
         hidden = payload.pop(HIDDEN, None)
+        if name in ("token.moved", "token.updated", "token.removed"):
+            await previews.clear_token(scene_id, payload.get("id") or payload.get("token", {}).get("id"))
+        elif name in ("fog.updated", "scene.updated"):
+            await previews.clear_scene(scene_id)
         await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
         if name == "scene.updated" and ("name" in command.payload or "background_url" in command.payload):
             async with SessionLocal() as db:
@@ -826,6 +914,8 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
                     await hub.send(websocket, protocol.reply(name, payload, command.id))
                 await publish_character(name, payload, command.name != "character.update" or "portrait" in command.payload.get("set", {}))
                 return
+            if name in ("scene.activated", "scene.deleted"):
+                await previews.clear_scene()
             await hub.send(websocket, protocol.reply(name, payload, command.id))
             await publish_campaign(db, campaign)
 

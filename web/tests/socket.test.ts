@@ -112,3 +112,14 @@ test("character deletion refresh requests reconnect and then accepts detached to
   h.peers[1].receive({type:"snapshot",seq:2,scene:{tokens:[{id:"t",character_id:null,hp:null}]}});
   assert.deepEqual(messages.at(-1).scene.tokens,[{id:"t",character_id:null,hp:null}]);
 });
+
+test("drag preview is outside seq, rejects stale/future samples, and disconnect notifies imperative renderer",t=>{
+ const h=transport(t),s=h.create(),messages:any[]=[];let disconnected=0;s.on(m=>messages.push(m));s.onDisconnect(()=>disconnected++);
+ h.peers[0].receive({type:'snapshot',seq:5,scene:{}});
+ const preview={type:'token_preview',end:false,id:'token',drag_id:'drag',step:1,base_seq:5,x:20,y:30};
+ h.peers[0].receive(preview);assert.equal(s.sequence,5);assert.equal(messages.at(-1).type,'token_preview');
+ h.peers[0].receive({type:'event',seq:6,name:'token.moved',payload:{id:'token',x:20,y:30}});const n=messages.length;
+ h.peers[0].receive({...preview,step:2});h.peers[0].receive({...preview,step:3,base_seq:7});assert.equal(messages.length,n);assert.equal(s.sequence,6);
+ h.peers[0].receive({...preview,end:true,final:true});assert.equal(messages.at(-1).end,true);
+ h.peers[0].close();assert.equal(disconnected,1);t.mock.timers.tick(1000);h.peers[1].receive({type:'snapshot',seq:6,scene:{messages:[]}});assert.equal(s.sequence,6);assert.equal(messages.at(-1).type,'snapshot');
+});

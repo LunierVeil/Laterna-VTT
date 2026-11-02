@@ -1,5 +1,5 @@
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
-import type { Combat, FogRect, Scene, Token, Wall, Tool } from "../types";
+import type { Combat, FogRect, Scene, Token, Wall, Tool, TokenPreview } from "../types";
 
 const COLORS = {
   background: 0x121318,
@@ -29,6 +29,8 @@ function distToWall(p: { x: number; y: number }, w: Wall): number {
 export interface StageCallbacks {
   onMoveToken: (id: string, x: number, y: number, prev: { x: number; y: number }) => void;
   onAddToken: (x: number, y: number) => void;
+  onPreview?: (payload: {id: string; drag_id: string; step: number; x: number; y: number}) => void;
+  onPreviewEnd?: (drag_id: string) => void;
   onRemoveToken: (id: string) => void;
   /** Возвращает id отправленной команды - по нему стейдж узнаёт свои стены. */
   onAddWall: (x1: number, y1: number, x2: number, y2: number) => string;
@@ -111,6 +113,10 @@ export class SceneStage {
   private wallLayer = new Graphics();
   private ghostLayer = new Graphics();
   private tokenLayer = new Container();
+  private movementLayer = new Container();
+  private movementPreviews = new Map<string, {node: Container; line: Graphics; body: Graphics; image: Sprite; mask: Graphics; step: number; tokenId: string; expires: number}>();
+  private previewClosed = new Set<string>();
+  private previewSteps = new Map<string, number>();
   // Линейка и путь перетаскиваемого токена - поверх токенов.
   private measureLayer = new Graphics();
   /** Туман: над картой и сеткой, под стенами и токенами (свой токен в тумане виден). */
@@ -163,6 +169,10 @@ export class SceneStage {
   private dragging: {
     view: TokenView;
     pingOnClick: boolean;
+    id: string;
+    step: number;
+    lastSent: number;
+    to: {x: number; y: number};
     from: { x: number; y: number };
     grab: { x: number; y: number };
   } | null = null;
@@ -250,6 +260,7 @@ export class SceneStage {
       this.wallLayer,
       this.ghostLayer,
       this.tokenLayer,
+      this.movementLayer,
       this.measureLayer,
       this.measureLabel,
       this.pingLayer,
@@ -278,6 +289,12 @@ export class SceneStage {
     this.drawGrid();
     this.app.ticker.add(this.tickAnchor);
     this.app.ticker.add(this.tickPings);
+    this.app.ticker.add(this.tickPreviews);
+    this.app.stage.on("pointercancel", this.onPointerCancel);
+    window.addEventListener("blur", this.onPointerCancel);
+    // PixiJS 8 EventBoundary does not map native pointercancel/touchcancel.
+    window.addEventListener("pointercancel", this.onPointerCancel, true);
+    window.addEventListener("touchcancel", this.onPointerCancel, true);
 
     // Pixi's resizeTo listens to window resize, not flex-layout changes.
     // Collapsing a panel or wrapping the header resizes the host without
@@ -361,6 +378,10 @@ export class SceneStage {
    * успел отработать - именно так это и вызывается в StrictMode.
    */
   destroy() {
+    this.clearDragPreviews();
+    window.removeEventListener("blur", this.onPointerCancel);
+    window.removeEventListener("pointercancel", this.onPointerCancel, true);
+    window.removeEventListener("touchcancel", this.onPointerCancel, true);
     if (this.destroyed) return;
     this.destroyed = true;
     this.resizeObserver?.disconnect();
@@ -368,10 +389,10 @@ export class SceneStage {
 
     window.removeEventListener("keydown", this.onKeyDown);
 
-    const canvas = this.app.canvas as HTMLCanvasElement | undefined;
-    if (canvas) canvas.removeEventListener("wheel", this.onWheel);
-
     try {
+      // Pixi's canvas getter requires an initialized renderer, too.
+      const canvas = this.app.canvas as HTMLCanvasElement | undefined;
+      if (canvas) canvas.removeEventListener("wheel", this.onWheel);
       this.app.destroy(true, { children: true });
     } catch {
       /* app мог не успеть инициализироваться - разрушать нечего */
@@ -384,6 +405,7 @@ export class SceneStage {
 
   setTool(tool: Tool) {
     if (this.destroyed) return;
+    this.cancelDrag();
     this.tool = tool;
     this.marquee = null;
     this.endChain();
@@ -445,6 +467,7 @@ export class SceneStage {
 
   setSnapshot(scene: Scene) {
     if (this.destroyed) return;
+    this.clearDragPreviews();
     this.gridSize = scene.grid_size;
     this.sceneWidth = scene.width;
     this.sceneHeight = scene.height;
@@ -481,6 +504,7 @@ export class SceneStage {
         this.setTokenPosition(payload.id, payload.x, payload.y);
         break;
       case "token.updated":
+        this.clearTokenPreviews(payload.token.id);
         this.updateToken(payload.token);
         break;
       case "token.removed":
@@ -505,6 +529,7 @@ export class SceneStage {
         this.drawWalls();
         break;
       case "fog.updated":
+        this.clearDragPreviews();
         // Игроку сервер дописал, что вышло из тумана и что ушло под него.
         for (const id of payload.remove_tokens ?? []) this.removeToken(id);
         for (const t of payload.add_tokens ?? []) if (!this.tokens.has(t.id)) this.addToken(t);
@@ -522,6 +547,7 @@ export class SceneStage {
         this.setCurrentTurn(payload.combat);
         break;
       case "scene.updated":
+        this.clearDragPreviews();
         this.gridSize = payload.grid_size;
         this.sceneWidth = payload.width;
         this.sceneHeight = payload.height;
@@ -630,6 +656,7 @@ export class SceneStage {
   }
 
   private removeToken(id: string) {
+    this.clearTokenPreviews(id);
     const view = this.tokens.get(id);
     if (!view) return;
     // Токен могли удалить, пока его тащат (другой клиент). Иначе на
@@ -641,6 +668,7 @@ export class SceneStage {
   }
 
   private setTokenPosition(id: string, x: number, y: number) {
+    this.clearTokenPreviews(id);
     const view = this.tokens.get(id);
     if (!view) return;
     view.data = { ...view.data, x, y };
@@ -934,6 +962,8 @@ export class SceneStage {
     if (!this.canEdit(view.data.owner_id)) return;
     const p = this.toScene(e);
     this.dragging = {
+      id: crypto.randomUUID(), step: 0, lastSent: -Infinity,
+      to: {x: view.data.x, y: view.data.y},
       view,
       pingOnClick: e.altKey,
       from: { x: view.data.x, y: view.data.y },
@@ -1059,6 +1089,7 @@ export class SceneStage {
       return;
 
     if (e.key === "Escape") {
+      this.cancelDrag();
       this.marquee = null;
       this.select(null);
       this.endChain();
@@ -1112,7 +1143,13 @@ export class SceneStage {
       const { view, grab } = this.dragging;
       const raw = { x: this.pointerScene.x - grab.x, y: this.pointerScene.y - grab.y };
       const c = e.altKey ? raw : this.snapToken(raw, view.data.size);
-      view.node.position.set(c.x, c.y);
+      this.dragging.to = {x: Math.max(0, Math.min(this.sceneWidth, c.x)), y: Math.max(0, Math.min(this.sceneHeight, c.y))};
+      const drag = this.dragging;
+      this.drawMovementPreview(drag.id, view.data.id, drag.to.x, drag.to.y, ++drag.step);
+      if (performance.now() - drag.lastSent >= 100) {
+        drag.lastSent = performance.now();
+        this.cb.onPreview?.({id: view.data.id, drag_id: drag.id, step: drag.step, ...drag.to});
+      }
       // Сколько прошёл и сколько можно по листу. Не запрещаем - решает стол
       // (рывок, хоумбрю); сервер проверяет только стены.
       const speed = view.data.character_id ? this.stats.get(view.data.character_id)?.speed : undefined;
@@ -1168,15 +1205,108 @@ export class SceneStage {
     this.clearMeasure();
 
     if (this.dragging) {
-      const { view, from, pingOnClick } = this.dragging;
+      const { view, from, pingOnClick, id, to, step } = this.dragging;
       this.dragging = null;
-      const to = { x: view.node.position.x, y: view.node.position.y };
+      this.dropPreview(id, true);
+      if (step > 0) this.cb.onPreviewEnd?.(id);
       if (to.x === from.x && to.y === from.y) {
         if (pingOnClick) this.cb.onPing(to.x, to.y);
         return;
       }
+      view.lastDown = 0; // a completed drag is not the first click of a double-click
       this.cb.onMoveToken(view.data.id, to.x, to.y, from);
     }
+  };
+
+  private onPointerCancel = () => {
+    this.cancelDrag();
+    this.panning = null;
+    this.marquee = null;
+    this.fogDrag = null;
+    this.ghostLayer.clear();
+  };
+
+  private cancelDrag() {
+    const drag = this.dragging;
+    if (!drag) return;
+    this.dragging = null;
+    this.dropPreview(drag.id, true);
+    if (drag.step > 0) this.cb.onPreviewEnd?.(drag.id);
+    drag.view.lastDown = 0;
+    drag.view.node.position.set(drag.view.data.x, drag.view.data.y);
+    this.clearMeasure();
+  }
+
+  private dropPreview(id: string, final = false) {
+    const view = this.movementPreviews.get(id);
+    if (view) {view.node.destroy({children:true}); this.movementPreviews.delete(id);}
+    if (final) {
+      this.previewClosed.add(id);
+      if (this.previewClosed.size > 512) this.previewClosed.delete(this.previewClosed.values().next().value!);
+    }
+  }
+
+  clearDragPreviews() {
+    this.cancelDrag();
+    for (const id of [...this.movementPreviews.keys()]) this.dropPreview(id, true);
+  }
+
+  private clearTokenPreviews(id: string) {
+    if (this.dragging?.view.data.id === id) this.cancelDrag();
+    for (const [key, view] of this.movementPreviews) if (view.tokenId === id) this.dropPreview(key, true);
+  }
+
+  applyTokenPreview(message: TokenPreview) {
+    if (this.destroyed) return;
+    const last = this.previewSteps.get(message.drag_id) ?? 0;
+    if (message.step < last || (!message.end && message.step === last)) return;
+    this.previewSteps.set(message.drag_id, message.step);
+    if (this.previewSteps.size > 512) this.previewSteps.delete(this.previewSteps.keys().next().value!);
+    if (message.end) {this.dropPreview(message.drag_id, message.final !== false); return;}
+    if (typeof message.x !== "number" || typeof message.y !== "number" || !Number.isFinite(message.x) || !Number.isFinite(message.y)) return;
+    this.drawMovementPreview(message.drag_id, message.id, message.x, message.y, message.step);
+  }
+
+  private drawMovementPreview(id: string, tokenId: string, x: number, y: number, step: number) {
+    if (this.previewClosed.has(id)) return;
+    const token = this.tokens.get(tokenId);
+    if (!token) return;
+    let view = this.movementPreviews.get(id);
+    if (!view) {
+      const node = new Container(), line = new Graphics(), body = new Graphics(), image = new Sprite(), mask = new Graphics();
+      node.eventMode = "none";
+      image.mask = mask;
+      node.addChild(line, body, image, mask);
+      this.movementLayer.addChild(node);
+      view = {node, line, body, image, mask, tokenId, step, expires:0};
+      this.movementPreviews.set(id, view);
+    }
+    view.step = step;
+    view.expires = performance.now() + 2000;
+    const radius = token.data.size * this.gridSize / 2 - 3;
+    view.line.clear().moveTo(token.data.x, token.data.y).lineTo(x, y).stroke({width:1.5/this.world.scale.x,color:COLORS.selection,alpha:0.65});
+    view.body.clear().circle(x,y,radius).fill({color:parseInt(token.data.color.replace("#", ""),16)||0xc75c5c,alpha:0.4}).stroke({width:2,color:COLORS.selection,alpha:0.7});
+    view.image.visible = token.image.visible && token.image.texture !== Texture.EMPTY;
+    if (view.image.visible) {
+      view.image.texture = token.image.texture;
+      view.image.anchor.set(0.5);
+      view.image.position.set(x,y);
+      const scale = 2*radius/Math.min(view.image.texture.width,view.image.texture.height);
+      view.image.scale.set(scale);
+      view.image.alpha = 0.45;
+    }
+    view.mask.clear().circle(x,y,radius).fill({color:0xffffff});
+  }
+
+  private tickPreviews = () => {
+    const now = performance.now();
+    const drag = this.dragging;
+    if (drag && drag.step > 0 && now - drag.lastSent >= 100) {
+      drag.lastSent = now;
+      this.drawMovementPreview(drag.id, drag.view.data.id, drag.to.x, drag.to.y, ++drag.step);
+      this.cb.onPreview?.({id:drag.view.data.id,drag_id:drag.id,step:drag.step,...drag.to});
+    }
+    for (const [id, view] of this.movementPreviews) if (view.expires <= now && this.dragging?.id !== id) this.dropPreview(id, false);
   };
 
   // --- расстояния -----------------------------------------------------

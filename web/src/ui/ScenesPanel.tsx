@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { SceneInfo } from "../types";
@@ -14,6 +14,12 @@ export function ScenesPanel({ socket, sceneId, onOpenScene }: {
   const activeSceneId = useUi(s => s.activeSceneId), userId = useUi(s => s.me?.id);
   const [name, setName] = useState(""), [folderName, setFolderName] = useState("");
   const [menu, setMenu] = useState<string | null>(null);
+  const [sceneRename, setSceneRename] = useState<{id: string; name: string} | null>(null);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const settings = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (editingSceneId === sceneId && settings.current) {settings.current.open = true; settings.current.scrollIntoView({block:"nearest"});}
+  }, [editingSceneId, sceneId]);
   const [rename, setRename] = useState<{id: string; name: string} | null>(null);
   const [remove, setRemove] = useState<{id: string; name: string; folder: boolean} | null>(null);
   const key = `lanterna.sceneFolders.${userId}`;
@@ -38,18 +44,25 @@ export function ScenesPanel({ socket, sceneId, onOpenScene }: {
       draggable onDragStart={e => {e.dataTransfer.setData("application/x-laterna-scene", s.id); e.dataTransfer.effectAllowed = "move";}}
       onDragOver={e => e.preventDefault()} onDrop={e => drop(e, s.folder_id ?? null, s.id)}
       onContextMenu={e => {e.preventDefault(); setMenu(s.id);}}>
-      <div className="scene-preview">
+      <button type="button" className="scene-preview" aria-label={`Открыть сцену ${s.name}`} onClick={() => onOpenScene(s.id)}>
         <span className="scene-placeholder" role="img" aria-label="Сцена без превью"><Logo size={36} /></span>
-        {s.preview_url && <img key={s.preview_url} src={s.preview_url} alt={`Превью: ${s.name}`} loading="lazy" decoding="async" onError={e => {e.currentTarget.hidden = true;}} />}
-      </div>
+        {s.preview_url && <img key={s.preview_url} src={s.preview_url} alt={`Превью: ${s.name}`} loading="lazy" draggable={false} decoding="async" onError={e => {e.currentTarget.hidden = true;}} />}
+      </button>
       <span className="scene-row-name" title={s.name}>{s.name}</span>
       {s.id === activeSceneId && <span className="badge-live">видят игроки</span>}
+      {s.id === sceneId && <span className="scene-gm-badge">Открыта у ГМ</span>}
       <span className="scene-row-actions">
         {s.id !== sceneId && <button className="tool" onClick={() => onOpenScene(s.id)}>Открыть</button>}
         {s.id !== activeSceneId && <button className="tool" onClick={() => socket.send("scene.activate", {id: s.id})}>Показать</button>}
         <button className="tool" aria-label={`Действия сцены ${s.name}`} aria-expanded={menu === s.id} onClick={() => setMenu(menu === s.id ? null : s.id)}>⋯</button>
       </span>
       {menu === s.id && <div className="scene-actions" role="group" aria-label={`Меню сцены ${s.name}`}>
+        <button className="tool" onClick={() => {setEditingSceneId(s.id); onOpenScene(s.id); setMenu(null);if(s.id===sceneId&&settings.current){settings.current.open=true;settings.current.scrollIntoView({block:"nearest"});}}}>Настройки сцены</button>
+        <button className="tool" onClick={() => setSceneRename({id:s.id,name:s.name})}>Переименовать сцену</button>
+        {sceneRename?.id === s.id && <form className="scene-rename" onSubmit={e => {e.preventDefault();socket.send("scene.rename",sceneRename);setSceneRename(null);setMenu(null);}}>
+          <input aria-label="Новое название сцены" maxLength={200} value={sceneRename.name} onChange={e => setSceneRename({...sceneRename,name:e.target.value})} />
+          <button className="tool" disabled={!sceneRename.name.trim()}>Сохранить название</button>
+        </form>}
         <label>Папка<select aria-label={`Папка сцены ${s.name}`} value={s.folder_id ?? ""} onChange={e => move(s.id, e.target.value || null)}>
           <option value="">Без папки</option>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select></label>
@@ -63,6 +76,12 @@ export function ScenesPanel({ socket, sceneId, onOpenScene }: {
     </li>
   );
   return <div className="side-panel scene-browser">
+    <div className="scene-current-summary" role="status">
+      <strong>Игроки: {scenes.find(s=>s.id===activeSceneId)?.name}</strong>
+      <span>У ГМ: {scenes.find(s=>s.id===sceneId)?.name}</span>
+      <div className="side-row"><button className="tool" onClick={() => {const s=scenes.find(s=>s.id===activeSceneId);if(s){const id=s.folder_id??"";setCollapsed(v=>v.filter(f=>f!==id));onOpenScene(s.id);}}}>К сцене игроков</button>
+      <button className="tool" onClick={() => {setEditingSceneId(sceneId);if(settings.current){settings.current.open=true;settings.current.scrollIntoView({block:"nearest"});}}}>Настройки открытой сцены</button></div>
+    </div>
     <form className="side-row" onSubmit={e => {e.preventDefault(); if (folderName.trim()) {socket.send("folder.create", {name: folderName.trim()}); setFolderName("");}}}>
       <input className="grow" placeholder="Новая папка" aria-label="Название новой папки" maxLength={200} value={folderName} onChange={e => setFolderName(e.target.value)} />
       <button className="tool" disabled={!folderName.trim()}>+ Папка</button>
@@ -89,7 +108,7 @@ export function ScenesPanel({ socket, sceneId, onOpenScene }: {
       <input className="grow" placeholder="Новая сцена" maxLength={200} value={name} onChange={e => setName(e.target.value)} /><button className="tool">Создать</button>
     </form>
     <p className="muted side-note">Новая сцена скрыта, пока не нажмёшь «Показать».</p>
-    <h3 className="side-heading">Эта сцена</h3><MapSettings socket={socket} />
+    <details className="scene-settings" ref={settings}><summary>Настройки: {scenes.find(s=>s.id===sceneId)?.name}</summary><MapSettings socket={socket} /></details>
     {remove && <ConfirmDialog title={`Удалить ${remove.folder ? "папку" : "сцену"} «${remove.name}»?`}
       text={remove.folder ? "Сцены сохранятся и будут перемещены в «Без папки»." : "Сцена будет удалена вместе с токенами, стенами и туманом."}
       confirmLabel={remove.folder ? "Удалить папку" : "Удалить сцену"} danger onCancel={() => setRemove(null)} onConfirm={() => {

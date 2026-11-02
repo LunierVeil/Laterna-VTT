@@ -995,3 +995,221 @@ def test_group_deletion_keeps_server_permissions_and_actual_recipient_events(cli
     finally:
         run(g, "group-clean-foreign", "token.remove", {"id": foreign["id"]})
         run(g, "group-clean-secret", "token.remove", {"id": hidden["id"]})
+
+
+def shared_link(g):
+    reply = run(g, 'shared-link', 'invite.shared', {})
+    assert reply['type'] == 'reply'
+    view = recv_until(g, lambda m: m.get('type') == 'campaign')
+    link = next(i for i in view['invites'] if i.get('reusable'))
+    return link
+
+
+def test_shared_link_multiple_users_existing_login_pause_rotation_and_privacy(client, gm, player, sockets, scene_id):
+    from uuid import uuid4
+    g, p = sockets
+    link = shared_link(g)
+    hidden = recv_until(p, lambda m: m.get('type') == 'campaign')
+    assert 'invites' not in hidden and link['token'] not in json.dumps(hidden)
+    users = []
+    try:
+        for _ in range(3):
+            name = 'Shared-' + uuid4().hex[:8]
+            result = client.post('/api/invite/accept', json={'token':link['token'], 'name':name, 'password':'sharedpass123','is_gm':True,'campaign_id':'fake'})
+            assert result.status_code == 200, result.text
+            assert not result.json()['is_gm']
+            users.append(result.json())
+            client.cookies.clear()
+        assert client.post('/api/invite/info',json={'token':link['token']}).json()['kind'] == 'shared'
+        current = client.get('/api/campaign',headers=gm)
+        assert current.headers['cache-control'] == 'no-store'
+        assert next(i for i in current.json()['invites'] if i.get('reusable'))['token'] == link['token']
+        count = len(current.json()['users'])
+        login = client.post('/api/invite/accept',json={'token':link['token'],'name':users[0]['name'],'password':'sharedpass123','mode':'login'})
+        assert login.status_code == 200 and login.json()['id'] == users[0]['id']
+        again = client.post('/api/invite/accept',json={'token':link['token'],'mode':'continue'})
+        assert again.status_code == 200 and again.json()['id'] == users[0]['id']
+        client.cookies.clear()
+        assert len(client.get('/api/campaign',headers=gm).json()['users']) == count
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':users[0]['name'],'password':'wrongpass123','mode':'login'}).status_code == 401
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':'missing-'+uuid4().hex,'password':'sharedpass123','mode':'login'}).status_code == 401
+        assert client.post('/api/invite/accept',headers=gm,json={'token':link['token'],'mode':'continue'}).status_code == 401
+        run(g,'pause-shared','invite.pause',{'id':link['id'],'enabled':False})
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':'Paused-'+uuid4().hex,'password':'sharedpass123'}).status_code == 403
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':users[0]['name'],'password':'sharedpass123'}).status_code == 200
+        client.cookies.clear()
+        run(g,'rotate-shared','invite.shared',{'rotate':True})
+        view = recv_until(g,lambda m:m.get('type')=='campaign' and any(i.get('reusable') and i['id']!=link['id'] for i in m['invites']))
+        new = next(i for i in view['invites'] if i.get('reusable'))
+        assert new['token'] != link['token'] and len([i for i in view['invites'] if i.get('reusable')]) == 1
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':'Revoked-'+uuid4().hex,'password':'sharedpass123'}).status_code == 404
+        run(g,'revoke-shared','invite.revoke',{'id':new['id']})
+        assert client.post('/api/invite/info',json={'token':new['token']}).status_code == 404
+        assert client.post('/api/login',json={'name':users[0]['name'],'password':'sharedpass123'}).status_code == 200
+        client.cookies.clear()
+        assert run(p,'shared-forbidden','invite.shared',{})['type']=='error'
+    finally:
+        for u in users: run(g,'shared-clean-'+u['id'],'player.delete',{'id':u['id']})
+
+
+def test_shared_link_registration_limits_and_wrong_campaign(client, gm, sockets, monkeypatch):
+    from app.ratelimit import LoginLimiter
+    from uuid import uuid4
+    g,_ = sockets
+    link = shared_link(g)
+    monkeypatch.setattr(main,'registration_ip_limiter',LoginLimiter(1,600))
+    async def foreign_invitation():
+        from app.models import Campaign, Invite
+        from datetime import datetime, timedelta, timezone
+        async with main.SessionLocal() as db:
+            other=Campaign(name='Other protected campaign');db.add(other);await db.flush()
+            token='foreign-'+uuid4().hex
+            invite=Invite(token_hash=auth._digest(token),campaign_id=other.id,user_id=None,reusable=True,token_value=token,expires_at=datetime.now(timezone.utc)+timedelta(days=1))
+            db.add(invite);await db.commit();return token
+    foreign=client.portal.call(foreign_invitation)
+    assert client.post('/api/invite/accept',json={'token':foreign,'name':'foreign-user','password':'limitedpass1'}).status_code==404
+    name='Limit-'+uuid4().hex
+    result=client.post('/api/invite/accept',json={'token':link['token'],'name':name,'password':'limitedpass1'})
+    assert result.status_code==200
+    user=result.json();client.cookies.clear()
+    try:
+        rejected=client.post('/api/invite/accept',json={'token':link['token'],'name':name+'x','password':'limitedpass1'})
+        assert rejected.status_code==429 and int(rejected.headers['retry-after'])>0
+        assert client.post('/api/invite/accept',json={'token':link['token'],'name':name,'password':'limitedpass1','mode':'login'}).status_code==200
+        client.cookies.clear()
+    finally:
+        run(g,'limit-revoke','invite.revoke',{'id':link['id']})
+        run(g,'limit-clean','player.delete',{'id':user['id']})
+
+
+def test_npc_equipment_persists_uses_character_lists_and_never_reaches_players(client, gm, player, sockets, scene_id):
+    g,p=sockets
+    c=run(g,'npc-gear-create','character.create',{'name':'Hidden NPC equipment','system':'mob'})['payload']['character']
+    recv_until(g,lambda m:m.get('type')=='character' and m['character']['id']==c['id'])
+    # The same character.list / JSON equipment model as PC cards.
+    g.send_text(json.dumps({'name':'character.list','payload':{'id':c['id'],'path':'equipment','op':'add','item':{'name':'Secret sword','qty':2,'doc':{'type':'doc','content':[{'type':'paragraph','content':[{'type':'text','text':'Secret properties'}]}]}}}}))
+    saved=recv_until(g,lambda m:m.get('type')=='character' and m['character']['data'].get('equipment'))['character']
+    item=saved['data']['equipment'][0]
+    assert item['name']=='Secret sword' and item['qty']==2
+    g.send_text(json.dumps({'name':'character.list','payload':{'id':c['id'],'path':'equipment','op':'update','item_id':item['id'],'changes':{'name':'Secret axe','qty':3}}}))
+    changed=recv_until(g,lambda m:m.get('type')=='character' and m['character']['data'].get('equipment',[{}])[0].get('name')=='Secret axe')['character']
+    assert changed['data']['equipment'][0]['qty']==3
+    assert client.get('/api/characters',headers=gm).json()[-1]['data']['equipment']==changed['data']['equipment']
+    assert all(x['id']!=c['id'] for x in client.get('/api/characters',headers=player['headers']).json())
+    assert run(p,'npc-gear-forbidden','character.update',{'id':c['id'],'set':{'equipment':[]}})['type']=='error'
+    with client.websocket_connect(f'/ws/scene/{scene_id}',headers=gm) as again:
+        again.receive_json()
+        # API reload reads persisted JSON; no local-only item state.
+        assert any(x['id']==c['id'] and x['data']['equipment'][0]['name']=='Secret axe' for x in client.get('/api/characters',headers=gm).json())
+    g.send_text(json.dumps({'name':'character.list','payload':{'id':c['id'],'path':'equipment','op':'remove','item_id':item['id']}}))
+    assert recv_until(g,lambda m:m.get('type')=='character' and m['character']['id']==c['id'])['character']['data']['equipment']==[]
+    g.send_text(json.dumps({'name':'character.delete','payload':{'id':c['id']}}));recv_until(g,lambda m:m.get('type')=='character_deleted')
+
+
+def test_scene_rename_without_switch_updates_only_permitted_metadata(client, gm, player, sockets, scene_id):
+    g,p=sockets
+    created=run(g,'rename-private-create','scene.create',{'name':'Private rename old'})['payload']['id']
+    recv_until(g,lambda m:m.get('type')=='campaign');recv_until(p,lambda m:m.get('type')=='campaign')
+    before=client.get(f'/api/scenes/{created}',headers=gm).json()
+    assert run(g,'rename-private','scene.rename',{'id':created,'name':'Secret renamed room'})['type']=='reply'
+    view=recv_until(g,lambda m:m.get('type')=='campaign');safe=recv_until(p,lambda m:m.get('type')=='campaign')
+    assert next(s for s in view['scenes'] if s['id']==created)['name']=='Secret renamed room'
+    assert 'Secret renamed room' not in json.dumps(safe) and created not in json.dumps(safe)
+    after=client.get(f'/api/scenes/{created}',headers=gm).json();assert after.pop('name')=='Secret renamed room';before.pop('name');assert before==after
+    assert run(p,'rename-denied','scene.rename',{'id':scene_id,'name':'hack'})['type']=='error'
+    run(g,'rename-clean','scene.delete',{'id':created})
+
+
+def messages_until(ws,predicate):
+    frames=[]
+    for _ in range(80):
+        msg=ws.receive_json();frames.append(msg)
+        if predicate(msg):return frames
+    raise AssertionError('barrier was not delivered')
+
+
+def test_drag_preview_actual_clients_intermediate_confirm_cancel_reject_and_disconnect(client, gm, player, sockets, scene_id, monkeypatch):
+    from uuid import uuid4
+    g,p=sockets;now=[1000.0];monkeypatch.setattr(main.previews,'clock',lambda:now[0])
+    tok=run(p,'preview-token','token.add',{'x':2005,'y':1605})['payload']['token'];recv_until(g,lambda m:m.get('cmd_id')=='preview-token')
+    before=client.get(f'/api/scenes/{scene_id}',headers=gm).json();base=before['seq']
+    drag=str(uuid4())
+    def preview(ws,step,x,drag_id=drag,seq=None):
+        now[0]+=.11
+        ws.send_text(json.dumps({'id':'preview-'+str(step),'name':'token.preview','payload':{'id':tok['id'],'drag_id':drag_id,'step':step,'base_seq':base if seq is None else seq,'x':x,'y':1605}}))
+    try:
+        for step,x in [(1,2040),(2,2080),(3,2115)]:
+            preview(p,step,x);m=recv_until(g,lambda m:m.get('type')=='token_preview' and not m['end'])
+            assert m['x']==x and m['origin_x']==2005 and m['base_seq']==base
+            assert 'image_url' not in m and 'portrait_url' not in m
+        assert client.get(f'/api/scenes/{scene_id}',headers=gm).json()==before
+        p.send_text(json.dumps({'name':'token.preview.end','payload':{'drag_id':drag}}))
+        assert recv_until(g,lambda m:m.get('type')=='token_preview')['end']
+        preview(p,99,2200)
+        p.send_text(json.dumps({'name':'chat.say','payload':{'text':'preview-cancel-barrier'}}))
+        frames=messages_until(g,lambda m:m.get('type')=='chat' and m['message']['text']=='preview-cancel-barrier')
+        assert not any(m.get('type')=='token_preview' and not m['end'] for m in frames)
+        drag2=str(uuid4());preview(p,1,2115,drag2)
+        recv_until(g,lambda m:m.get('type')=='token_preview' and not m['end'])
+        event=run(p,'preview-confirm','token.move',{'id':tok['id'],'x':2115,'y':1605})
+        assert event['seq']==base+1
+        frames=messages_until(g,lambda m:m.get('cmd_id')=='preview-confirm')
+        assert any(m.get('type')=='token_preview' and m['end'] for m in frames)
+        assert frames[-1]==event
+        preview(p,99,2500,drag2,base+1)
+        p.send_text(json.dumps({'name':'chat.say','payload':{'text':'preview-late-barrier'}}))
+        assert not any(m.get('type')=='token_preview' and not m['end'] for m in messages_until(g,lambda m:m.get('type')=='chat' and m['message']['text']=='preview-late-barrier'))
+        wall=run(g,'preview-wall','wall.add',{'x1':2185,'y1':1570,'x2':2185,'y2':1640})['payload']['wall'];recv_until(p,lambda m:m.get('cmd_id')=='preview-wall')
+        seq=client.get(f'/api/scenes/{scene_id}',headers=gm).json()['seq'];drag3=str(uuid4());preview(p,1,2255,drag3,seq)
+        recv_until(g,lambda m:m.get('type')=='token_preview' and not m['end'])
+        assert run(p,'preview-reject','token.move',{'id':tok['id'],'x':2255,'y':1605})['type']=='error'
+        assert recv_until(g,lambda m:m.get('type')=='token_preview')['end']
+        assert next(t for t in client.get(f'/api/scenes/{scene_id}',headers=gm).json()['tokens'] if t['id']==tok['id'])['x']==2115
+        run(g,'preview-wall-clean','wall.remove',{'id':wall['id']});recv_until(p,lambda m:m.get('cmd_id')=='preview-wall-clean')
+        seq=client.get(f'/api/scenes/{scene_id}',headers=gm).json()['seq']
+        with client.websocket_connect(f'/ws/scene/{scene_id}',headers=player['headers']) as other:
+            snap=other.receive_json();assert 'previews' not in snap and 'token_preview' not in json.dumps(snap)
+            preview(other,1,2200,str(uuid4()),seq);recv_until(g,lambda m:m.get('type')=='token_preview' and not m['end'])
+        assert recv_until(g,lambda m:m.get('type')=='token_preview')['end']
+        assert client.get(f'/api/scenes/{scene_id}',headers=gm).json()['seq']==seq
+    finally:
+        run(g,'preview-clean','token.remove',{'id':tok['id']})
+
+
+def test_shared_invite_request_budget_limits_invalid_token_scanning(client, monkeypatch):
+    from app.ratelimit import LoginLimiter
+    monkeypatch.setattr(main,'invite_request_limiter',LoginLimiter(1,60))
+    assert client.post('/api/invite/info',json={'token':'invalid-first'}).status_code==404
+    limited=client.post('/api/invite/info',json={'token':'invalid-next'})
+    assert limited.status_code==429 and int(limited.headers['retry-after'])>0
+
+
+def test_drag_preview_real_recipient_privacy_hidden_layer_and_fog(client, gm, player, sockets, scene_id, monkeypatch):
+    from uuid import uuid4
+    g,p=sockets;now=[2000.0];monkeypatch.setattr(main.previews,'clock',lambda:now[0])
+    run(g,'privacy-clear','fog.clear',{});recv_until(p,lambda m:m.get('cmd_id')=='privacy-clear')
+    secret=run(g,'privacy-token','token.add',{'x':2805,'y':2005,'layer':'gm'})['payload']['token']
+    assert recv_until(p,lambda m:m.get('type')=='event')['name']=='noop'
+    def preview_and_barrier(drag,x,step,marker):
+        now[0]+=.11
+        seq=client.get(f'/api/scenes/{scene_id}',headers=gm).json()['seq']
+        g.send_text(json.dumps({'name':'token.preview','payload':{'id':secret['id'],'drag_id':drag,'step':step,'base_seq':seq,'x':x,'y':2005}}))
+        g.send_text(json.dumps({'name':'chat.say','payload':{'text':marker}}))
+        return messages_until(p,lambda m:m.get('type')=='chat' and m['message']['text']==marker)
+    try:
+        frames=preview_and_barrier(str(uuid4()),2875,1,'hidden-preview-barrier')
+        assert secret['id'] not in json.dumps(frames)
+        run(g,'privacy-show','token.update',{'id':secret['id'],'layer':'tokens'});recv_until(p,lambda m:m.get('cmd_id')=='privacy-show')
+        drag=str(uuid4());frames=preview_and_barrier(drag,2875,1,'visible-preview-barrier')
+        assert any(m.get('type')=='token_preview' and not m['end'] for m in frames)
+        run(g,'privacy-cover','fog.cover',{'x':2840,'y':1960,'w':100,'h':100})
+        frames=messages_until(p,lambda m:m.get('cmd_id')=='privacy-cover')
+        assert any(m.get('type')=='token_preview' and m['end'] for m in frames)
+        frames=preview_and_barrier(str(uuid4()),2875,1,'destination-fog-barrier')
+        assert not any(m.get('type')=='token_preview' for m in frames)
+        # Source visibility is checked as well, including a shared token hidden by fog.
+        run(g,'privacy-source-cover','fog.cover',{'x':2760,'y':1960,'w':100,'h':100});recv_until(p,lambda m:m.get('cmd_id')=='privacy-source-cover')
+        frames=preview_and_barrier(str(uuid4()),2705,1,'origin-fog-barrier')
+        assert secret['id'] not in json.dumps(frames)
+    finally:
+        run(g,'privacy-clean','token.remove',{'id':secret['id']});run(g,'privacy-clear-final','fog.clear',{})

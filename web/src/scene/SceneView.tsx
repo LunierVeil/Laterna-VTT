@@ -30,6 +30,8 @@ export function SceneView({
           },
         );
       },
+      onPreview: (payload) => {socket.send("token.preview", {...payload, base_seq: socket.sequence});},
+      onPreviewEnd: (drag_id) => {socket.send("token.preview.end", {drag_id});},
       onAddToken: (x, y) => {
         // Скрытым ставит только ГМ - сервер всё равно проверит.
         const hidden = useUi.getState().isGm && useUi.getState().placeHidden;
@@ -78,14 +80,18 @@ export function SceneView({
       },
     }, useUi.getState().me!.id);
 
+    const offDisconnect = socket.onDisconnect(() => stage.clearDragPreviews());
+
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
     // В StrictMode эффект отрабатывает дважды, поэтому нужен свой флаг:
     // без него колбэк уже отменённого стейджа успевает записать себя в
     // stageRef, и следующее же обращение летит в разрушенный объект.
     let cancelled = false;
 
-    const mounted = stage
-      .mount(host.current!)
+    // StrictMode disposes its first effect synchronously. Do not start an
+    // expensive WebGL initialization for a stage that will never be shown.
+    const mounted = Promise.resolve()
+      .then(() => {if (!cancelled) return stage.mount(host.current!);})
       .then(() => {
         if (cancelled || !stage.isAlive) return;
         stageRef.current = stage;
@@ -100,6 +106,7 @@ export function SceneView({
 
     return () => {
       cancelled = true;
+      offDisconnect();
       if (stageRef.current === stage) {stageRef.current = null; useUi.setState({selectionCount: 0, selectionEditable: 0});}
       void mounted.finally(() => stage.destroy());
     };

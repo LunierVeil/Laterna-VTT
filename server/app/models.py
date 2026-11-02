@@ -87,6 +87,12 @@ class Invite(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Additive compatibility: NULL means the previous one-use invitation.
+    reusable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    paused: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Recoverable player-only bearer link, returned exclusively to authenticated GMs.
+    # Login sessions and password-reset tokens remain hash-only.
+    token_value: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     def to_dict(self) -> dict:
         # Уходит только ГМ. Хеш - просто идентификатор для "отозвать",
@@ -95,6 +101,7 @@ class Invite(Base):
             "id": self.token_hash,
             "user_id": self.user_id,
             "expires_at": self.expires_at.isoformat(),
+            **({"reusable": True, "paused": bool(self.paused), "token": self.token_value} if self.reusable else {}),
         }
 
 

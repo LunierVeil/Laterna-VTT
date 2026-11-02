@@ -155,7 +155,7 @@ async def find_invite(db: AsyncSession, token: str | None) -> Invite | None:
     invite = await db.get(Invite, _digest(token))
     if invite is None:
         return None
-    if _aware(invite.expires_at) < datetime.now(timezone.utc):
+    if not invite.reusable and _aware(invite.expires_at) < datetime.now(timezone.utc):
         await db.delete(invite)
         return None
     return invite

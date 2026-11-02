@@ -189,6 +189,10 @@ export default function App() {
         ui.flashError(msg.message);
         return;
       }
+      if (msg.type === "token_preview") {
+        stageRef.current?.applyTokenPreview(msg);
+        return;
+      }
       if (msg.type === "ping") {
         // Не событие сцены: без seq, в буфер до готовности стейджа не кладём.
         stageRef.current?.showPing(msg.x, msg.y, msg.author, msg.color);
@@ -205,6 +209,8 @@ export default function App() {
       }
       if (msg.type === "campaign") {
         ui.setCampaign(msg.active_scene_id, msg.scenes, msg.users, msg.invites, msg.folders);
+        const currentName = msg.scenes?.find(s => s.id === sceneId)?.name ?? (msg.active_scene_id === sceneId ? msg.active_scene_name : undefined);
+        if (currentName) ui.setScene(currentName, useUi.getState().gridSize, useUi.getState().background);
         // Аккаунт удалили - сессии больше нет, на экран входа.
         const myId = useUi.getState().me?.id;
         if (myId && !msg.users.some((u) => u.id === myId)) {
