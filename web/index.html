@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Ссылки ГМ и приглашения несут секрет в адресе. Без этого он ушёл бы
+         в Referer на любой внешний сайт, по ссылке на который кликнули. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Laterna VTT</title>
+  </head>
+  <body style="margin: 0; background: #121318">
+    <!-- Видно, пока качается скрипт: через медленный туннель это десятки
+         секунд, и пустой экран выглядит как зависание. React заменит. -->
+    <div id="root">
+      <div style="height: 100vh; display: grid; place-items: center; background: #121318; color: #a9a6a0; font: 15px system-ui, sans-serif">
+        Загружаю стол…
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

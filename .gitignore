@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+venv/
+*.db
+server/uploads/
+server/gm_key.txt
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Прочее
+.env
+.DS_Store
+*.log
+maket
+
+# Private campaign data, backups and machine configuration
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.sql
+*.sql.gz
+*.dump
+*.backup
+backup/
+backups/
+uploads/
+data/
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+.venv-*/
+.cache/
+.coverage*
+htmlcov/
+artifacts/
+test-results/
+playwright-report/
+*.tmp
+*.zip
+*.tar.gz
+
+# Optional local Claude Code instructions
+/CLAUDE.md
