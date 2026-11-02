@@ -128,19 +128,29 @@ test('v012 multi-select: Shift clicks and rectangle, permission-aware Delete/but
   assert.deepEqual((await scene(owner)).tokens,before,'selection does not move tokens');
   // Delete in an editor must never delete the selected tokens.
   await owner.locator('.chat-input input').fill('keep text');await owner.locator('.chat-input input').press('Delete');assert.deepEqual((await scene(owner)).tokens,before);
-  await owner.locator('.chat-input input').blur();const from=master.received.length;
+  await owner.locator('.chat-input input').blur();const from=master.received.length,ownerFrom=owner.received.length;
   await owner.keyboard.press('Delete');
   await until(async()=> (await scene(owner)).tokens.filter(t=>visible.includes(t.id)).length===1,'player group removed');
-  for(const t of [...mine,shared]){assert.equal(await stageToken(owner,t.id),null);await until(()=>master.received.slice(from).some(m=>m.name==='token.removed'&&m.payload.id===t.id),'GM receives removal');}
+  for(const t of [...mine,shared]){
+   await until(()=>owner.received.slice(ownerFrom).some(m=>m.name==='token.removed'&&m.payload.id===t.id),`player receives removal ${t.id}`);
+   await until(async()=>await stageToken(owner,t.id)===null,`player renders removal ${t.id}`);
+   assert.equal(await stageToken(owner,t.id),null);
+   await until(()=>master.received.slice(from).some(m=>m.name==='token.removed'&&m.payload.id===t.id),'GM receives removal');
+   await until(async()=>await stageToken(master,t.id)===null,`GM renders removal ${t.id}`);
+   assert.equal(await stageToken(master,t.id),null);
+  }
+  assert.deepEqual((await scene(owner)).tokens.filter(t=>visible.includes(t.id)).map(t=>t.id),[foreign.id]);
   assert.ok(await stageToken(owner,foreign.id));assert.deepEqual(await selected(owner),[foreign.id]);assert.equal(await stageToken(owner,secret.id),null);
   // GM can select and delete both the foreign and hidden token, using the group button.
   await click(master,foreign,true);await click(master,secret,true);
   await master.getByRole('button',{name:'Удалить выбранные (2)',exact:true}).click();await until(async()=> (await scene(master)).tokens.length===0,'GM group removed');
+  for(const t of [foreign,secret]) await until(async()=>await stageToken(master,t.id)===null,`GM renders group removal ${t.id}`);
+  await until(async()=>await stageToken(owner,foreign.id)===null,'player renders foreign token removed by GM');
   const a=(await command('token.add',{x:245,y:245})).payload.token,b=(await command('token.add',{x:385,y:245})).payload.token;
   await until(()=>stageToken(owner,b.id),'cleanup tokens delivered');await click(owner,a,true);await click(owner,b,true);
   await command('fog.cover',{x:190,y:190,w:250,h:110});await until(async()=>(await selected(owner)).length===0,'fog prunes group');
   await command('fog.clear');await until(()=>stageToken(owner,b.id),'tokens revealed');await click(owner,a,true);await click(owner,b,true);
-  await owner.reload();await owner.locator('canvas').waitFor();assert.deepEqual(await selected(owner),[]);
+  await owner.reload();await owner.locator('canvas').waitFor();await until(()=>stageToken(owner,b.id),'snapshot tokens rendered after reload');assert.deepEqual(await selected(owner),[]);
   // A fresh snapshot on the existing stage removes stale IDs while retaining surviving selection.
   await click(master,a,true);await click(master,b,true);
   await master.evaluate(async id=>{const data=await(await fetch(`/api/scenes/${id}`)).json();data.tokens=[];window.observedStage.setSnapshot(data);},temp);
