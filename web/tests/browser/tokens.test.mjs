@@ -18,12 +18,12 @@ test('B04: GM button, player button and drag/drop place a linked token owned by 
     await row.getByRole('button',{name:'На карту',exact:true}).click();
     const tok=await until(async()=> (await scene(p)).tokens.find(t=>!before.includes(t.id)&&t.character_id===c.id),'placed token');
     assert.equal(tok.owner_id,c.owner_id);
-    assert.ok(p.received.some(m=>m.name==='token.added'&&m.payload.token.id===tok.id&&m.payload.token.owner_id===c.owner_id));
+    assert.ok(await until(()=>p.received.some(m=>m.name==='token.added'&&m.payload.token.id===tok.id&&m.payload.token.owner_id===c.owner_id),`token.added for placed token ${tok.id}`));
   }
   const before=(await scene(master)).tokens.length;
   await master.locator('.sheet-row').filter({hasText:'Place me'}).dragTo(master.locator('.scene'),{targetPosition:{x:250,y:300}});
   const dropped=await until(async()=>{const tokens=(await scene(master)).tokens;return tokens.length===before+1?tokens.at(-1):null;},'native drop token');
-  assert.ok(master.received.some(m=>m.name==='token.added'&&m.payload.token.id===dropped.id));
+  assert.ok(await until(()=>master.received.some(m=>m.name==='token.added'&&m.payload.token.id===dropped.id),`token.added for dropped token ${dropped.id}`));
   assert.equal(dropped.character_id,c.id);assert.equal(dropped.owner_id,c.owner_id);
   await owner.close();await master.close();
 });
