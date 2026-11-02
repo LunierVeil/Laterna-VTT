@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, UserInfo } from "../types";
+import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, UserInfo } from "../shared/api/protocol";
 import type { Tool } from "../entities/scene/model/tool";
 import type { SelectedToken } from "../entities/token/model/selection";
 

@@ -1,4 +1,4 @@
-import type { ServerMessage } from "../types";
+import type { ServerMessage } from "../shared/api/protocol";
 
 type Listener = (msg: ServerMessage) => void;
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
-import type { CombatEntry } from "../types";
+import type { CombatEntry } from "../shared/api/protocol";
 import { SHEETS } from "../sheets/dnd5e";
 
 /** Бонус инициативы из привязанного листа (путь - в схеме, token.initiative). */

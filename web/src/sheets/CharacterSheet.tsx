@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SceneSocket } from "../net/socket";
 import { useUi } from "../state/store";
-import type { Character } from "../types";
+import type { Character } from "../shared/api/protocol";
 import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./schema";
 import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";

@@ -148,7 +148,7 @@ JSON key, command payload, CSS class или runtime policy.
 | --- | --- | --- | --- |
 | [main.tsx](../web/src/main.tsx) | оставить; позже импорт app/App | Vite HTML и fixture route остаются /src/main.tsx | 04 |
 | [App.tsx](../web/src/App.tsx) | app/App + app/session; layout → pages/table | main; сохранить bootstrap порядок и module singleton | 04 |
-| [types.ts](../web/src/types.ts) | shared/api/protocol; Tool отдельно entities/scene/model | 15 src consumers + test-only imports/DTO paths | 01 |
+| [types.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | shared/api/protocol; Tool отдельно entities/scene/model | 15 src consumers + test-only imports/DTO paths | 01 |
 | [store.ts](../web/src/state/store.ts) | оставить на переходе; позже app/model/table-store | 17 consumers, evaluate URLs, diagnostics; соединять через app connectors | 08 |
 | [socket.ts](../web/src/net/socket.ts) | shared/api/scene-socket.ts | App runtime, 14 type consumers, socket unit, diagnostics URL | 03 |
 | [upload.ts](../web/src/net/upload.ts) | shared/api/upload.ts, сначала как есть | sheet, CharactersPanel, MapSettings, TokenCard | 03 |

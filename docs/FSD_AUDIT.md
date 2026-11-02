@@ -85,7 +85,7 @@ Fan-in/out ниже — число уникальных внутренних TS-
 | [App](../web/src/App.tsx) | 349 | 1 | 16 | композиция и несколько независимых lifecycle |
 | [store](../web/src/state/store.ts) | 201 | 17 | 1 | все 17 входящих зависимостей runtime |
 | [socket](../web/src/net/socket.ts) | 176 | 15 | 1 | runtime-конструктор использует App; остальные 14 — type-only |
-| [types](../web/src/types.ts) | 175 | 15 | 0 | общий контракт, не runtime singleton |
+| [types](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | 175 | 15 | 0 | общий контракт, не runtime singleton |
 | [stage](../web/src/scene/stage.ts) | 1420 | 9 | 1 | 1 runtime consumer SceneView, остальные 8 — type-only |
 | [CharacterSheet](../web/src/sheets/CharacterSheet.tsx) | 1273 | 2 | 10 | App и TokenCard получают runtime-зависимость |
 | [dnd5e](../web/src/sheets/dnd5e.ts) | 373 | 4 | 3 | registry используют sheet, tokenStats, TokenCard, InitiativePanel |

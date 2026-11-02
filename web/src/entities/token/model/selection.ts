@@ -1,4 +1,4 @@
-import type { Token } from "../../../types";
+import type { Token } from "../../../shared/api/protocol";
 
 /** Что нужно карточки токена. Без координат: они меняются на каждом кадре драга. */
 export type SelectedToken = Pick<
