@@ -8,7 +8,7 @@
  *
  * Без зависимостей от React - чтобы гонять тестом прямо в node.
  */
-import type { CheckBonus, RollSpec, SheetSchema, Total } from "./schema";
+import type { CheckBonus, RollSpec, SheetSchema, Total } from "../../../entities/character/model/legacy-sheet-schema";
 
 function at(data: unknown, path: string): unknown {
   let node = data as any;

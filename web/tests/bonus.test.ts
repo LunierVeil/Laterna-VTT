@@ -2,8 +2,8 @@
 // снимает сам). Тут только арифметика формы, кубы бросает сервер.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { abilityMod, checkBonus, computedBonus } from "../src/sheets/bonus.ts";
-import { dnd5e } from "../src/sheets/dnd5e.ts";
+import { abilityMod, checkBonus, computedBonus } from "../src/systems/dnd5e/model/bonus.ts";
+import { dnd5e } from "../src/systems/dnd5e/model/dnd5e.ts";
 
 const skills = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "checklist" && b.path === "skills");
 const saves = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "checklist" && b.path === "abilities");
@@ -56,7 +56,7 @@ test("каждый навык схемы знает свою характери�
 });
 
 test("оружие без атаки (LSS без mod): посчитано из ability строки и владения", async () => {
-  const { computedRowBonus } = await import("../src/sheets/bonus.ts");
+  const { computedRowBonus } = await import("../src/systems/dnd5e/model/bonus.ts");
   const weapons = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "table" && b.path === "weapons");
   assert.ok(weapons && weapons.kind === "table" && weapons.rolls);
   const attack = weapons.rolls.items.find((i) => i.key === "attack")!;
@@ -67,7 +67,7 @@ test("оружие без атаки (LSS без mod): посчитано из a
 });
 
 test("деньги: всего в зм - подсказка по курсам из схемы", async () => {
-  const { blockTotal } = await import("../src/sheets/bonus.ts");
+  const { blockTotal } = await import("../src/systems/dnd5e/model/bonus.ts");
   const money = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "fields" && b.title === "Деньги");
   assert.ok(money && money.kind === "fields" && money.total);
   assert.equal(blockTotal(money.total, { coins: { gp: 205, cp: 22 } }), 205.22);
@@ -76,7 +76,7 @@ test("деньги: всего в зм - подсказка по курсам и
 });
 
 test("лечение с 0 сбрасывает спасброски от смерти, обычное лечение - нет", async () => {
-  const { hpChanges } = await import("../src/sheets/bonus.ts");
+  const { hpChanges } = await import("../src/systems/dnd5e/model/bonus.ts");
   const down = { vitals: { hp: { current: 0, max: 20 } }, death: { successes: 2, fails: 1, dying: true } };
   assert.deepEqual(hpChanges(dnd5e, down, 5), {
     "vitals.hp.current": 5,
@@ -90,7 +90,7 @@ test("лечение с 0 сбрасывает спасброски от сме�
 });
 
 test("мастерство: Плут 1 уровня, Ловкость 10, мастерство в Скрытности - +4 при бонусе +2", async () => {
-  const { checkBonus, profLevel } = await import("../src/sheets/bonus.ts");
+  const { checkBonus, profLevel } = await import("../src/systems/dnd5e/model/bonus.ts");
   const rogue = { proficiency: 2, abilities: { dex: { score: 10 } }, skills: { stealth: { prof: 2 }, acrobatics: { prof: 1 } } };
   assert.equal(checkBonus(skills.bonus!, "skills.stealth", "dex", rogue).value, 4);
   assert.equal(checkBonus(skills.bonus!, "skills.acrobatics", "dex", rogue).value, 2);
@@ -102,7 +102,7 @@ test("мастерство: Плут 1 уровня, Ловкость 10, мас
 });
 
 test("инструменты: бонус из характеристики и уровня владения строки", async () => {
-  const { computedRowBonus } = await import("../src/sheets/bonus.ts");
+  const { computedRowBonus } = await import("../src/systems/dnd5e/model/bonus.ts");
   const tools = dnd5e.tabs.flatMap((t) => t.blocks).find((b) => b.kind === "table" && b.path === "tools");
   assert.ok(tools && tools.kind === "table" && tools.rolls);
   const check = tools.rolls.items[0];
@@ -113,14 +113,14 @@ test("инструменты: бонус из характеристики и у
 });
 
 test("вес снаряжения: вес × количество, без количества - 1", async () => {
-  const { totalWeight } = await import("../src/sheets/bonus.ts");
+  const { totalWeight } = await import("../src/systems/dnd5e/model/bonus.ts");
   const cards = [{ weight: 55, qty: 2 }, { weight: 3, qty: 4 }, { weight: 0.5 }, { name: "без веса", qty: 9 }];
   assert.equal(totalWeight(cards, "weight", "qty"), 122.5);
   assert.equal(totalWeight(undefined, "weight", "qty"), 0);
 });
 
 test("damage consumes temporary hp before current hp", async () => {
-  const { hpChanges } = await import("../src/sheets/bonus.ts");
+  const { hpChanges } = await import("../src/systems/dnd5e/model/bonus.ts");
   const data = { vitals: { hp: { current: 20, temp: 10 } } };
   assert.deepEqual(hpChanges(dnd5e, data, 16), { "vitals.hp.current": 20, "vitals.hp.temp": 6 });
   assert.deepEqual(hpChanges(dnd5e, data, 6), { "vitals.hp.current": 16, "vitals.hp.temp": 0 });

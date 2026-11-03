@@ -1,8 +1,8 @@
 import { lazy, Suspense, useRef, useState } from "react";
-import type { Block, Field } from "./schema";
+import type { Block, Field } from "../../../entities/character/model/legacy-sheet-schema";
 import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent, docText } from "./richDoc";
-import { totalWeight } from "./bonus";
+import { totalWeight } from "../../../systems/dnd5e/model/bonus";
 
 // Редактор (TipTap) - отдельным куском кода: грузится, только когда правят.
 const DocEditor = lazy(() => import("./DocEditor"));

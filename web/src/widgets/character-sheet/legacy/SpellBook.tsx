@@ -1,10 +1,10 @@
 import { lazy, Suspense, useRef, useState } from "react";
-import type { Block } from "./schema";
+import type { Block } from "../../../entities/character/model/legacy-sheet-schema";
 import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent } from "./richDoc";
 import { useSheetOps } from "./sheetOps";
-import { ConfirmDialog } from "../shared/ui/ConfirmDialog/ConfirmDialog";
-import { Icon } from "../shared/ui/icons/icons";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog/ConfirmDialog";
+import { Icon } from "../../../shared/ui/icons/icons";
 
 const DocEditor = lazy(() => import("./DocEditor"));
 

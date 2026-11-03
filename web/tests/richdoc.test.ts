@@ -1,7 +1,7 @@
 // Белый список текстов на клиенте - тот же, что на сервере.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanDoc, safeHref } from "../src/sheets/richDoc.ts";
+import { cleanDoc, safeHref } from "../src/widgets/character-sheet/legacy/richDoc.ts";
 
 test("https - да, остальное - нет", () => {
   assert.equal(safeHref("https://5e14.ttg.club/x"), "https://5e14.ttg.club/x");

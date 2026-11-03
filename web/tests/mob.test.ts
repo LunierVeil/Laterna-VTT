@@ -1,7 +1,7 @@
 // Схема моба: что в ней есть и что старые мобы не теряют данные.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mob } from "../src/sheets/mob.ts";
+import { mob } from "../src/systems/dnd5e/model/mob.ts";
 
 const blocks = mob.tabs.flatMap((t) => t.blocks);
 const fieldKeys = blocks.flatMap((b) => (b.kind === "fields" ? b.fields.map((f) => f.key) : []));
@@ -32,7 +32,7 @@ test("старые пути мобов на месте: хиты, КД, заме
 });
 
 test("NPC equipment shares the PC JSON card contract and editor without carrying capacity automation",async()=>{
- const {equipmentBlock}=await import('../src/sheets/equipment.ts');
+ const {equipmentBlock}=await import('../src/systems/dnd5e/model/equipment.ts');
  const item=blocks.find(b=>b.kind==='cards'&&b.path==='equipment');assert.ok(item&&item.kind==='cards');
  assert.equal(item.titleKey,equipmentBlock.titleKey);assert.deepEqual(item.fields,equipmentBlock.fields);assert.equal(item.weight,undefined);
  assert.ok(item.fields.some(f=>f.key==='qty'));assert.equal(item.path,'equipment');

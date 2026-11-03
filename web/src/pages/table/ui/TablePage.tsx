@@ -5,7 +5,7 @@ import { Sidebar } from "../../../widgets/sidebar/ui/Sidebar";
 import { ZoomControl } from "../../../features/scene-tools/ui/ZoomControl";
 import { TokenCard } from "../../../widgets/token-inspector/ui/TokenCard";
 import { InitiativePanel } from "../../../widgets/combat-tracker/ui/InitiativePanel";
-import { CharacterSheet } from "../../../sheets/CharacterSheet";
+import { CharacterSheet } from "../../../widgets/character-sheet/legacy/CharacterSheet";
 import { DiceMenu } from "../../../features/dice/ui/DicePanel";
 import { DiceAnimation } from "../../../features/dice/ui/DiceAnimation";
 import { SelectionBar } from "../../../features/scene-tools/ui/SelectionBar";

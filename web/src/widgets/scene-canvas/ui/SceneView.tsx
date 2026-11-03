@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { SceneStage } from "../lib/stage";
-import { statsOf } from "../../../sheets/tokenStats";
+import { statsOf } from "../../../systems/dnd5e/model/tokenStats";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import { useUi } from "../../../state/store";
 
