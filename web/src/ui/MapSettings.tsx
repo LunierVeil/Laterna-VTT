@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
-import { uploadImage } from "../net/upload";
+import type { SceneSocket } from "../shared/api/scene-socket";
+import { uploadImage } from "../shared/api/upload";
 
 // Должны совпадать с MAX_SCENE_SIDE и MAX_UPLOAD_BYTES в server/app/config.py.
 const MAX_SIDE = 8192;

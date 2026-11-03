@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 // Capture the existing app socket only; do not intercept messages or change seq handling.
 export async function observeTokenLink(page, tokenId) {
   await page.evaluate(async tokenId => {
-    const { SceneSocket } = await import('/src/net/socket.ts');
+    const { SceneSocket } = await import('/src/shared/api/scene-socket.ts');
     const original = SceneSocket.prototype.send;
     SceneSocket.prototype.send = function(name, payload, ...rest) {
       if (name === 'token.update' && payload.id === tokenId) {

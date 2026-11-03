@@ -1,5 +1,5 @@
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import { Icon, Logo } from "../shared/ui/icons/icons";
 
 /**

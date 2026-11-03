@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HpControls } from "./HpControls";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import { useUi } from "../state/store";
 import type { Character } from "../shared/api/protocol";
 import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./schema";
@@ -8,7 +8,7 @@ import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { SpellBook } from "./SpellBook";
 import { SheetOpsContext, type SheetOps } from "./sheetOps";
-import { safeUpload, uploadImage } from "../net/upload";
+import { safeUpload, uploadImage } from "../shared/api/upload";
 import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "./bonus";
 
 /** Значение по пути "a.b.c". */

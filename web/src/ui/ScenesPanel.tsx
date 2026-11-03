@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import type { SceneInfo } from "../shared/api/protocol";
 import { MapSettings } from "./MapSettings";
 import { ConfirmDialog } from "../shared/ui/ConfirmDialog/ConfirmDialog";

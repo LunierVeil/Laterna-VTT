@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import type { TokenPlacementPort } from "../entities/scene/model/scene-port";
 import type { Character } from "../shared/api/protocol";
-import { safeUpload } from "../net/upload";
+import { safeUpload } from "../shared/api/upload";
 import { at } from "../sheets/tokenStats";
 import { SheetRow } from "./SheetRow";
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import type { Message } from "../shared/api/protocol";
 import { DicePanel } from "./DicePanel";
 

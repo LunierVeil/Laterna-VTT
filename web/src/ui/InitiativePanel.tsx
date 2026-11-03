@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useUi } from "../state/store";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import type { CombatEntry } from "../shared/api/protocol";
 import { SHEETS } from "../sheets/dnd5e";
 

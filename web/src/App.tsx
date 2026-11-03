@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SceneSocket } from "./net/socket";
+import { SceneSocket } from "./shared/api/scene-socket";
 import { SceneView } from "./scene/SceneView";
 import type { SceneStage } from "./scene/stage";
 import { TopBar } from "./ui/TopBar";
