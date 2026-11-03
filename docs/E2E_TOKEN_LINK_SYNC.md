@@ -15,7 +15,7 @@ PR #5 не менял этот тест или цепочку привязки; 
 3. [main](../server/app/main.py): внутри scene lock увеличивает seq и делает
    `await db.commit()`. Затем подготавливает представление токена и выполняет
    `hub.broadcast_each`. HTTP GET сцены может увидеть commit до отправки/применения WS.
-4. [SceneSocket](../web/src/net/socket.ts): игнорирует старый сокет и повторный seq;
+4. [SceneSocket](../web/src/shared/api/scene-socket.ts): игнорирует старый сокет и повторный seq;
    ожидает следующий seq, при разрыве переподключается за snapshot. Snapshot заменяет
    lastSeq. Подтверждённые сообщения передаются подписчикам.
 5. [App](../web/src/App.tsx): направляет event в stage.applyEvent; snapshot в

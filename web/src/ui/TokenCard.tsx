@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SelectedToken } from "../entities/token/model/selection";
 import { uploadImage } from "../shared/api/upload";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import type { TokenAnchorPort } from "../entities/scene/model/scene-port";
 import { SHEETS } from "../sheets/dnd5e";
 import { at, characterStats } from "../sheets/tokenStats";

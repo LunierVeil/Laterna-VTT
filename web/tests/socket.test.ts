@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SceneSocket } from "../src/net/socket.ts";
+import { SceneSocket } from "../src/shared/api/scene-socket.ts";
 
 test("seq gap requests a new connection and ignores the old socket", () => {
   const original = globalThis.WebSocket;

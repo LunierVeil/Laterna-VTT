@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HpControls } from "./HpControls";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import { useUi } from "../state/store";
 import type { Character } from "../shared/api/protocol";
 import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "./schema";

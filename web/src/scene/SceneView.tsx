@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { SceneStage } from "./stage";
 import { statsOf } from "../sheets/tokenStats";
-import type { SceneSocket } from "../net/socket";
+import type { SceneSocket } from "../shared/api/scene-socket";
 import { useUi } from "../state/store";
 
 export function SceneView({
