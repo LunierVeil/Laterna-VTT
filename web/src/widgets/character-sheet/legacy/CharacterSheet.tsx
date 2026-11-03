@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { HpControls } from "./HpControls";
-import type { SceneSocket } from "../shared/api/scene-socket";
-import { useUi } from "../state/store";
-import type { Character } from "../shared/api/protocol";
-import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../entities/character/model/legacy-sheet-schema";
-import { SHEETS } from "../systems/dnd5e/model/dnd5e";
-import { Cards, cardMatches } from "../widgets/character-sheet/legacy/Cards";
-import { SpellBook } from "../widgets/character-sheet/legacy/SpellBook";
-import { SheetOpsContext, type SheetOps } from "../widgets/character-sheet/legacy/sheetOps";
-import { safeUpload, uploadImage } from "../shared/api/upload";
-import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../systems/dnd5e/model/bonus";
+import { HpControls } from "../../../sheets/HpControls";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
+import { useUi } from "../../../state/store";
+import type { Character } from "../../../shared/api/protocol";
+import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../entities/character/model/legacy-sheet-schema";
+import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
+import { Cards, cardMatches } from "./Cards";
+import { SpellBook } from "./SpellBook";
+import { SheetOpsContext, type SheetOps } from "./sheetOps";
+import { safeUpload, uploadImage } from "../../../shared/api/upload";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../../../systems/dnd5e/model/bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {

@@ -160,7 +160,13 @@ Backend, SceneSocket, SceneStage/PixiJS, Zustand, CSS, dependencies и gate не
 [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16) остаётся отдельной
 открытой задачей shader cache. FSD-06c/07/08 не начинаются автоматически.
 
-## Статус FSD-06c в текущем PR
+## Завершённый этап FSD-06c
+
+Объединён обычным Merge commit в [PR #20](https://github.com/LunierVeil/Laterna-VTT/pull/20),
+master `ab08d0b320950df4ab5cb5c72ebf66af11e41c94`.
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41732354372) — success,
+все 35 Chromium tests и CI required. Таблица legacy imports ниже описывает этап 06c;
+актуальные пути после FSD-07 приведены в следующем разделе.
 
 Проверенная база — master `9429255110762e06778b74c07b5f79f48acf10d9`, после PR #19.
 Три последовательных логических коммита: Character Management → Token Inspector →
@@ -205,6 +211,76 @@ app/session, Zustand, зависимости и CSS не изменены. Issue
 FSD-07/08/09 не начинаются автоматически. Решение о будущих зонах ответственности
 Zustand требует **отдельного пересмотра ADR D5 перед FSD-08**: исторический D5 ниже
 не является финальным решением этого вопроса и не реализуется в FSD-06c.
+
+## Статус FSD-07 в текущем PR
+
+Проверенная база — master `ab08d0b320950df4ab5cb5c72ebf66af11e41c94`, после PR #20. Один PR и четыре последовательных
+логических коммита: 07a definitions/bonus/tokenStats → 07b Context/documents →
+07c Cards/SpellBook → 07d CharacterSheet/composition/docs. Перед каждым следующим
+переносом обязателен зелёный Fast CI предыдущего SHA. Для merge нужен отдельный
+Full CI актуального test merge (Chromium 8/8/5/14 и CI required) и разрешение владельца.
+
+Все исходные файлы таблицы находились в `web/src/sheets/` на ab08d0b320950df4ab5cb5c72ebf66af11e41c94.
+
+| Имя на ab08d0b320950df4ab5cb5c72ebf66af11e41c94 | Канонический путь сейчас |
+| --- | --- |
+| `schema.ts` | [entities/character/model/legacy-sheet-schema.ts](../web/src/entities/character/model/legacy-sheet-schema.ts) |
+| `dnd5e.ts` | [systems/dnd5e/model/dnd5e.ts](../web/src/systems/dnd5e/model/dnd5e.ts) |
+| `mob.ts` | [systems/dnd5e/model/mob.ts](../web/src/systems/dnd5e/model/mob.ts) |
+| `equipment.ts` | [systems/dnd5e/model/equipment.ts](../web/src/systems/dnd5e/model/equipment.ts) |
+| `bonus.ts` | [systems/dnd5e/model/bonus.ts](../web/src/systems/dnd5e/model/bonus.ts) |
+| `tokenStats.ts` | [systems/dnd5e/model/tokenStats.ts](../web/src/systems/dnd5e/model/tokenStats.ts) |
+| `sheetOps.ts` | [widgets/character-sheet/legacy/sheetOps.ts](../web/src/widgets/character-sheet/legacy/sheetOps.ts) |
+| `richDoc.ts` | [widgets/character-sheet/legacy/richDoc.ts](../web/src/widgets/character-sheet/legacy/richDoc.ts) |
+| `RichText.tsx` | [widgets/character-sheet/legacy/RichText.tsx](../web/src/widgets/character-sheet/legacy/RichText.tsx) |
+| `DocEditor.tsx` | [widgets/character-sheet/legacy/DocEditor.tsx](../web/src/widgets/character-sheet/legacy/DocEditor.tsx) |
+| `Cards.tsx` | [widgets/character-sheet/legacy/Cards.tsx](../web/src/widgets/character-sheet/legacy/Cards.tsx) |
+| `SpellBook.tsx` | [widgets/character-sheet/legacy/SpellBook.tsx](../web/src/widgets/character-sheet/legacy/SpellBook.tsx) |
+| `CharacterSheet.tsx` | [widgets/character-sheet/legacy/CharacterSheet.tsx](../web/src/widgets/character-sheet/legacy/CharacterSheet.tsx) |
+
+Только физический перенос и static/dynamic module specifiers. Побайтное сравнение
+всех source/test bodies после маскирования module specifiers сохраняет JSX/keys,
+hooks/dependencies/refs, эффекты, формулы, JSON paths, правила PC/mob/HP, commands
+и browser assertions/timeouts. Граф разрешённых targets совпадает с ab08d0b320950df4ab5cb5c72ebf66af11e41c94 с учётом
+renames, включая type-only edges и lazy imports. Циклов и sibling-widget imports нет.
+
+TablePage составляет CharacterSheet непосредственно. Cards, SpellBook, RichText,
+DocEditor, richDoc и sheetOps — внутренние файлы одного character-sheet slice.
+SheetOpsContext имеет одно определение; Provider и useSheetOps используют тот же
+модуль. DocEditor по-прежнему загружается через React.lazy в отдельном chunk.
+TipTap, XSS/safeHref, resource nodes, draft/focus/scroll и server list/counter/roll
+не переписываются. Book System не начат.
+
+`legacy-sheet-schema.ts` — сохранённый D&D-oriented DSL, не новый generic engine.
+Системные definitions/bonus/tokenStats зависят только от своего model и нижних
+entities/shared, без React, Zustand, SceneStage или transport instance. Типы,
+exports и необязательные поля прежние. `dnd5e` и `mob` в wire/DB остаются прежними.
+
+Актуальный временный allowlist и условия удаления:
+
+- Все прежние useUi consumers, включая CharacterSheet → `state/store.ts`:
+  остаются до отдельного FSD-08. Сначала пересмотр ADR D5 и согласование зон
+  ответственности/reset; этот PR не выбирает новую topology/actions/selectors.
+- SceneView и CharactersPanel → `systems/dnd5e/model/tokenStats.ts`;
+  TokenCard → `systems/dnd5e/model/{dnd5e,tokenStats,bonus}.ts`;
+  InitiativePanel и CharacterSheet → `systems/dnd5e/model/dnd5e.ts`.
+  Это прежние direct system dependencies по новым путям, до отдельного FSD-09.
+  `SHEETS` пока остаётся в dnd5e.ts: registration/resolver в app здесь не извлекается.
+- `sheets/HpControls.tsx` остаётся единственным legacy sheet leaf на старом месте.
+  Его используют CharacterSheet и TokenCard. Это предотвращает sibling-widget
+  dependency; health slot/system UI boundary — отдельный FSD-09, не перенос в shared.
+- Старых копий 13 перемещённых модулей, compatibility re-export, index.ts barrels,
+  aliases, SDK, registry loader, новых adapters/Context/store нет.
+
+Backend/DB/REST/WS/seq/cmd_id/base_seq, SceneSocket, SceneStage/PixiJS, app/session,
+Zustand, CSS, зависимости и строгий CI gate не изменены. Исторические AS-IS/метрики
+и тексты ADR сохранены; ссылки на перемещённые исходники в исторических разделах
+ведут на исходную базу аудита. [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16)
+о shader cache остаётся открытой. FSD-08/09 не начинаются автоматически.
+
+ROADMAP не актуализируется в FSD-07: отдельный docs-only этап допускается после
+завершения Frontend FSD, модульного монолита FastAPI и Alembic с проверками БД,
+по полному тексту ROADMAP v5, который владелец предоставит отдельно.
 
 ## 1. Направления зависимостей
 
@@ -349,7 +425,7 @@ JSON key, command payload, CSS class или runtime policy.
 | [tokenStats.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/tokenStats.ts) | DND/tokenStats.ts после нейтрального type contract | SceneView, CharactersPanel, TokenCard; at/readPath выделять отдельно | 01,07a,09 |
 | [sheetOps.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/sheetOps.ts), [richDoc.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/richDoc.ts), [RichText.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/RichText.tsx), [DocEditor.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/DocEditor.tsx) | widgets/character-sheet/legacy | Cards, SpellBook, CharacterSheet; сохранить context identity и lazy import | 07b |
 | [Cards.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/Cards.tsx), [SpellBook.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/SpellBook.tsx) | widgets/character-sheet/legacy | renderer; пока не shared и не Book System | 07c |
-| [CharacterSheet.tsx](../web/src/sheets/CharacterSheet.tsx) | widgets/character-sheet/legacy | App → TablePage; HpControls предварительно извлечён | 02,07d,09 |
+| [CharacterSheet.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/CharacterSheet.tsx) | widgets/character-sheet/legacy | App → TablePage; HpControls предварительно извлечён | 02,07d,09 |
 | [TokenCard.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TokenCard.tsx) | widgets/token-inspector/ui | TablePage; health slot/projection — будущий 09, не 06c | 02,06c,09 |
 | [Sidebar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
 | [TopBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
