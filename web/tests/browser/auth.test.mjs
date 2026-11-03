@@ -35,11 +35,16 @@ test('Final shared invite: one copied link for independent users, repeat login, 
  await switching.getByRole('tab',{name:'Персонажи',exact:true}).click();
  await switching.getByRole('button',{name:'Новый персонаж',exact:true}).click();await switching.locator('.sheet').waitFor();
  const previous=await switching.evaluate(async()=>{const s=(await import('/src/state/store.ts')).useUi.getState();return {userId:s.me.id,characterId:s.openCharacterId};});assert.ok(previous.characterId);
- await closeSheet(switching);await switching.getByRole('button',{name:'выйти',exact:true}).click();
+ await closeSheet(switching);await switching.setViewportSize({width:390,height:844});
+ await switching.getByRole('button',{name:'Открыть панели',exact:true}).click();
+ await switching.getByRole('button',{name:'Свернуть инструменты',exact:true}).click();
+ const panelPreferences=await switching.locator('.app').getAttribute('class');
+ await switching.getByRole('button',{name:'выйти',exact:true}).click();
  await until(()=>switching.evaluate(async()=>{const s=(await import('/src/state/store.ts')).useUi.getState();return !s.me&&Object.keys(s.characters).length===0&&s.openCharacterId===null;}),'logout clears previous session data');
  assert.equal(await switching.locator('canvas').count(),0);
  await switching.getByRole('textbox',{name:'Имя',exact:true}).fill(sessions[1].name);await switching.getByLabel('Пароль',{exact:true}).fill('browserpass123');
  await switching.getByRole('button',{name:'Войти за стол',exact:true}).click();await switching.locator('canvas').waitFor();
  await until(()=>switching.evaluate(async old=>{const s=(await import('/src/state/store.ts')).useUi.getState();return s.me&&s.me.id!==old.userId&&!s.characters[old.characterId];},previous),'new identity has no previous character');
+ assert.equal(await switching.locator('.app').getAttribute('class'),panelPreferences,'App panel preferences survive access/table unmount');
  for(const s of sessions)await s.ctx.close();await ctx.close();await master.close();await observer.close();
 });

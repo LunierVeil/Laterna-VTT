@@ -20,6 +20,13 @@ test('Alpha chat: open, hide from chat, return, preserve draft; rotate and resiz
   await p.setViewportSize(viewport);await open.tap();await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();
   await until(()=>p.evaluate(()=>{const c=document.querySelector('.scene'),r=c.getBoundingClientRect();return window.observedStage.app.screen.width===Math.round(r.width)&&Math.abs(window.observedStage.app.screen.height-r.height)<1;}),'canvas follows container');
  }
+ await open.tap();await input.evaluate(el=>window.pageCompositionChatInput=el);
+ const start=p.received.length;await input.fill('/r not-a-roll');await input.press('Enter');
+ const rejected=await until(()=>p.received.slice(start).find(m=>m.type==='error'&&m.cmd_id),'server rejects invalid chat roll');
+ await p.locator('.toast').getByText(rejected.message,{exact:true}).waitFor();
+ assert.equal(await input.evaluate(el=>el===window.pageCompositionChatInput),true,'server error rerender preserves Chat input');
+ await input.fill('Черновик после сворачивания');await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();await open.tap();
+ assert.equal(await input.inputValue(),'Черновик после сворачивания');
  await context.close();
 });
 

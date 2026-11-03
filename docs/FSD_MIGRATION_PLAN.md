@@ -147,7 +147,7 @@ JSON key, command payload, CSS class или runtime policy.
 | Сейчас | Предлагаемое место / решение | Потребители и imports | PR |
 | --- | --- | --- | --- |
 | [main.tsx](../web/src/main.tsx) | оставить; позже импорт app/App | Vite HTML и fixture route остаются /src/main.tsx | 04 |
-| [App.tsx](../web/src/App.tsx) | app/App + app/session; layout → pages/table | main; сохранить bootstrap порядок и module singleton | 04 |
+| [App.tsx](../web/src/app/App.tsx) | app/App + app/session; layout → pages/table | main; сохранить bootstrap порядок и module singleton | 04 |
 | [types.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | shared/api/protocol; Tool отдельно entities/scene/model | 15 src consumers + test-only imports/DTO paths | 01 |
 | [store.ts](../web/src/state/store.ts) | оставить на переходе; позже app/model/table-store | 17 consumers, evaluate URLs, diagnostics; соединять через app connectors | 08 |
 | [socket.ts](../web/src/shared/api/scene-socket.ts) | shared/api/scene-socket.ts | App runtime, 14 type consumers, socket unit, diagnostics URL | 03 |
@@ -165,7 +165,7 @@ JSON key, command payload, CSS class или runtime policy.
 | [Sidebar.tsx](../web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
 | [TopBar.tsx](../web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
 | [InitiativePanel.tsx](../web/src/ui/InitiativePanel.tsx) | widgets/combat-tracker/ui | TablePage; bonus supplied через definition, сервер combat.* прежний | 06c,09 |
-| [Login.tsx](../web/src/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
+| [Login.tsx](../web/src/features/access/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
 | [Chat.tsx](../web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
 | [DicePanel.tsx](../web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](../web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](../web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
 | [CharactersPanel.tsx](../web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](../web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |

@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import App from "./app/App";
 import "@fontsource/ibm-plex-sans/cyrillic-400.css";
 import "@fontsource/ibm-plex-sans/cyrillic-500.css";
 import "@fontsource/ibm-plex-sans/cyrillic-600.css";
