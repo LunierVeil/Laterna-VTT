@@ -1,7 +1,8 @@
 import { useUi, type SideTab } from "../state/store";
 import type { SceneSocket } from "../shared/api/scene-socket";
 import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
-import { Chat } from "./Chat";
+import { Chat } from "../features/chat/ui/Chat";
+import { DicePanel } from "../features/dice/ui/DicePanel";
 import { ScenesPanel } from "./ScenesPanel";
 import { PlayersPanel } from "./PlayersPanel";
 import { CharactersPanel } from "./CharactersPanel";
@@ -47,7 +48,7 @@ export function Sidebar({
         ))}
       </div>
       {/* Чат не размонтируем: иначе теряется недописанное сообщение и прокрутка. */}
-      <Chat socket={socket} hidden={tab !== "chat"} />
+      <Chat socket={socket} hidden={tab !== "chat"} diceControls={<DicePanel socket={socket} />} />
       {tab === "characters" && <CharactersPanel socket={socket} stageRef={stageRef} />}
       {tab === "scenes" && isGm && <ScenesPanel socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
       {tab === "players" && isGm && <PlayersPanel socket={socket} />}

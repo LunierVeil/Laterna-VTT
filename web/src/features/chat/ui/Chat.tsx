@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../state/store";
-import type { SceneSocket } from "../shared/api/scene-socket";
-import type { Message } from "../shared/api/protocol";
-import { DicePanel } from "../features/dice/ui/DicePanel";
+import { useUi } from "../../../state/store";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
+import type { Message } from "../../../shared/api/protocol";
 
 function RollLine({ m }: { m: Message }) {
   if (!m.roll) return null;
@@ -48,7 +47,7 @@ function RollLine({ m }: { m: Message }) {
   );
 }
 
-export function Chat({ socket, hidden }: { socket: SceneSocket; hidden: boolean }) {
+export function Chat({ socket, hidden, diceControls }: { socket: SceneSocket; hidden: boolean; diceControls: React.ReactNode }) {
   const { messages, me, isGm } = useUi();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
@@ -82,7 +81,7 @@ export function Chat({ socket, hidden }: { socket: SceneSocket; hidden: boolean 
         ))}
         <div ref={bottom} />
       </div>
-      <DicePanel socket={socket} />
+      {diceControls}
       <form className="chat-input" onSubmit={send}>
         <input
           value={text}

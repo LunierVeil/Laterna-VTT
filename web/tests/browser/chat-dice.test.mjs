@@ -12,6 +12,11 @@ test('Alpha chat: open, hide from chat, return, preserve draft; rotate and resiz
  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,storageState:await player.storageState()});const p=await pageFor(context);
  const open=p.getByRole('button',{name:'Открыть панели',exact:true});await open.tap();
  const chat=p.locator('.chat');const input=chat.locator('input,textarea').last();await input.fill('Черновик после сворачивания');
+ await chat.getByRole('button',{name:'d6',exact:true}).tap();
+ await p.evaluate(()=>window.chatFeatureIdentity={chat:document.querySelector('.chat'),input:document.querySelector('.chat-input input'),dice:document.querySelector('.chat .dice-panel')});
+ await p.getByRole('tab',{name:'Персонажи',exact:true}).tap();await chat.waitFor({state:'hidden'});
+ await p.getByRole('tab',{name:'Чат',exact:true}).tap();await chat.waitFor();
+ assert.deepEqual(await p.evaluate(()=>({chat:document.querySelector('.chat')===window.chatFeatureIdentity.chat,input:document.querySelector('.chat-input input')===window.chatFeatureIdentity.input,dice:document.querySelector('.chat .dice-panel')===window.chatFeatureIdentity.dice,formula:document.querySelector('.chat .dice-formula').textContent,draft:document.querySelector('.chat-input input').value})),{chat:true,input:true,dice:true,formula:'1d6',draft:'Черновик после сворачивания'},'tab switch preserves Chat/input/DicePanel identity and local state');
  await p.getByRole('button',{name:'Скрыть чат',exact:true}).tap();assert.equal(await p.locator('.sidebar').isVisible(),false);
  const b=await open.boundingBox();assert.ok(b.width>=44&&b.height>=44);await open.tap();
  assert.equal(await input.inputValue(),'Черновик после сворачивания');
