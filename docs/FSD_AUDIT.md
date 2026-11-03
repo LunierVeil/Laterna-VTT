@@ -29,16 +29,35 @@ import, re-export, import type и строковый dynamic import; runtime и 
 
 Дерево, метрики и выводы ниже остаются историческим AS-IS базы аудита
 `1b215596cb9cb1917ba8fce3f249d1c7789d2df5`, а не текущим перечнем файлов.
-В текущем PR renderer находится в
+После объединения PR #17 renderer находится в
 [widgets/scene-canvas/lib/stage.ts](../web/src/widgets/scene-canvas/lib/stage.ts),
 React bridge — в
 [widgets/scene-canvas/ui/SceneView.tsx](../web/src/widgets/scene-canvas/ui/SceneView.tsx).
 Реализация, callbacks и hotfix PR #15 сохранены; изменены только import paths.
 Fixture использует `/src/widgets/scene-canvas/lib/stage.ts` и проверяет идентичность
 класса приложения. Исходный URL в разделе 7 относится к исторической базе аудита.
-Legacy store/tokenStats и type-only зависимость Sidebar явно перечислены в
-[плане, статус FSD-05](FSD_MIGRATION_PLAN.md#статус-fsd-05-в-текущем-pr).
+Legacy store/tokenStats перечислены в
+[плане, завершённый FSD-05](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-05).
+Type-only зависимость Sidebar от SceneStage устранена в FSD-06a через существующий
+TokenPlacementPort; исторические метрики ниже не пересчитываются.
 Рост shader cache остаётся отдельной [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
+
+## Актуальные пути FSD-06a
+
+Исторические дерево, метрики и риски далее относятся только к базе аудита выше.
+В FSD-06a текущие реализации находятся в:
+
+- [features/dice/ui/DicePanel.tsx](../web/src/features/dice/ui/DicePanel.tsx)
+- [features/dice/ui/DiceAnimation.tsx](../web/src/features/dice/ui/DiceAnimation.tsx)
+- [features/dice/lib/diceDisplay.ts](../web/src/features/dice/lib/diceDisplay.ts)
+- [features/chat/ui/Chat.tsx](../web/src/features/chat/ui/Chat.tsx)
+- [widgets/sidebar/ui/Sidebar.tsx](../web/src/widgets/sidebar/ui/Sidebar.tsx)
+- [widgets/table-header/ui/TopBar.tsx](../web/src/widgets/table-header/ui/TopBar.tsx)
+
+Chat получает DicePanel через ReactNode-slot из Sidebar; sibling-feature import
+chat → dice отсутствует. Обновлены unit/test imports, но старые пути в историческом
+дереве AS-IS сохранены. Текущая композиция и legacy allowlist описаны в
+[FSD_MIGRATION_PLAN](FSD_MIGRATION_PLAN.md#статус-fsd-06a-в-текущем-pr).
 
 ## 1. AS-IS: структура
 

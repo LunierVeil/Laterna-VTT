@@ -1,10 +1,11 @@
-import { useUi, type SideTab } from "../state/store";
-import type { SceneSocket } from "../shared/api/scene-socket";
-import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
-import { Chat } from "./Chat";
-import { ScenesPanel } from "./ScenesPanel";
-import { PlayersPanel } from "./PlayersPanel";
-import { CharactersPanel } from "./CharactersPanel";
+import { useUi, type SideTab } from "../../../state/store";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
+import type { TokenPlacementPort } from "../../../entities/scene/model/scene-port";
+import { Chat } from "../../../features/chat/ui/Chat";
+import { DicePanel } from "../../../features/dice/ui/DicePanel";
+import { ScenesPanel } from "../../../ui/ScenesPanel";
+import { PlayersPanel } from "../../../ui/PlayersPanel";
+import { CharactersPanel } from "../../../ui/CharactersPanel";
 
 const TABS: { id: SideTab; label: string; gm?: boolean }[] = [
   { id: "chat", label: "Чат" },
@@ -25,7 +26,7 @@ export function Sidebar({
   onHide?: () => void;
   sceneId: string;
   onOpenScene: (id: string) => void;
-  stageRef: React.MutableRefObject<SceneStage | null>;
+  stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
   const tab = useUi((s) => s.sideTab);
   const isGm = useUi((s) => s.isGm);
@@ -47,7 +48,7 @@ export function Sidebar({
         ))}
       </div>
       {/* Чат не размонтируем: иначе теряется недописанное сообщение и прокрутка. */}
-      <Chat socket={socket} hidden={tab !== "chat"} />
+      <Chat socket={socket} hidden={tab !== "chat"} diceControls={<DicePanel socket={socket} />} />
       {tab === "characters" && <CharactersPanel socket={socket} stageRef={stageRef} />}
       {tab === "scenes" && isGm && <ScenesPanel socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
       {tab === "players" && isGm && <PlayersPanel socket={socket} />}

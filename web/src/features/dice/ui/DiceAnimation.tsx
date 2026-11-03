@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Message } from "../shared/api/protocol";
-import { displayDice } from "./diceDisplay";
+import type { Message } from "../../../shared/api/protocol";
+import { displayDice } from "../lib/diceDisplay";
 
 /** One replaceable presentation, no queue or frame loop. Never reads history. */
 export function DiceAnimation({message}: {message: Message | null}) {
