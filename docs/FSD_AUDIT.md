@@ -57,7 +57,27 @@ TokenPlacementPort; исторические метрики ниже не пер
 Chat получает DicePanel через ReactNode-slot из Sidebar; sibling-feature import
 chat → dice отсутствует. Обновлены unit/test imports, но старые пути в историческом
 дереве AS-IS сохранены. Текущая композиция и legacy allowlist описаны в
-[FSD_MIGRATION_PLAN](FSD_MIGRATION_PLAN.md#статус-fsd-06a-в-текущем-pr).
+[FSD_MIGRATION_PLAN](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-06a).
+
+## Актуальные пути FSD-06b
+
+Исторический AS-IS, метрики и ADR далее не пересчитываются. В текущем FSD-06b
+ownership перенесён механически, без изменения bodies и сохранённых contracts:
+
+- [ScenesPanel](../web/src/features/scene-management/ui/ScenesPanel.tsx) → features/scene-management/ui.
+- [MapSettings](../web/src/features/scene-management/ui/MapSettings.tsx) → features/scene-management/ui.
+- [PlayersPanel](../web/src/features/player-management/ui/PlayersPanel.tsx) → features/player-management/ui.
+- [ToolRail](../web/src/features/scene-tools/ui/ToolRail.tsx) → features/scene-tools/ui.
+- [SelectionBar](../web/src/features/scene-tools/ui/SelectionBar.tsx) → features/scene-tools/ui.
+- [ZoomControl](../web/src/features/scene-tools/ui/ZoomControl.tsx) → features/scene-tools/ui.
+
+MapSettings остаётся внутренним компонентом scene-management. Sidebar составляет
+scene/player features; TablePage — scene-tools. Порты инструментов остаются в
+entities; dependencies на SceneStage и runtime sibling-feature imports отсутствуют.
+Все шесть компонентов сохраняют legacy useUi до отдельного FSD-08; CharactersPanel,
+TokenCard, InitiativePanel и CharacterSheet в этом пакете не перемещаются.
+Текущие направления импортов и условия снятия исключений —
+[план FSD-06b](FSD_MIGRATION_PLAN.md#статус-fsd-06b-в-текущем-pr).
 
 ## 1. AS-IS: структура
 
