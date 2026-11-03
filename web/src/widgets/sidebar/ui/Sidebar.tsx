@@ -4,7 +4,7 @@ import type { TokenPlacementPort } from "../../../entities/scene/model/scene-por
 import { Chat } from "../../../features/chat/ui/Chat";
 import { DicePanel } from "../../../features/dice/ui/DicePanel";
 import { ScenesPanel } from "../../../features/scene-management/ui/ScenesPanel";
-import { PlayersPanel } from "../../../ui/PlayersPanel";
+import { PlayersPanel } from "../../../features/player-management/ui/PlayersPanel";
 import { CharactersPanel } from "../../../ui/CharactersPanel";
 
 const TABS: { id: SideTab; label: string; gm?: boolean }[] = [

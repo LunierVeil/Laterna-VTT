@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useUi } from "../state/store";
-import type { SceneSocket } from "../shared/api/scene-socket";
+import { useUi } from "../../../state/store";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
 
 // Через туннель - его адрес: мастер сидит на localhost, а игрокам нужен
 // адрес из интернета.
