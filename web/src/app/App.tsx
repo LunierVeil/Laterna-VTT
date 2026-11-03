@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TablePage } from "./pages/table/ui/TablePage";
-import type { SceneStage } from "./scene/stage";
-import { useUi } from "./state/store";
-import { GmSetupScreen, InviteScreen, LoginScreen } from "./features/access/ui/Login";
-import type { Message } from "./shared/api/protocol";
+import { TablePage } from "../pages/table/ui/TablePage";
+import type { SceneStage } from "../scene/stage";
+import { useUi } from "../state/store";
+import { AccessPage } from "../pages/access/ui/AccessPage";
+import type { Message } from "../shared/api/protocol";
 
-import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin } from "./app/session/access";
+import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin } from "./session/access";
 
-import { useCampaignScene } from "./app/session/useCampaignScene";
-import { useSceneConnection } from "./app/session/useSceneConnection";
+import { useCampaignScene } from "./session/useCampaignScene";
+import { useSceneConnection } from "./session/useSceneConnection";
 
 export default function App() {
   const [hideSidebar, setHideSidebar] = useState(true);
@@ -64,7 +64,7 @@ export default function App() {
   // ссылку открыли, чтобы завести аккаунт, а не продолжить чужую сессию.
   if (inviteToken) {
     return (
-      <InviteScreen
+      <AccessPage mode="invite"
         token={inviteToken}
         onDone={(u) => {
           setInviteToken(null);
@@ -73,9 +73,9 @@ export default function App() {
       />
     );
   }
-  if (checking) return <div className="gate-wait">Загрузка...</div>;
+  if (checking) return <AccessPage mode="checking" />;
   if (!me && setupKey) return (
-      <GmSetupScreen
+      <AccessPage mode="gm-setup"
         gmKey={setupKey}
         onDone={(u) => {
           // Аккаунт создан - ключ больше не нужен. Иначе после выхода
@@ -85,8 +85,8 @@ export default function App() {
         }}
       />
     );
-  if (!me) return <LoginScreen notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} onGmKey={loginWithKey} />;
-  if (!socket) return <div className="gate-wait">Загрузка сцены...</div>;
+  if (!me) return <AccessPage mode="login" notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} onGmKey={loginWithKey} />;
+  if (!socket) return <AccessPage mode="scene-loading" />;
 
   return (
     <TablePage

@@ -82,7 +82,7 @@ Fan-in/out ниже — число уникальных внутренних TS-
 
 | Модуль | Строк | Fan-in | Fan-out | Интерпретация |
 | --- | ---: | ---: | ---: | --- |
-| [App](../web/src/App.tsx) | 349 | 1 | 16 | композиция и несколько независимых lifecycle |
+| [App](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/App.tsx) | 349 | 1 | 16 | композиция и несколько независимых lifecycle |
 | [store](../web/src/state/store.ts) | 201 | 17 | 1 | все 17 входящих зависимостей runtime |
 | [socket](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/net/socket.ts) | 176 | 15 | 1 | runtime-конструктор использует App; остальные 14 — type-only |
 | [types](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | 175 | 15 | 0 | общий контракт, не runtime singleton |
@@ -127,7 +127,7 @@ allowlist, а не разрешение добавлять новых consumers.
 
 ### Запуск, доступ и смена сцены
 
-[main](../web/src/main.tsx) монтирует StrictMode. [App](../web/src/App.tsx)
+[main](../web/src/main.tsx) монтирует StrictMode. [App](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/App.tsx)
 на уровне модуля забирает gm/invite из URL и удаляет их из адресной строки.
 Эффекты проверяют /api/me, первый вход ГМ, /api/characters и /api/campaign.
 GM_SCENE=`lanterna.gmScene` хранит выбор сцены; campaign определяет допустимость
