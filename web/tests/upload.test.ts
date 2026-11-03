@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { safeUpload, uploadImage } from "../src/net/upload.ts";
+import { safeUpload, uploadImage } from "../src/shared/api/upload.ts";
 
 const limits={maxBytes:4,maxSide:100,what:"картинка"};
 const file=()=>new File(["data"],"image.png",{type:"image/png"});

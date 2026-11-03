@@ -8,7 +8,7 @@ import { SHEETS } from "./dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { SpellBook } from "./SpellBook";
 import { SheetOpsContext, type SheetOps } from "./sheetOps";
-import { safeUpload, uploadImage } from "../net/upload";
+import { safeUpload, uploadImage } from "../shared/api/upload";
 import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "./bonus";
 
 /** Значение по пути "a.b.c". */
