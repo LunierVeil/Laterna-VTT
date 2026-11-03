@@ -1,14 +1,14 @@
 import { SceneView } from "../../../widgets/scene-canvas/ui/SceneView";
 import { TopBar } from "../../../widgets/table-header/ui/TopBar";
-import { ToolRail, ToolHint } from "../../../ui/ToolRail";
+import { ToolRail, ToolHint } from "../../../features/scene-tools/ui/ToolRail";
 import { Sidebar } from "../../../widgets/sidebar/ui/Sidebar";
-import { ZoomControl } from "../../../ui/ZoomControl";
+import { ZoomControl } from "../../../features/scene-tools/ui/ZoomControl";
 import { TokenCard } from "../../../ui/TokenCard";
 import { InitiativePanel } from "../../../ui/InitiativePanel";
 import { CharacterSheet } from "../../../sheets/CharacterSheet";
 import { DiceMenu } from "../../../features/dice/ui/DicePanel";
 import { DiceAnimation } from "../../../features/dice/ui/DiceAnimation";
-import { SelectionBar } from "../../../ui/SelectionBar";
+import { SelectionBar } from "../../../features/scene-tools/ui/SelectionBar";
 import type { MutableRefObject } from "react";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { SceneStage } from "../../../widgets/scene-canvas/lib/stage";

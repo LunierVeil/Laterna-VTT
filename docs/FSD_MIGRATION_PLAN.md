@@ -55,7 +55,10 @@ App, app/session/useSceneConnection и TablePage используют прежн
 Известный рост shader cache не исправляется: [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16),
 [ограничения измерений и cleanup](PIXI_STAGE_CLEANUP.md) остаются актуальными.
 
-## Статус FSD-06a в текущем PR
+## Завершённый этап FSD-06a
+
+Объединён в [PR #18](https://github.com/LunierVeil/Laterna-VTT/pull/18),
+master `39925e7267a512cb3a78972ede942b3d10951ba6`. Следующий раздел сохраняет контекст FSD-06a.
 
 База — master `da795260944b55bf35a40ff5118cf9fdd535ff35`. Перенос состоит из
 трёх последовательных коммитов: Dice, Chat/slot, Sidebar/TopBar. Для каждого
@@ -91,14 +94,66 @@ reduced motion и ограничения визуализации сохране
 
 - Chat, DicePanel, Sidebar и TopBar → `state/store.ts`: один прежний useUi,
   до отдельного этапа 08, без новой topology или prop drilling.
-- Sidebar → `ui/{CharactersPanel,ScenesPanel,PlayersPanel}`: композиция сохранена,
-  физические переносы отложены до отдельных FSD-06b/06c.
+- На FSD-06a Sidebar составлял legacy `ui/{CharactersPanel,ScenesPanel,PlayersPanel}`.
+  ScenesPanel/PlayersPanel перенесены в FSD-06b ниже; CharactersPanel остаётся до 06c.
 
 Compatibility re-export, event bus, Context, новые зависимости и CSS не добавляются.
 SceneStage, SceneSocket, backend и правила НРИ не меняются. Shader cache остаётся
 открытой [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
-FSD-06b/06c в этом PR не начинаются; ожидаемые 35 Chromium tests и строгий gate
-не ослабляются.
+FSD-06a не включал переносы 06b/06c; 35 Chromium tests и строгий gate сохранены.
+
+## Статус FSD-06b в текущем PR
+
+Проверенный BASE после обычного Merge commit PR #18 —
+`39925e7267a512cb3a78972ede942b3d10951ba6`; Full CI этого master успешен.
+Три последовательных переноса: Scene Management → Player Management → Scene Tools,
+с успешным Fast CI между задачами; один ready PR и обязательный Full CI для
+актуального test merge. Merge требует отдельного разрешения владельца.
+
+| На BASE FSD-06b | Текущий путь |
+| --- | --- |
+| [ScenesPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/ScenesPanel.tsx) | [features/scene-management/ui/ScenesPanel.tsx](../web/src/features/scene-management/ui/ScenesPanel.tsx) |
+| [MapSettings.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/MapSettings.tsx) | [features/scene-management/ui/MapSettings.tsx](../web/src/features/scene-management/ui/MapSettings.tsx) |
+| [PlayersPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/PlayersPanel.tsx) | [features/player-management/ui/PlayersPanel.tsx](../web/src/features/player-management/ui/PlayersPanel.tsx) |
+| [ToolRail.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/ToolRail.tsx) | [features/scene-tools/ui/ToolRail.tsx](../web/src/features/scene-tools/ui/ToolRail.tsx) |
+| [SelectionBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/SelectionBar.tsx) | [features/scene-tools/ui/SelectionBar.tsx](../web/src/features/scene-tools/ui/SelectionBar.tsx) |
+| [ZoomControl.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/39925e7267a512cb3a78972ede942b3d10951ba6/web/src/ui/ZoomControl.tsx) | [features/scene-tools/ui/ZoomControl.tsx](../web/src/features/scene-tools/ui/ZoomControl.tsx) |
+
+Перенесены только файлы и import paths. Bodies компонентов, hooks/dependencies,
+refs, JSX/keys, DOM/CSS, localStorage, timers и payload побайтно сохраняются после
+маскирования module specifiers. Sidebar/TablePage меняют только необходимые imports.
+Новых копий, compatibility re-export, index.ts, adapters или интерфейсов нет.
+
+Фактические направления:
+
+- widgets/sidebar → features/scene-management и features/player-management — runtime.
+- pages/table → features/scene-tools — runtime; ToolHint остаётся в ToolRail.
+- ScenesPanel → MapSettings — runtime внутри одного slice, `./MapSettings`.
+- UI features → shared/api SceneSocket/DTO — type-only; MapSettings → uploadImage —
+  runtime, ScenesPanel → ConfirmDialog/Logo и ToolRail → icons/useTouchInput — runtime.
+- Scene tools → entities/scene/model/tool и FogUndoPort/SelectionPort/ZoomPort —
+  type-only. Прямой зависимости от SceneStage и sibling-feature imports нет.
+
+Текущие временные исключения и последующее удаление:
+
+- Все шесть перенесённых UI-компонентов по-прежнему используют `state/store.ts`.
+  Снятие исключения — отдельный FSD-08 с проверкой contracts/reset; FSD-06b не
+  определяет новую topology или зоны ответственности Zustand.
+- Sidebar → legacy `ui/CharactersPanel` остаётся до FSD-06c. ScenesPanel и
+  PlayersPanel больше не являются legacy UI-зависимостями Sidebar.
+- TablePage продолжает составлять legacy TokenCard/InitiativePanel/CharacterSheet;
+  их переносы относятся к FSD-06c/07 и не включены в этот PR.
+
+Сохранены current/active scene, папки/порядок/private lazy previews и ключ
+`lanterna.sceneFolders.${userId}`, карта/лимиты/сетка/ошибки; shared/reset invites,
+pendingJoin 2500 ms, clipboard fallback, public URL validation и server privacy;
+fog ownership/Ctrl+Z, hidden placement, selection permissions, zoom, touch ping и
+mobile panels. Новые условия прав, команды, wire/DB contracts не вводятся.
+Backend, SceneSocket, SceneStage/PixiJS, Zustand, CSS, dependencies и gate не меняются.
+Никакие исходные browser assertions или таймауты не ослабляются и не переписываются.
+
+[Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16) остаётся отдельной
+открытой задачей shader cache. FSD-06c/07/08 не начинаются автоматически.
 
 ## 1. Направления зависимостей
 
@@ -221,7 +276,7 @@ UI slots из композиции. Domain rules системы не импор�
 
 ## 3. Таблица перемещений
 
-Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05/06a текущие пути
+Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05/06a/06b текущие пути
 и статус отмечены отдельно выше. Остальные строки сохраняют исходный план.
 Новые переносы требуют отдельного разрешения.
 Префикс `DND/` означает будущий `systems/dnd5e/model` согласно принятому D2. Механический move не меняет export,
@@ -252,9 +307,9 @@ JSON key, command payload, CSS class или runtime policy.
 | [Chat.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
 | [DicePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
 | [CharactersPanel.tsx](../web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](../web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |
-| [ScenesPanel.tsx](../web/src/ui/ScenesPanel.tsx), [MapSettings.tsx](../web/src/ui/MapSettings.tsx) | features/scene-management/ui | Sidebar; GM current vs active, private lazy preview | 06b |
-| [PlayersPanel.tsx](../web/src/ui/PlayersPanel.tsx) | features/player-management/ui | Sidebar; invite/pause/reset/delete и pending прежние | 06b |
-| [ToolRail.tsx](../web/src/ui/ToolRail.tsx), [SelectionBar.tsx](../web/src/ui/SelectionBar.tsx), [ZoomControl.tsx](../web/src/ui/ZoomControl.tsx) | features/scene-tools/ui | TablePage; small stage ports, не весь widget engine | 05,06b |
+| [ScenesPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ScenesPanel.tsx), [MapSettings.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/MapSettings.tsx) | features/scene-management/ui | Sidebar; GM current vs active, private lazy preview | 06b |
+| [PlayersPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/PlayersPanel.tsx) | features/player-management/ui | Sidebar; invite/pause/reset/delete и pending прежние | 06b |
+| [ToolRail.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ToolRail.tsx), [SelectionBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/SelectionBar.tsx), [ZoomControl.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ZoomControl.tsx) | features/scene-tools/ui | TablePage; small stage ports, не весь widget engine | 05,06b |
 | [ConfirmDialog.tsx](../web/src/shared/ui/ConfirmDialog/ConfirmDialog.tsx), [icons.tsx](../web/src/shared/ui/icons/icons.tsx) | shared/ui/ConfirmDialog, shared/ui/icons | SheetRow/PlayersPanel/ScenesPanel/SpellBook и остальные consumers | 02 |
 | [input.ts](../web/src/shared/lib/input/useTouchInput.ts) | shared/lib/input/useTouchInput.ts | ToolRail; media/listener cleanup сохранить | 02 |
 | [styles.css](../web/src/styles.css) | оставить; scoped extraction отдельно | main и browser fixtures; порядок cascade прежний | не обязательный move |

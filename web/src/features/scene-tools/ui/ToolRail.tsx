@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { useTouchInput } from "../shared/lib/input/useTouchInput";
-import { useUi } from "../state/store";
-import type { Tool } from "../entities/scene/model/tool";
-import { Icon, type IconName } from "../shared/ui/icons/icons";
-import type { SceneSocket } from "../shared/api/scene-socket";
-import type { FogUndoPort } from "../entities/scene/model/scene-port";
+import { useTouchInput } from "../../../shared/lib/input/useTouchInput";
+import { useUi } from "../../../state/store";
+import type { Tool } from "../../../entities/scene/model/tool";
+import { Icon, type IconName } from "../../../shared/ui/icons/icons";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
+import type { FogUndoPort } from "../../../entities/scene/model/scene-port";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
