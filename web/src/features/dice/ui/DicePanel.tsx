@@ -1,7 +1,7 @@
-import { diceFormula, DICE_SIDES, MAX_MENU_DICE } from "./diceDisplay";
+import { diceFormula, DICE_SIDES, MAX_MENU_DICE } from "../lib/diceDisplay";
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../state/store";
-import type { SceneSocket } from "../shared/api/scene-socket";
+import { useUi } from "../../../state/store";
+import type { SceneSocket } from "../../../shared/api/scene-socket";
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 const MAX_PER_DIE = 99;

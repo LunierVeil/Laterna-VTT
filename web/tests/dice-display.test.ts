@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {diceFormula, displayDice, DICE_SIDES, MAX_MENU_DICE} from '../src/ui/diceDisplay.ts';
+import {diceFormula, displayDice, DICE_SIDES, MAX_MENU_DICE} from '../src/features/dice/lib/diceDisplay.ts';
 
 test('dice menu formulas use all seven server dice and signed modifiers',()=>{
   assert.equal(MAX_MENU_DICE,100);

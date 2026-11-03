@@ -1,4 +1,4 @@
-import type { Roll } from "../shared/api/protocol.ts";
+import type { Roll } from "../../../shared/api/protocol.ts";
 
 export const DICE_SIDES = [4, 6, 8, 10, 12, 20, 100] as const;
 export const MAX_MENU_DICE = 100; // server/app/dice.py MAX_DICE, one dice term
