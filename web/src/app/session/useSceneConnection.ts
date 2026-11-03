@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { SceneSocket } from "../../shared/api/scene-socket";
 import type { Message, Scene, UserInfo } from "../../shared/api/protocol";
-import type { SceneStage } from "../../scene/stage";
+import type { SceneStage } from "../../widgets/scene-canvas/lib/stage";
 import { useUi } from "../../state/store";
 
 /** Refs, setters и openScene сохраняют стабильную идентичность из App/campaign. */

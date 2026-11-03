@@ -1,8 +1,8 @@
-import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../entities/scene/model/scene-port";
+import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../../../entities/scene/model/scene-port";
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
-import type { Combat, FogRect, Scene, Token, Wall, TokenPreview } from "../shared/api/protocol";
-import type { Tool } from "../entities/scene/model/tool";
-import type { CharacterStats } from "../entities/token/model/presentation";
+import type { Combat, FogRect, Scene, Token, Wall, TokenPreview } from "../../../shared/api/protocol";
+import type { Tool } from "../../../entities/scene/model/tool";
+import type { CharacterStats } from "../../../entities/token/model/presentation";
 
 const COLORS = {
   background: 0x121318,

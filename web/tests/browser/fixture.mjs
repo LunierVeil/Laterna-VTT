@@ -55,7 +55,7 @@ export async function pageFor(context, options = {}) {
   await p.route('**/src/main.tsx', async route => {
     const response = await route.fetch();
     const source = await response.text();
-    await route.fulfill({response, body: `import {SceneStage as ObservedStage} from '/src/scene/stage.ts';
+    await route.fulfill({response, body: `import {SceneStage as ObservedStage} from '/src/widgets/scene-canvas/lib/stage.ts';
 window.observedStageClass=ObservedStage;
 window.observedMountResources=[];
 const originalMount=ObservedStage.prototype.mount;

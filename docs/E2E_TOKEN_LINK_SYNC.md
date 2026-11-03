@@ -20,9 +20,9 @@ PR #5 не менял этот тест или цепочку привязки; 
    lastSeq. Подтверждённые сообщения передаются подписчикам.
 5. [App](../web/src/app/App.tsx): направляет event в stage.applyEvent; snapshot в
    setSnapshot. До готовности renderer события буферизуются.
-6. [SceneStage](../web/src/scene/stage.ts): token.updated вызывает updateToken,
+6. [SceneStage](../web/src/widgets/scene-canvas/lib/stage.ts): token.updated вызывает updateToken,
    обновляет TokenView.data; для выбранного токена повторяет setSelection/onSelect.
-7. [SceneView](../web/src/scene/SceneView.tsx) проецирует выбранный Token в
+7. [SceneView](../web/src/widgets/scene-canvas/ui/SceneView.tsx) проецирует выбранный Token в
    [Zustand selected](../web/src/state/store.ts). TokenCard подписан на selected.
 8. React удаляет CharacterLink, когда `token.character_id` становится непустым.
 

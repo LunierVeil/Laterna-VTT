@@ -25,6 +25,21 @@ import, re-export, import type и строковый dynamic import; runtime и 
 Разделы «отложено»/«следующий этап» не считаются реализованными функциями.
 В частности, освещение имеет поля в модели, но полного LOS/light engine сейчас нет.
 
+## Актуальные пути после механического переноса FSD-05
+
+Дерево, метрики и выводы ниже остаются историческим AS-IS базы аудита
+`1b215596cb9cb1917ba8fce3f249d1c7789d2df5`, а не текущим перечнем файлов.
+В текущем PR renderer находится в
+[widgets/scene-canvas/lib/stage.ts](../web/src/widgets/scene-canvas/lib/stage.ts),
+React bridge — в
+[widgets/scene-canvas/ui/SceneView.tsx](../web/src/widgets/scene-canvas/ui/SceneView.tsx).
+Реализация, callbacks и hotfix PR #15 сохранены; изменены только import paths.
+Fixture использует `/src/widgets/scene-canvas/lib/stage.ts` и проверяет идентичность
+класса приложения. Исходный URL в разделе 7 относится к исторической базе аудита.
+Legacy store/tokenStats и type-only зависимость Sidebar явно перечислены в
+[плане, статус FSD-05](FSD_MIGRATION_PLAN.md#статус-fsd-05-в-текущем-pr).
+Рост shader cache остаётся отдельной [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
+
 ## 1. AS-IS: структура
 
 Все пути дерева относительно `web/src/`:
@@ -86,7 +101,7 @@ Fan-in/out ниже — число уникальных внутренних TS-
 | [store](../web/src/state/store.ts) | 201 | 17 | 1 | все 17 входящих зависимостей runtime |
 | [socket](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/net/socket.ts) | 176 | 15 | 1 | runtime-конструктор использует App; остальные 14 — type-only |
 | [types](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | 175 | 15 | 0 | общий контракт, не runtime singleton |
-| [stage](../web/src/scene/stage.ts) | 1420 | 9 | 1 | 1 runtime consumer SceneView, остальные 8 — type-only |
+| [stage](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/stage.ts) | 1420 | 9 | 1 | 1 runtime consumer SceneView, остальные 8 — type-only |
 | [CharacterSheet](../web/src/sheets/CharacterSheet.tsx) | 1273 | 2 | 10 | App и TokenCard получают runtime-зависимость |
 | [dnd5e](../web/src/sheets/dnd5e.ts) | 373 | 4 | 3 | registry используют sheet, tokenStats, TokenCard, InitiativePanel |
 
@@ -146,7 +161,7 @@ Preview и ping до готовности stage не буферизуются. �
 
 ### Движение и отображение
 
-[SceneView](../web/src/scene/SceneView.tsx) создаёт SceneStage и связывает его
+[SceneView](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/SceneView.tsx) создаёт SceneStage и связывает его
 callbacks с socket.send. token.move имеет optimistic apply/revert; preview
 передаёт base_seq из SceneSocket.sequence. Renderer хранит TokenView, Pixi nodes,
 координаты, выделение, drag/ghost, fog, wall interactions и локальную историю undo.
@@ -295,8 +310,8 @@ selectors, разделение CSS, typed command map, профилирован
   ui/diceDisplay и net/socket. [richdoc.test](../web/tests/richdoc.test.ts)
   импортирует чистый richDoc без TSX renderer; ui-components использует
   registerHooks для реальных TSX и игнорирует CSS только в Node.
-- [browser fixture](../web/tests/browser/fixture.mjs) перехватывает `/src/main.tsx`,
-  импортирует `/src/scene/stage.ts`, оборачивает mount, ищет alive stage;
+- [browser fixture на базе аудита](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/tests/browser/fixture.mjs) перехватывает `/src/main.tsx`,
+  на базе аудита импортирует [`/src/scene/stage.ts`](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/stage.ts), оборачивает mount, ищет alive stage;
   store импортируется через `/src/state/store.ts` внутри page.evaluate.
 - [token-link diagnostics](../web/tests/browser/token-link-diagnostics.mjs)
   импортирует `/src/net/socket.ts`, захватывает send/sequence и читает store/stage.

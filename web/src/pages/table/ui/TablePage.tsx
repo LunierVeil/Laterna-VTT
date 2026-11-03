@@ -1,4 +1,4 @@
-import { SceneView } from "../../../scene/SceneView";
+import { SceneView } from "../../../widgets/scene-canvas/ui/SceneView";
 import { TopBar } from "../../../ui/TopBar";
 import { ToolRail, ToolHint } from "../../../ui/ToolRail";
 import { Sidebar } from "../../../ui/Sidebar";
@@ -11,7 +11,7 @@ import { DiceAnimation } from "../../../ui/DiceAnimation";
 import { SelectionBar } from "../../../ui/SelectionBar";
 import type { MutableRefObject } from "react";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
-import type { SceneStage } from "../../../scene/stage";
+import type { SceneStage } from "../../../widgets/scene-canvas/lib/stage";
 import type { Character, Message } from "../../../shared/api/protocol";
 
 interface TablePageProps {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TablePage } from "../pages/table/ui/TablePage";
-import type { SceneStage } from "../scene/stage";
+import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
 import { useUi } from "../state/store";
 import { AccessPage } from "../pages/access/ui/AccessPage";
 import type { Message } from "../shared/api/protocol";
