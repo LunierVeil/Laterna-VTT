@@ -8,7 +8,7 @@ import { ZoomControl } from "./ui/ZoomControl";
 import { TokenCard } from "./ui/TokenCard";
 import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
-import { GmSetupScreen, InviteScreen, LoginScreen } from "./ui/Login";
+import { GmSetupScreen, InviteScreen, LoginScreen } from "./features/access/ui/Login";
 import { CharacterSheet } from "./sheets/CharacterSheet";
 import { DiceMenu } from "./ui/DicePanel";
 import { DiceAnimation } from "./ui/DiceAnimation";

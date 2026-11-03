@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { UserInfo } from "../shared/api/protocol";
-import { Logo } from "../shared/ui/icons/icons";
+import type { UserInfo } from "../../../shared/api/protocol";
+import { Logo } from "../../../shared/ui/icons/icons";
 
 async function post(url: string, body: unknown): Promise<{ ok: boolean; data: any }> {
   const res = await fetch(url, {

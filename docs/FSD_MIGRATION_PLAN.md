@@ -165,7 +165,7 @@ JSON key, command payload, CSS class или runtime policy.
 | [Sidebar.tsx](../web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
 | [TopBar.tsx](../web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
 | [InitiativePanel.tsx](../web/src/ui/InitiativePanel.tsx) | widgets/combat-tracker/ui | TablePage; bonus supplied через definition, сервер combat.* прежний | 06c,09 |
-| [Login.tsx](../web/src/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
+| [Login.tsx](../web/src/features/access/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
 | [Chat.tsx](../web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
 | [DicePanel.tsx](../web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](../web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](../web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
 | [CharactersPanel.tsx](../web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](../web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |
