@@ -1,11 +1,11 @@
 import { lazy, Suspense, useRef, useState } from "react";
-import type { Block, Field } from "../entities/character/model/legacy-sheet-schema";
-import { RichText, type ResourceInfo } from "../widgets/character-sheet/legacy/RichText";
-import { docHasContent, docText } from "../widgets/character-sheet/legacy/richDoc";
-import { totalWeight } from "../systems/dnd5e/model/bonus";
+import type { Block, Field } from "../../../entities/character/model/legacy-sheet-schema";
+import { RichText, type ResourceInfo } from "./RichText";
+import { docHasContent, docText } from "./richDoc";
+import { totalWeight } from "../../../systems/dnd5e/model/bonus";
 
 // Редактор (TipTap) - отдельным куском кода: грузится, только когда правят.
-const DocEditor = lazy(() => import("../widgets/character-sheet/legacy/DocEditor"));
+const DocEditor = lazy(() => import("./DocEditor"));
 
 type CardsBlock = Extract<Block, { kind: "cards" }>;
 type Card = { id: string; doc?: unknown; [key: string]: unknown };
