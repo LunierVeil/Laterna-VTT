@@ -3,7 +3,7 @@ import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenPlacementPort } from "../../../entities/scene/model/scene-port";
 import { Chat } from "../../../features/chat/ui/Chat";
 import { DicePanel } from "../../../features/dice/ui/DicePanel";
-import { ScenesPanel } from "../../../ui/ScenesPanel";
+import { ScenesPanel } from "../../../features/scene-management/ui/ScenesPanel";
 import { PlayersPanel } from "../../../ui/PlayersPanel";
 import { CharactersPanel } from "../../../ui/CharactersPanel";
 
