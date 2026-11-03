@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { Character } from "../shared/api/protocol";
-import { Icon } from "./icons";
+import { Icon } from "../shared/ui/icons/icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 /**

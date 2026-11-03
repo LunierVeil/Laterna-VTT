@@ -4,7 +4,7 @@ import type { SceneSocket } from "../net/socket";
 import type { SceneInfo } from "../shared/api/protocol";
 import { MapSettings } from "./MapSettings";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Logo } from "./icons";
+import { Logo } from "../shared/ui/icons/icons";
 
 /** GM-only browser. Folder metadata never contains or renders scene state. */
 export function ScenesPanel({ socket, sceneId, onOpenScene }: {

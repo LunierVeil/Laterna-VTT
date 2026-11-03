@@ -4,7 +4,7 @@ import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent } from "./richDoc";
 import { useSheetOps } from "./sheetOps";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { Icon } from "../ui/icons";
+import { Icon } from "../shared/ui/icons/icons";
 
 const DocEditor = lazy(() => import("./DocEditor"));
 

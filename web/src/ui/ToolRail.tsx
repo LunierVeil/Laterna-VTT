@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTouchInput } from "./input";
 import { useUi } from "../state/store";
 import type { Tool } from "../entities/scene/model/tool";
-import { Icon, type IconName } from "./icons";
+import { Icon, type IconName } from "../shared/ui/icons/icons";
 import type { SceneSocket } from "../net/socket";
 import type { SceneStage } from "../scene/stage";
 
