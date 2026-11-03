@@ -41,7 +41,7 @@ test('B01/B02: live player renders fog events and the correct snapshot when GM c
   await command('fog.clear');await until(()=>p.evaluate(()=>window.observedStage.fog.length===0),'current fog Graphics cleared');
   await p.evaluate(()=>window.observedStage.app.render());
   await p.evaluate(()=>window.stageMountGates.splice(0).forEach(release=>release()));
-  await until(()=>p.evaluate(()=>!window.heldSceneStage.isAlive),'cancelled late mount destroyed');
+  await until(()=>p.evaluate(()=>window.observedStages.includes(window.heldSceneStage)&&!window.heldSceneStage.isAlive),'cancelled late mount completed and destroyed');
   await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   assert.deepEqual(await p.evaluate(()=>{
     const old=window.stageBeforeSwitch,late=window.heldSceneStage,resources=window.observedMountResources.find(r=>r.stage===late);
