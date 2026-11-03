@@ -3,7 +3,7 @@ import type { Block } from "./schema";
 import { RichText, type ResourceInfo } from "./RichText";
 import { docHasContent } from "./richDoc";
 import { useSheetOps } from "./sheetOps";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { ConfirmDialog } from "../shared/ui/ConfirmDialog/ConfirmDialog";
 import { Icon } from "../shared/ui/icons/icons";
 
 const DocEditor = lazy(() => import("./DocEditor"));

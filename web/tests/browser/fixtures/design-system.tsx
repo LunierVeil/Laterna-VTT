@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ConfirmDialog } from "../../../src/ui/ConfirmDialog";
+import { ConfirmDialog } from "../../../src/shared/ui/ConfirmDialog/ConfirmDialog";
 import { Button } from "../../../src/shared/ui/Button/Button";
 import { TextField } from "../../../src/shared/ui/TextField/TextField";
 import { Checkbox } from "../../../src/shared/ui/Checkbox/Checkbox";

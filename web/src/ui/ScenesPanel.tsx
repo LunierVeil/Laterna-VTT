@@ -3,7 +3,7 @@ import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { SceneInfo } from "../shared/api/protocol";
 import { MapSettings } from "./MapSettings";
-import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmDialog } from "../shared/ui/ConfirmDialog/ConfirmDialog";
 import { Logo } from "../shared/ui/icons/icons";
 
 /** GM-only browser. Folder metadata never contains or renders scene state. */
