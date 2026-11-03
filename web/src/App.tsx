@@ -1,18 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SceneView } from "./scene/SceneView";
+import { TablePage } from "./pages/table/ui/TablePage";
 import type { SceneStage } from "./scene/stage";
-import { TopBar } from "./ui/TopBar";
-import { ToolRail, ToolHint } from "./ui/ToolRail";
-import { Sidebar } from "./ui/Sidebar";
-import { ZoomControl } from "./ui/ZoomControl";
-import { TokenCard } from "./ui/TokenCard";
-import { InitiativePanel } from "./ui/InitiativePanel";
 import { useUi } from "./state/store";
 import { GmSetupScreen, InviteScreen, LoginScreen } from "./features/access/ui/Login";
-import { CharacterSheet } from "./sheets/CharacterSheet";
-import { DiceMenu } from "./ui/DicePanel";
-import { DiceAnimation } from "./ui/DiceAnimation";
-import { SelectionBar } from "./ui/SelectionBar";
 import type { Message } from "./shared/api/protocol";
 
 import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin } from "./app/session/access";
@@ -99,36 +89,18 @@ export default function App() {
   if (!socket) return <div className="gate-wait">Загрузка сцены...</div>;
 
   return (
-    <div className={`app ${hideSidebar ? "hide-sidebar" : ""} ${hideRail ? "hide-rail" : ""}`}>
-      <div className="mobile-panels">
-        <button aria-label={hideSidebar ? "Открыть панели" : "Свернуть панели"} aria-expanded={!hideSidebar} aria-controls="table-sidebar" onClick={() => {
-          if (hideSidebar) useUi.getState().setSideTab("chat");
-          setHideSidebar(!hideSidebar);
-        }}>{hideSidebar ? "Чат ›" : "‹ Скрыть чат"}</button>
-        <button onClick={() => setHideRail(!hideRail)}>{hideRail ? "Инструменты" : "Свернуть инструменты"}</button>
-      </div>
-      <TopBar socket={socket} sceneId={sceneId!} />
-      <main>
-        <ToolRail socket={socket} stageRef={stageRef} />
-        <div className="scene-area">
-          <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
-          <TokenCard socket={socket} stageRef={stageRef} />
-          <InitiativePanel socket={socket} />
-          <ToolHint />
-          <SelectionBar stageRef={stageRef} />
-          {diceOpen && <DiceMenu socket={socket} onClose={closeDice} />}
-          <DiceAnimation key={animatedRoll?.id ?? "none"} message={diceAnimation ? animatedRoll : null} />
-          <ZoomControl stageRef={stageRef} />
-        </div>
-        <Sidebar onHide={() => setHideSidebar(true)} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
-      </main>
-      {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
-      {error && <div className="toast">{error}</div>}
-      {notice && !error && (
-        <div className="toast toast-notice" role="status" onClick={() => useUi.setState({ notice: null })}>
-          {notice}
-        </div>
-      )}
-    </div>
+    <TablePage
+      hideSidebar={hideSidebar} hideRail={hideRail}
+      onToggleSidebar={() => {
+        if (hideSidebar) useUi.getState().setSideTab("chat");
+        setHideSidebar(!hideSidebar);
+      }}
+      onToggleRail={() => setHideRail(!hideRail)}
+      onHideSidebar={() => setHideSidebar(true)}
+      onDismissNotice={() => useUi.setState({ notice: null })}
+      socket={socket} sceneId={sceneId!} stageRef={stageRef} handleReady={handleReady}
+      diceOpen={diceOpen} closeDice={closeDice} animatedRoll={animatedRoll} diceAnimation={diceAnimation}
+      openScene={openScene} openCharacter={openCharacter} error={error} notice={notice}
+    />
   );
 }
