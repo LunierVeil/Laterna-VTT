@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useTouchInput } from "./input";
+import { useTouchInput } from "../shared/lib/input/useTouchInput";
 import { useUi } from "../state/store";
 import type { Tool } from "../entities/scene/model/tool";
 import { Icon, type IconName } from "../shared/ui/icons/icons";
