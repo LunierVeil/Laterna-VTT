@@ -5,7 +5,7 @@ import { Chat } from "../../../features/chat/ui/Chat";
 import { DicePanel } from "../../../features/dice/ui/DicePanel";
 import { ScenesPanel } from "../../../features/scene-management/ui/ScenesPanel";
 import { PlayersPanel } from "../../../features/player-management/ui/PlayersPanel";
-import { CharactersPanel } from "../../../ui/CharactersPanel";
+import { CharactersPanel } from "../../../features/character-management/ui/CharactersPanel";
 
 const TABS: { id: SideTab; label: string; gm?: boolean }[] = [
   { id: "chat", label: "Чат" },

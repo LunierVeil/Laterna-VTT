@@ -61,7 +61,10 @@ chat → dice отсутствует. Обновлены unit/test imports, но
 
 ## Актуальные пути FSD-06b
 
-Исторический AS-IS, метрики и ADR далее не пересчитываются. В текущем FSD-06b
+FSD-06b объединён в [PR #19](https://github.com/LunierVeil/Laterna-VTT/pull/19),
+master `9429255110762e06778b74c07b5f79f48acf10d9`, с успешным
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41713926052).
+Исторический AS-IS, метрики и ADR далее не пересчитываются. В FSD-06b
 ownership перенесён механически, без изменения bodies и сохранённых contracts:
 
 - [ScenesPanel](../web/src/features/scene-management/ui/ScenesPanel.tsx) → features/scene-management/ui.
@@ -74,10 +77,40 @@ ownership перенесён механически, без изменения b
 MapSettings остаётся внутренним компонентом scene-management. Sidebar составляет
 scene/player features; TablePage — scene-tools. Порты инструментов остаются в
 entities; dependencies на SceneStage и runtime sibling-feature imports отсутствуют.
-Все шесть компонентов сохраняют legacy useUi до отдельного FSD-08; CharactersPanel,
-TokenCard, InitiativePanel и CharacterSheet в этом пакете не перемещаются.
+Все шесть компонентов сохраняют legacy useUi до отдельного FSD-08. На этапе 06b
+CharactersPanel, TokenCard, InitiativePanel и CharacterSheet не перемещались;
+актуальные пути первых трёх и SheetRow после 06c указаны ниже.
 Текущие направления импортов и условия снятия исключений —
-[план FSD-06b](FSD_MIGRATION_PLAN.md#статус-fsd-06b-в-текущем-pr).
+[план FSD-06b](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-06b).
+
+## Актуальные пути FSD-06c
+
+База — проверенный master PR #19 `9429255110762e06778b74c07b5f79f48acf10d9`.
+Перенесены четыре канонические реализации:
+
+- [features/character-management/ui/CharactersPanel.tsx](../web/src/features/character-management/ui/CharactersPanel.tsx).
+- [features/character-management/ui/SheetRow.tsx](../web/src/features/character-management/ui/SheetRow.tsx) — внутренний компонент той же slice.
+- [widgets/token-inspector/ui/TokenCard.tsx](../web/src/widgets/token-inspector/ui/TokenCard.tsx).
+- [widgets/combat-tracker/ui/InitiativePanel.tsx](../web/src/widgets/combat-tracker/ui/InitiativePanel.tsx).
+
+Изменены только module specifiers, Sidebar/TablePage imports и текущие разделы
+документации. Bodies/JSX/keys, hooks/dependencies/refs, permissions, anchor cleanup,
+InitInput, HP/temp HP, server commands и payload сохранены. Старых UI-копий и
+compatibility re-export нет. Sibling-widget dependencies отсутствуют: TablePage
+составляет оба widgets, Sidebar составляет character-management; SheetRow внутри slice.
+TokenPlacementPort и TokenAnchorPort остаются нижними contracts, SceneStage не импортируется.
+
+Точные legacy-исключения и условия удаления — в
+[плане FSD-06c](FSD_MIGRATION_PLAN.md#статус-fsd-06c-в-текущем-pr):
+все четыре компонента → state/store; CharactersPanel → sheets/tokenStats;
+TokenCard → sheets/{dnd5e registry,tokenStats,bonus,HpControls}; InitiativePanel →
+sheets/dnd5e registry. FSD-07 изменит физический ownership sheet-модулей, не правила;
+FSD-09 отдельно удалит прямые системные imports через необходимые projections/UI seams.
+FSD-06c выполняет только механический перенос, не system abstraction.
+Store остаётся прежним до FSD-08; **пересмотр ADR D5 и согласование будущих зон
+ответственности Zustand обязательны отдельно перед этим этапом**. Старый D5 —
+историческое решение, не окончательное устройство store. Исторический AS-IS и
+метрики далее сохранены. FSD-07/08/09 и исправление shader cache Issue #16 не начаты.
 
 ## 1. AS-IS: структура
 
