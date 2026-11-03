@@ -1,7 +1,7 @@
 import { useUi } from "../state/store";
-import type { SceneStage } from "../scene/stage";
+import type { SelectionPort } from "../entities/scene/model/scene-port";
 
-export function SelectionBar({stageRef}: {stageRef: React.MutableRefObject<SceneStage | null>}) {
+export function SelectionBar({stageRef}: {stageRef: React.MutableRefObject<SelectionPort | null>}) {
   const count = useUi(s => s.selectionCount), editable = useUi(s => s.selectionEditable);
   if (count < 2) return null;
   return <div className="selection-bar" role="group" aria-label="Выбранные токены">

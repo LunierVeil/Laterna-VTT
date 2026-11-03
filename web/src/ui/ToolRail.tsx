@@ -4,7 +4,7 @@ import { useUi } from "../state/store";
 import type { Tool } from "../entities/scene/model/tool";
 import { Icon, type IconName } from "../shared/ui/icons/icons";
 import type { SceneSocket } from "../net/socket";
-import type { SceneStage } from "../scene/stage";
+import type { FogUndoPort } from "../entities/scene/model/scene-port";
 
 // gm - инструмент только мастера. Права проверяет сервер, тут - чтобы не
 // показывать игроку кнопки, которые всё равно ответят отказом.
@@ -19,7 +19,7 @@ const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boole
 ];
 
 /** Параметры инструмента - выезжают рядом с его кнопкой. */
-function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSocket; stageRef: React.MutableRefObject<SceneStage | null> }) {
+function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSocket; stageRef: React.MutableRefObject<FogUndoPort | null> }) {
   const isGm = useUi((s) => s.isGm);
   const fogMode = useUi((s) => s.fogMode);
   // Кнопки "всё" - тоже свои действия: Ctrl+Z их отменяет.
@@ -80,7 +80,7 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
 }
 
 /** Колонка инструментов слева от сцены. */
-export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: React.MutableRefObject<SceneStage | null> }) {
+export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: React.MutableRefObject<FogUndoPort | null> }) {
   const tool = useUi((s) => s.tool);
   const isGm = useUi((s) => s.isGm);
   const touch = useTouchInput();

@@ -3,7 +3,7 @@ import { useUi } from "../state/store";
 import type { SelectedToken } from "../entities/token/model/selection";
 import { uploadImage } from "../net/upload";
 import type { SceneSocket } from "../net/socket";
-import type { SceneStage } from "../scene/stage";
+import type { TokenAnchorPort } from "../entities/scene/model/scene-port";
 import { SHEETS } from "../sheets/dnd5e";
 import { at, characterStats } from "../sheets/tokenStats";
 import { HpControls } from "../sheets/HpControls";
@@ -31,7 +31,7 @@ export function TokenCard({
   stageRef,
 }: {
   socket: SceneSocket;
-  stageRef: React.MutableRefObject<SceneStage | null>;
+  stageRef: React.MutableRefObject<TokenAnchorPort | null>;
 }) {
   const selected = useUi((s) => s.selected);
   const me = useUi((s) => s.me);
