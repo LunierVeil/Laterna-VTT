@@ -1,5 +1,5 @@
 import { equipmentBlock } from "./equipment.ts";
-import type { SheetSchema } from "./schema";
+import type { SheetSchema } from "../../../entities/character/model/legacy-sheet-schema";
 
 /**
  * Моб или NPC - шаблон. Хиты здесь - максимум: текущие у каждого экземпляра

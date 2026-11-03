@@ -4,10 +4,10 @@ import type { SelectedToken } from "../../../entities/token/model/selection";
 import { uploadImage } from "../../../shared/api/upload";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenAnchorPort } from "../../../entities/scene/model/scene-port";
-import { SHEETS } from "../../../sheets/dnd5e";
-import { at, characterStats } from "../../../sheets/tokenStats";
+import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
+import { at, characterStats } from "../../../systems/dnd5e/model/tokenStats";
 import { HpControls } from "../../../sheets/HpControls";
-import { hpChanges } from "../../../sheets/bonus";
+import { hpChanges } from "../../../systems/dnd5e/model/bonus";
 import { Icon } from "../../../shared/ui/icons/icons";
 
 const PALETTE = [

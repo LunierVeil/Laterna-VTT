@@ -1,4 +1,4 @@
-import type { Block } from "./schema";
+import type { Block } from "../../../entities/character/model/legacy-sheet-schema";
 
 /** Shared JSON/card editor contract for PC and NPC equipment. */
 export const equipmentBlock: Extract<Block, {kind: "cards"}> = {

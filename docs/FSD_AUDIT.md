@@ -175,7 +175,7 @@ Fan-in/out ниже — число уникальных внутренних TS-
 | [types](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/types.ts) | 175 | 15 | 0 | общий контракт, не runtime singleton |
 | [stage](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/stage.ts) | 1420 | 9 | 1 | 1 runtime consumer SceneView, остальные 8 — type-only |
 | [CharacterSheet](../web/src/sheets/CharacterSheet.tsx) | 1273 | 2 | 10 | App и TokenCard получают runtime-зависимость |
-| [dnd5e](../web/src/sheets/dnd5e.ts) | 373 | 4 | 3 | registry используют sheet, tokenStats, TokenCard, InitiativePanel |
+| [dnd5e](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/dnd5e.ts) | 373 | 4 | 3 | registry используют sheet, tokenStats, TokenCard, InitiativePanel |
 
 Схема ключевых связей; `-->` runtime, `-.->` type-only:
 
@@ -283,7 +283,7 @@ initiative bonus, hpChanges и подсказки формы; сервер ге�
 что backend заново вычисляет все правила 5e или запрещает ручное изменение HP.
 Перенос этих вычислений в Zustand не обоснован.
 
-[tokenStats](../web/src/sheets/tokenStats.ts) переводит только доступные клиенту
+[tokenStats](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/tokenStats.ts) переводит только доступные клиенту
 листы в hp/max/badge/speed. SceneView передаёт Map в renderer. NPC template HP max
 живёт в листе, текущий HP экземпляра — в Token.hp; TokenCard выбирает команды
 character.update или token.update по legacy system=mob. Это контракт данных.
