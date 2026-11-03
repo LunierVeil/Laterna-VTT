@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Message } from "../types";
+import type { Message } from "../shared/api/protocol";
 import { displayDice } from "./diceDisplay";
 
 /** One replaceable presentation, no queue or frame loop. Never reads history. */

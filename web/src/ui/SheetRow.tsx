@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
-import type { Character } from "../types";
+import type { Character } from "../shared/api/protocol";
 import { Icon } from "./icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 

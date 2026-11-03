@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
-import type { Message } from "../types";
+import type { Message } from "../shared/api/protocol";
 import { DicePanel } from "./DicePanel";
 
 function RollLine({ m }: { m: Message }) {

@@ -1,6 +1,6 @@
 import type { CharacterStats } from "../entities/token/model/presentation";
 import { SHEETS } from "./dnd5e";
-import type { Character } from "../types";
+import type { Character } from "../shared/api/protocol";
 
 export function at(data: unknown, path: string): unknown {
   let node = data as any;

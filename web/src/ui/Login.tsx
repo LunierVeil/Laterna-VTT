@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { UserInfo } from "../types";
+import type { UserInfo } from "../shared/api/protocol";
 import { Logo } from "./icons";
 
 async function post(url: string, body: unknown): Promise<{ ok: boolean; data: any }> {

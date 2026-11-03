@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
 import type { SceneStage } from "../scene/stage";
-import type { Character } from "../types";
+import type { Character } from "../shared/api/protocol";
 import { safeUpload } from "../net/upload";
 import { at } from "../sheets/tokenStats";
 import { SheetRow } from "./SheetRow";

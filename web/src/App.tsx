@@ -14,8 +14,8 @@ import { CharacterSheet } from "./sheets/CharacterSheet";
 import { DiceMenu } from "./ui/DicePanel";
 import { DiceAnimation } from "./ui/DiceAnimation";
 import { SelectionBar } from "./ui/SelectionBar";
-import type { Message } from "./types";
-import type { Scene, SceneInfo, UserInfo } from "./types";
+import type { Message } from "./shared/api/protocol";
+import type { Scene, SceneInfo, UserInfo } from "./shared/api/protocol";
 
 const GM_SCENE = "lanterna.gmScene";
 
