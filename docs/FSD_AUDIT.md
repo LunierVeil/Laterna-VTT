@@ -273,7 +273,7 @@ PlayersPanel живут локально. Sidebar намеренно не раз
 [CharacterSheet](../web/src/sheets/CharacterSheet.tsx) выбирает SHEETS[system],
 рендерит DSL и содержит формы, block rendering, поиск, вычисления, HP controls,
 портрет/upload, keyboard/overlay lifecycle, delete/reimport и отправку команд.
-[SheetOpsContext](../web/src/sheets/sheetOps.ts) уже даёт блокам операции list,
+[SheetOpsContext](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/sheets/sheetOps.ts) уже даёт блокам операции list,
 counter, roll без знания socket. Это существующая точка декомпозиции.
 
 Правки идут через character.update/list/counter; сервер проверяет владение,

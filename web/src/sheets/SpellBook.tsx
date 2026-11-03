@@ -1,12 +1,12 @@
 import { lazy, Suspense, useRef, useState } from "react";
 import type { Block } from "../entities/character/model/legacy-sheet-schema";
-import { RichText, type ResourceInfo } from "./RichText";
-import { docHasContent } from "./richDoc";
-import { useSheetOps } from "./sheetOps";
+import { RichText, type ResourceInfo } from "../widgets/character-sheet/legacy/RichText";
+import { docHasContent } from "../widgets/character-sheet/legacy/richDoc";
+import { useSheetOps } from "../widgets/character-sheet/legacy/sheetOps";
 import { ConfirmDialog } from "../shared/ui/ConfirmDialog/ConfirmDialog";
 import { Icon } from "../shared/ui/icons/icons";
 
-const DocEditor = lazy(() => import("./DocEditor"));
+const DocEditor = lazy(() => import("../widgets/character-sheet/legacy/DocEditor"));
 
 /**
  * Книга заклинаний по раскладке "круги сеткой" (как привыкли в Roll20),

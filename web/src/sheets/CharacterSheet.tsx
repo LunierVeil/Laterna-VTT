@@ -7,7 +7,7 @@ import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../ent
 import { SHEETS } from "../systems/dnd5e/model/dnd5e";
 import { Cards, cardMatches } from "./Cards";
 import { SpellBook } from "./SpellBook";
-import { SheetOpsContext, type SheetOps } from "./sheetOps";
+import { SheetOpsContext, type SheetOps } from "../widgets/character-sheet/legacy/sheetOps";
 import { safeUpload, uploadImage } from "../shared/api/upload";
 import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../systems/dnd5e/model/bonus";
 
