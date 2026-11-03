@@ -1,3 +1,4 @@
+import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../entities/scene/model/scene-port";
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Combat, FogRect, Scene, Token, Wall, TokenPreview } from "../shared/api/protocol";
 import type { Tool } from "../entities/scene/model/tool";
@@ -93,7 +94,7 @@ interface TokenView {
  * Координаты везде в пикселях сцены (как в БД). Экранные координаты
  * получаются трансформом контейнера world.
  */
-export class SceneStage {
+export class SceneStage implements TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort {
   app = new Application();
   private world = new Container();
   private bg = new Graphics();

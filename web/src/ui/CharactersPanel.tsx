@@ -1,14 +1,14 @@
 import { useRef, useState } from "react";
 import { useUi } from "../state/store";
 import type { SceneSocket } from "../net/socket";
-import type { SceneStage } from "../scene/stage";
+import type { TokenPlacementPort } from "../entities/scene/model/scene-port";
 import type { Character } from "../shared/api/protocol";
 import { safeUpload } from "../net/upload";
 import { at } from "../sheets/tokenStats";
 import { SheetRow } from "./SheetRow";
 
 /** Листы персонажей: свои; у ГМ - все, с подписью, чей. */
-function PlayerSheets({ socket, list, stageRef }: { socket: SceneSocket; list: Character[]; stageRef: React.MutableRefObject<SceneStage | null> }) {
+function PlayerSheets({ socket, list, stageRef }: { socket: SceneSocket; list: Character[]; stageRef: React.MutableRefObject<TokenPlacementPort | null> }) {
   const accounts = useUi((s) => s.accounts);
   const isGm = useUi((s) => s.isGm);
   const file = useRef<HTMLInputElement>(null);
@@ -71,7 +71,7 @@ function MobSheets({
 }: {
   socket: SceneSocket;
   list: Character[];
-  stageRef: React.MutableRefObject<SceneStage | null>;
+  stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
   const placeHidden = useUi((s) => s.placeHidden);
   const place = (c: Character) => {
@@ -143,7 +143,7 @@ export function CharactersPanel({
   stageRef,
 }: {
   socket: SceneSocket;
-  stageRef: React.MutableRefObject<SceneStage | null>;
+  stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
   const characters = useUi((s) => s.characters);
   const isGm = useUi((s) => s.isGm);
