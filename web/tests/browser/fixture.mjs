@@ -50,11 +50,14 @@ export async function pageFor(context, options = {}) {
   const startupConsole=[];p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')startupConsole.push(m.text());});
   if(options.trackSockets)await p.addInitScript(()=>{const Native=window.WebSocket;window.sceneSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/ws/scene/'))window.sceneSockets.push(this);}};});
   p.received=capture(p); p.setDefaultTimeout(8000); p.on('pageerror', e => errors.push(e.message));
+  if(options.observeLifecycle)p.on('pageerror',error=>console.error('Scene lifecycle page error',error.stack));
   if(sceneId && !options.preserveSavedScene) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
   await p.route('**/src/main.tsx', async route => {
     const response = await route.fetch();
     const source = await response.text();
     await route.fulfill({response, body: `import {SceneStage as ObservedStage} from '/src/scene/stage.ts';
+window.observedStageClass=ObservedStage;
+window.observedMountResources=[];
 const originalMount=ObservedStage.prototype.mount;
 window.observedStages=[];
 window.stageMounts=[];
@@ -62,7 +65,12 @@ window.stageMountGates=[];
 Object.defineProperty(window,'observedStage',{get:()=>window.observedStages.findLast(s=>s.isAlive&&s.app.canvas.isConnected)});
 ObservedStage.prototype.mount=async function(...args){
   const timing={start:performance.now(),finish:null};window.stageMounts.push(timing);
-  try {${options.beforeStageMount ? 'await new Promise(resolve=>window.stageMountGates.push(resolve));' : ''}await originalMount.apply(this,args);window.observedStages.push(this);}
+  try {
+    ${options.beforeStageMount ? 'await new Promise(resolve=>window.stageMountGates.push(resolve));' : ''}
+    if(window.holdNextStageMount){window.holdNextStageMount=false;window.heldSceneStage=this;await new Promise(resolve=>window.stageMountGates.push(resolve));}
+    await originalMount.apply(this,args);window.observedStages.push(this);
+    ${options.observeLifecycle ? 'window.observedMountResources.push({stage:this,canvas:this.app.canvas,root:this.app.stage,ticker:this.app.ticker});' : ''}
+  }
   finally {timing.finish=performance.now();}
 };
 ` + source});
@@ -82,8 +90,21 @@ ObservedStage.prototype.mount=async function(...args){
     throw error;
   }
   await until(() => p.evaluate(async () => (await import('/src/state/store.ts')).useUi.getState().connected && window.observedStage?.isAlive), 'app connected');
+  assert.equal(await p.evaluate(()=>Object.getPrototypeOf(window.observedStage)===window.observedStageClass.prototype&&window.observedStage.app.canvas===document.querySelector('.scene canvas')),true,'fixture observes the app stage and its canvas');
   startupRecords.push({elapsedMs:Date.now()-started,failed:false,console:startupConsole,mounts:await p.evaluate(()=>window.stageMounts??[]),pages:context.pages().length,contexts:browser.contexts().length});
   return p;
+}
+// Native Chromium listener inspection; no EventTarget/PixiJS monkey patch.
+export async function stageListenerCount(page, stageExpression, canvasExpression) {
+  const session=await page.context().newCDPSession(page);
+  try {
+    const result=await session.send('Runtime.evaluate',{
+      expression:`(() => {const stage=${stageExpression}, canvas=${canvasExpression};const w=getEventListeners(window),c=getEventListeners(canvas);return [...(w.keydown??[]),...(w.blur??[]),...(w.pointercancel??[]),...(w.touchcancel??[]),...(c.wheel??[])].filter(r=>[stage.onKeyDown,stage.onPointerCancel,stage.onWheel].includes(r.listener)).length;})()`,
+      includeCommandLineAPI:true,returnByValue:true,
+    });
+    assert.equal(result.exceptionDetails,undefined,'listener inspection succeeds');
+    return result.result.value;
+  } finally {await session.detach();}
 }
 export async function openSheet(p, id) {
   await p.evaluate(async id => (await import('/src/state/store.ts')).useUi.getState().openCharacter(id), id);

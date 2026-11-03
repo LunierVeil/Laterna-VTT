@@ -224,11 +224,14 @@ test('Final preview touch and secrecy: touch drag/cancel, GM-layer, fog destinat
   await command('fog.cover',{x:210,y:210,w:120,h:120});const visible=(await command('token.add',{x:175,y:175})).payload.token;await until(()=>stageToken(owner,visible.id),'visible NPC outside fog');const fogDrag=crypto.randomUUID(),fogSeq=(await scene(master)).seq,fogStart=owner.received.length;
   await control.evaluate(({id,seq,drag})=>window.probe.send(JSON.stringify({name:'token.preview',payload:{id,base_seq:seq,drag_id:drag,step:1,x:245,y:245}})),{id:visible.id,seq:fogSeq,drag:fogDrag});await until(()=>master.evaluate(id=>window.observedStage.movementPreviews.has(id),fogDrag),'GM ghost inside fog');await control.evaluate(()=>window.probe.send(JSON.stringify({name:'chat.say',payload:{text:'fog-preview-barrier'}})));await until(()=>owner.received.slice(fogStart).some(m=>m.type==='chat'&&m.message.text==='fog-preview-barrier'),'fog barrier');assert.equal(owner.received.slice(fogStart).some(m=>m.type==='token_preview'&&!m.end&&m.drag_id===fogDrag),false);
   await command('fog.clear');const r=await atToken(owner,tok.id);await touch('touchStart',r.x,r.y);await touch('touchMove',r.x+70,r.y);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===1),'before scene switch');
-  await owner.evaluate(()=>{window.touchPreviousStage=window.observedStage;});
+  await owner.evaluate(()=>{window.touchPreviousStage=window.observedStage;window.touchPreviousCanvas=window.observedStage.app.canvas;});
   const next=(await command('scene.create',{name:'Switch during touch preview'})).payload.id;await command('scene.activate',{id:next});await touch('touchEnd');await until(()=>owner.received.some(m=>m.type==='snapshot'&&m.scene.id===next),'new scene snapshot');
   // A snapshot can arrive while SceneView is replacing its asynchronous renderer.
   // Wait for the new stage, then assert immediately: do not poll the preview away.
   await until(()=>owner.evaluate(()=>window.observedStage?.isAlive && window.observedStage!==window.touchPreviousStage),'new scene renderer');
+  await until(()=>owner.evaluate(()=>!window.touchPreviousStage.isAlive),'previous preview stage destroyed');
+  assert.equal(await owner.evaluate(()=>window.touchPreviousCanvas.isConnected),false);
+  assert.equal(await owner.evaluate(()=>window.touchPreviousStage.movementPreviews.size),0,'destroy clears previous previews');
   assert.equal(await owner.evaluate(()=>window.observedStage.movementPreviews.size),0);await until(()=>master.evaluate(()=>window.observedStage.movementPreviews.size===0),'old scene preview cleared');await command('scene.activate',{id:temp});await command('scene.delete',{id:next});
   await master.close();await owner.close();
  }finally{await context.close();setSceneId(original);await command('scene.activate',{id:original});await probe(control,original);await command('scene.delete',{id:temp});}

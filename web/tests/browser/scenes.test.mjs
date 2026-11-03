@@ -5,11 +5,11 @@ import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { browser, base, api, gm, player, sceneId, control, setSceneId,
   until, probe, command, pageFor, openSheet, closeSheet, scene, capture,
-  stageToken, atToken, nextToken } from './fixture.mjs';
+  stageToken, atToken, nextToken, stageListenerCount } from './fixture.mjs';
 
 
 test('B01/B02: live player renders fog events and the correct snapshot when GM changes scene',{timeout:90000},async()=>{
-  const p=await pageFor(player);const frames=p.received;
+  const p=await pageFor(player,{observeLifecycle:true});const frames=p.received;
   const tok=(await command('token.add',{x:105,y:105,name:'Fog sentinel'})).payload.token;
   await until(()=>stageToken(p,tok.id),'player renders token');
   await command('fog.cover',{x:0,y:0,w:300,h:300});
@@ -21,12 +21,47 @@ test('B01/B02: live player renders fog events and the correct snapshot when GM c
   const hidden=(await command('token.add',{x:105,y:105,name:'Hidden destination'},prep)).payload.token;
   const visible=(await command('token.add',{x:805,y:105,name:'Visible destination'},prep)).payload.token;
   await command('fog.cover',{x:0,y:0,w:300,h:300},prep);
+  await p.evaluate(id=>{
+    const stage=window.observedStage;stage.select(id);
+    window.stageBeforeSwitch={stage,canvas:stage.app.canvas,root:stage.app.stage,ticker:stage.app.ticker};
+    window.holdNextStageMount=true;
+  },tok.id);
+  assert.equal(await stageListenerCount(p,'window.stageBeforeSwitch.stage','window.stageBeforeSwitch.canvas'),5,'observe real stage listeners before switching');
   await command('scene.activate',{id:next});
-  await until(()=>frames.some(m=>m.type==='snapshot'&&m.scene.id===next),'destination snapshot');
+  await until(()=>p.evaluate(()=>!!window.heldSceneStage&&window.stageMountGates.length===1),'destination mount held before init');
+  await until(()=>frames.some(m=>m.type==='snapshot'&&m.scene.id===next),'early destination snapshot');
+  const back=frames.length;await command('scene.activate',{id:sceneId});
+  await until(()=>frames.slice(back).some(m=>m.type==='snapshot'&&m.scene.id===sceneId),'return snapshot while destination mount is pending');
+  await until(()=>p.evaluate(()=>window.observedStage?.isAlive&&window.observedStage!==window.stageBeforeSwitch.stage),'current replacement renderer');
+  await until(()=>stageToken(p,tok.id),'current scene restored before late cancelled mount');
+  // Build and then rebuild real Graphics while A is live, before releasing stale B.
+  await command('fog.cover',{x:1005,y:1005,w:140,h:140});
+  await until(()=>p.evaluate(()=>window.observedStage.fog.length>0),'current fog Graphics delivered');
+  await p.evaluate(()=>window.observedStage.app.render());
+  await command('fog.clear');await until(()=>p.evaluate(()=>window.observedStage.fog.length===0),'current fog Graphics cleared');
+  await p.evaluate(()=>window.observedStage.app.render());
+  await p.evaluate(()=>window.stageMountGates.splice(0).forEach(release=>release()));
+  await until(()=>p.evaluate(()=>!window.heldSceneStage.isAlive),'cancelled late mount destroyed');
+  await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.deepEqual(await p.evaluate(()=>{
+    const old=window.stageBeforeSwitch,late=window.heldSceneStage,resources=window.observedMountResources.find(r=>r.stage===late);
+    return {oldAlive:old.stage.isAlive,oldCanvas:old.canvas.isConnected,oldRootDestroyed:old.root.destroyed,oldObserver:old.stage.resizeObserver,oldRenderer:old.stage.app.renderer,oldTickerStopped:!old.ticker.started,lateCanvas:resources.canvas.isConnected,lateRootDestroyed:resources.root.destroyed,lateObserver:late.resizeObserver,lateRenderer:late.app.renderer,lateTickerStopped:!resources.ticker.started,liveStages:window.observedStages.filter(s=>s.isAlive&&s.app.canvas.isConnected).length,canvases:document.querySelectorAll('.scene canvas').length};
+  }),{oldAlive:false,oldCanvas:false,oldRootDestroyed:true,oldObserver:null,oldRenderer:null,oldTickerStopped:true,lateCanvas:false,lateRootDestroyed:true,lateObserver:null,lateRenderer:null,lateTickerStopped:true,liveStages:1,canvases:1});
+  assert.equal(await stageListenerCount(p,'window.stageBeforeSwitch.stage','window.stageBeforeSwitch.canvas'),0,'old stage listeners removed');
+  assert.equal(await stageListenerCount(p,'window.heldSceneStage','window.observedMountResources.find(r=>r.stage===window.heldSceneStage).canvas'),0,'cancelled stage listeners removed');
+  assert.equal(await p.evaluate(async()=>(await import('/src/state/store.ts')).useUi.getState().selected),null,'selection reset on scene switch');
+  const beforeGraphics=await p.locator('canvas').screenshot();
+  await command('token.move',{id:tok.id,x:175,y:105});
+  await until(async()=>(await stageToken(p,tok.id))?.data.x===175,'late cancelled stage cannot steal stageRef');
+  await until(async()=>!beforeGraphics.equals(await p.locator('canvas').screenshot()),'live Graphics continue drawing after late destroy');
+  const destination=frames.length;await command('scene.activate',{id:next});
+  await until(()=>frames.slice(destination).some(m=>m.type==='snapshot'&&m.scene.id===next),'destination snapshot');
   await until(()=>stageToken(p,visible.id),'destination visible token');
   assert.equal(await stageToken(p,hidden.id),null);assert.equal(await stageToken(p,tok.id),null);
   assert.ok(frames.some(m=>m.type==='snapshot'&&m.scene.id===next&&m.scene.fog.length));
   await command('scene.activate',{id:sceneId});await until(()=>stageToken(p,tok.id),'return to first scene');
+  assert.equal(await p.evaluate(()=>window.observedStages.filter(s=>s.isAlive&&s.app.canvas.isConnected).length),1);
+  assert.equal(await stageListenerCount(p,'window.observedStage','window.observedStage.app.canvas'),5,'current stage has exactly its own listeners after repeated switches');
   await command('scene.delete',{id:next});await prep.close();await p.close();
 });
 
