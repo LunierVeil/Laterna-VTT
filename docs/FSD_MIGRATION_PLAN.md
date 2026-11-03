@@ -18,7 +18,10 @@ PR документации требуют отдельных разрешени
 Book System, router, plugin loader, marketplace, runtime SDK, FastAPI decomposition,
 новые dependencies, DB migrations и wire protocol не входят в эту миграцию.
 
-## Статус FSD-05 в текущем PR
+## Завершённый этап FSD-05
+
+Перенос объединён в [PR #17](https://github.com/LunierVeil/Laterna-VTT/pull/17),
+master `da795260944b55bf35a40ff5118cf9fdd535ff35`. Ниже сохранён контекст этого этапа.
 
 База переноса — master `5c557f06e7c9ddb5eca93ef45f75dce4f7a0ac33`, после
 [hotfix PR #15](https://github.com/LunierVeil/Laterna-VTT/pull/15).
@@ -42,15 +45,60 @@ Fixture импортирует единственный канонический
 - SceneView → `state/store.ts` (runtime useUi): остаётся до отдельного этапа 08.
 - SceneView → `sheets/tokenStats.ts` (runtime statsOf): остаётся до отдельной
   системной границы 09; resolver/adapter в этом PR не извлекается.
-- `ui/Sidebar.tsx` → SceneStage (type-only stageRef): сохраняется до отдельного
-  изменения ownership Sidebar/его реальных потребителей в 06a. Не вводится
-  widget→widget dependency или новый port без технической необходимости.
+
+Зависимость Sidebar → SceneStage, допустимая на FSD-05, устранена в FSD-06a:
+Sidebar использует существующий TokenPlacementPort без wrapper/cast. Нового
+widget→widget ребра и нового port не добавлено.
 
 App, app/session/useSceneConnection и TablePage используют прежний SceneStage
 через type-only imports; runtime-конструктор используется SceneView внутри slice.
 Известный рост shader cache не исправляется: [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16),
-[ограничения измерений и cleanup](PIXI_STAGE_CLEANUP.md). Следующие этапы в этом PR не начинаются;
-этот PR требует Full CI и отдельного разрешения на Merge commit.
+[ограничения измерений и cleanup](PIXI_STAGE_CLEANUP.md) остаются актуальными.
+
+## Статус FSD-06a в текущем PR
+
+База — master `da795260944b55bf35a40ff5118cf9fdd535ff35`. Перенос состоит из
+трёх последовательных коммитов: Dice, Chat/slot, Sidebar/TopBar. Для каждого
+обязателен Fast CI; для одного готового PR — Full CI и отдельное разрешение merge.
+
+| Исторический путь на базе аудита | Текущий путь |
+| --- | --- |
+| [DicePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DicePanel.tsx) | [features/dice/ui/DicePanel.tsx](../web/src/features/dice/ui/DicePanel.tsx) |
+| [DiceAnimation.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DiceAnimation.tsx) | [features/dice/ui/DiceAnimation.tsx](../web/src/features/dice/ui/DiceAnimation.tsx) |
+| [diceDisplay.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/diceDisplay.ts) | [features/dice/lib/diceDisplay.ts](../web/src/features/dice/lib/diceDisplay.ts) |
+| [Chat.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Chat.tsx) | [features/chat/ui/Chat.tsx](../web/src/features/chat/ui/Chat.tsx) |
+| [Sidebar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Sidebar.tsx) | [widgets/sidebar/ui/Sidebar.tsx](../web/src/widgets/sidebar/ui/Sidebar.tsx) |
+| [TopBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TopBar.tsx) | [widgets/table-header/ui/TopBar.tsx](../web/src/widgets/table-header/ui/TopBar.tsx) |
+
+Sidebar составляет Chat и DicePanel. Chat принимает обязательный
+`diceControls: React.ReactNode` и выводит его ровно между chat-log и chat-input,
+без wrapper, key или условного mount. Прямого ребра features/chat → features/dice
+нет. Chat и DicePanel остаются на тех же позициях дерева; hidden переключает
+видимость Chat, а не его существование. Сохранены draft, локальный pool/mod,
+scroll effect и DOM/CSS; существующий browser-сценарий проверяет идентичность
+Chat/input/DicePanel и значения после смены вкладки.
+
+Sidebar принимает `MutableRefObject<TokenPlacementPort | null>` из entities;
+прежний ref SceneStage совместим структурно, runtime/cast/adapter не нужны.
+TABS, GM-фильтрация и условия остальных панелей сохранены. InitiativeStrip остаётся
+внутри TopBar; очередь, combat.next, logout fetch/setMe и их порядок не изменены.
+TablePage меняет только imports: порядок, keys и DiceAnimation lifecycle прежние.
+animatedRoll/seenRolls остаются в app/session; канонический diceDisplay используется
+обоими Dice-компонентами и unit-тестом. Таймеры, server payload, скрытые броски,
+reduced motion и ограничения визуализации сохранены.
+
+Явные временные legacy-зависимости D1/D5:
+
+- Chat, DicePanel, Sidebar и TopBar → `state/store.ts`: один прежний useUi,
+  до отдельного этапа 08, без новой topology или prop drilling.
+- Sidebar → `ui/{CharactersPanel,ScenesPanel,PlayersPanel}`: композиция сохранена,
+  физические переносы отложены до отдельных FSD-06b/06c.
+
+Compatibility re-export, event bus, Context, новые зависимости и CSS не добавляются.
+SceneStage, SceneSocket, backend и правила НРИ не меняются. Shader cache остаётся
+открытой [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
+FSD-06b/06c в этом PR не начинаются; ожидаемые 35 Chromium tests и строгий gate
+не ослабляются.
 
 ## 1. Направления зависимостей
 
@@ -173,7 +221,7 @@ UI slots из композиции. Domain rules системы не импор�
 
 ## 3. Таблица перемещений
 
-Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05 текущие пути
+Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05/06a текущие пути
 и статус отмечены отдельно выше. Остальные строки сохраняют исходный план.
 Новые переносы требуют отдельного разрешения.
 Префикс `DND/` означает будущий `systems/dnd5e/model` согласно принятому D2. Механический move не меняет export,
@@ -197,12 +245,12 @@ JSON key, command payload, CSS class или runtime policy.
 | [Cards.tsx](../web/src/sheets/Cards.tsx), [SpellBook.tsx](../web/src/sheets/SpellBook.tsx) | widgets/character-sheet/legacy | renderer; пока не shared и не Book System | 07c |
 | [CharacterSheet.tsx](../web/src/sheets/CharacterSheet.tsx) | widgets/character-sheet/legacy | App → TablePage; HpControls предварительно извлечён | 02,07d,09 |
 | [TokenCard.tsx](../web/src/ui/TokenCard.tsx) | widgets/token-inspector/ui | TablePage; health slot/projection вместо sibling sheet import | 02,06c,09 |
-| [Sidebar.tsx](../web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
-| [TopBar.tsx](../web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
+| [Sidebar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
+| [TopBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
 | [InitiativePanel.tsx](../web/src/ui/InitiativePanel.tsx) | widgets/combat-tracker/ui | TablePage; bonus supplied через definition, сервер combat.* прежний | 06c,09 |
 | [Login.tsx](../web/src/features/access/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
-| [Chat.tsx](../web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
-| [DicePanel.tsx](../web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](../web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](../web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
+| [Chat.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
+| [DicePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
 | [CharactersPanel.tsx](../web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](../web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |
 | [ScenesPanel.tsx](../web/src/ui/ScenesPanel.tsx), [MapSettings.tsx](../web/src/ui/MapSettings.tsx) | features/scene-management/ui | Sidebar; GM current vs active, private lazy preview | 06b |
 | [PlayersPanel.tsx](../web/src/ui/PlayersPanel.tsx) | features/player-management/ui | Sidebar; invite/pause/reset/delete и pending прежние | 06b |
