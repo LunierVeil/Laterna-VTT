@@ -41,4 +41,3 @@ export async function gmKeyLogin(
   else return data.detail || "ключ ГМ не подошёл";
   return null;
 }
-
