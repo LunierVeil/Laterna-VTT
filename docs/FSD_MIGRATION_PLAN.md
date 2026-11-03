@@ -6,7 +6,7 @@
 [AS-IS, evidence и классификация проблем](FSD_AUDIT.md).
 D1–D7 согласованы пользователем 03.11.2026 как направление миграции; принятые
 ADR и ограничения зафиксированы в разделе 6. Это не разрешение на выполнение
-переносов. Ни один описанный ниже перенос не выполнен. Stage 2 не начинается до
+переносов. На момент Stage 1 ни один описанный ниже перенос не был выполнен. Stage 2 не начинается до
 объединения документации в master и отдельного задания. Новый commit/push и создание
 PR документации требуют отдельных разрешений; merge не выполняется автоматически.
 
@@ -17,6 +17,40 @@ PR документации требуют отдельных разрешени
 отнесены в «После 1.0», но не обещают срок второй системы и не меняют scope беты.
 Book System, router, plugin loader, marketplace, runtime SDK, FastAPI decomposition,
 новые dependencies, DB migrations и wire protocol не входят в эту миграцию.
+
+## Статус FSD-05 в текущем PR
+
+База переноса — master `5c557f06e7c9ddb5eca93ef45f75dce4f7a0ac33`, после
+[hotfix PR #15](https://github.com/LunierVeil/Laterna-VTT/pull/15).
+Выполнены два механических переноса без изменения реализации:
+
+| Путь на базе PR | Текущий путь |
+| --- | --- |
+| [scene/stage.ts на базе](https://github.com/LunierVeil/Laterna-VTT/blob/5c557f06e7c9ddb5eca93ef45f75dce4f7a0ac33/web/src/scene/stage.ts) | [widgets/scene-canvas/lib/stage.ts](../web/src/widgets/scene-canvas/lib/stage.ts) |
+| [scene/SceneView.tsx на базе](https://github.com/LunierVeil/Laterna-VTT/blob/5c557f06e7c9ddb5eca93ef45f75dce4f7a0ac33/web/src/scene/SceneView.tsx) | [widgets/scene-canvas/ui/SceneView.tsx](../web/src/widgets/scene-canvas/ui/SceneView.tsx) |
+
+Оба файла побайтно совпадают с базой, кроме строк module specifiers в imports.
+Сохранены эффекты/dependencies, stageRef/onReady, cancellation, snapshot/event bridge,
+команды и optimistic apply/revert. Оба destroy используют прежние
+`removeView: true, releaseGlobalResources: false` и `children: true`.
+Контракты ports остаются в entities/scene/model; bridge/re-export и новые слои не вводятся.
+Fixture импортирует единственный канонический SceneStage по новому URL; существующие
+проверки runtime identity, позднего destroy и listeners сохранены без новых assertions.
+
+Временные legacy-исключения D1/D5/D6:
+
+- SceneView → `state/store.ts` (runtime useUi): остаётся до отдельного этапа 08.
+- SceneView → `sheets/tokenStats.ts` (runtime statsOf): остаётся до отдельной
+  системной границы 09; resolver/adapter в этом PR не извлекается.
+- `ui/Sidebar.tsx` → SceneStage (type-only stageRef): сохраняется до отдельного
+  изменения ownership Sidebar/его реальных потребителей в 06a. Не вводится
+  widget→widget dependency или новый port без технической необходимости.
+
+App, app/session/useSceneConnection и TablePage используют прежний SceneStage
+через type-only imports; runtime-конструктор используется SceneView внутри slice.
+Известный рост shader cache не исправляется: [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16),
+[ограничения измерений и cleanup](PIXI_STAGE_CLEANUP.md). Следующие этапы в этом PR не начинаются;
+этот PR требует Full CI и отдельного разрешения на Merge commit.
 
 ## 1. Направления зависимостей
 
@@ -139,8 +173,9 @@ UI slots из композиции. Domain rules системы не импор�
 
 ## 3. Таблица перемещений
 
-Левые ссылки — существующие файлы на базе аудита. Правые пути — проект, ещё не
-существующие файлы; относительно `web/src`. До разрешения не создавать их.
+Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05 текущие пути
+и статус отмечены отдельно выше. Остальные строки сохраняют исходный план.
+Новые переносы требуют отдельного разрешения.
 Префикс `DND/` означает будущий `systems/dnd5e/model` согласно принятому D2. Механический move не меняет export,
 JSON key, command payload, CSS class или runtime policy.
 
@@ -152,8 +187,8 @@ JSON key, command payload, CSS class или runtime policy.
 | [store.ts](../web/src/state/store.ts) | оставить на переходе; позже app/model/table-store | 17 consumers, evaluate URLs, diagnostics; соединять через app connectors | 08 |
 | [socket.ts](../web/src/shared/api/scene-socket.ts) | shared/api/scene-socket.ts | App runtime, 14 type consumers, socket unit, diagnostics URL | 03 |
 | [upload.ts](../web/src/shared/api/upload.ts) | shared/api/upload.ts, сначала как есть | sheet, CharactersPanel, MapSettings, TokenCard | 03 |
-| [stage.ts](../web/src/scene/stage.ts) | widgets/scene-canvas/lib/stage.ts | SceneView runtime; остальные зависимости заменить narrow ports/type contracts | 01,05 |
-| [SceneView.tsx](../web/src/scene/SceneView.tsx) | widgets/scene-canvas/ui/SceneView.tsx | TablePage; resolver stats передаётся сверху | 05,09 |
+| [stage.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/stage.ts) | [widgets/scene-canvas/lib/stage.ts](../web/src/widgets/scene-canvas/lib/stage.ts), перенос FSD-05 в текущем PR | SceneView runtime; существующие type-only consumers/ports сохранены | 01,05 |
+| [SceneView.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/scene/SceneView.tsx) | [widgets/scene-canvas/ui/SceneView.tsx](../web/src/widgets/scene-canvas/ui/SceneView.tsx), перенос FSD-05 в текущем PR | TablePage; statsOf остаётся legacy до отдельного этапа 09 | 05,09 |
 | [schema.ts](../web/src/sheets/schema.ts) | entities/character/model/legacy-sheet-schema.ts | нижний совместимый контракт для definitions и renderer; не universal shared DSL | 07a |
 | [dnd5e.ts](../web/src/sheets/dnd5e.ts), [mob.ts](../web/src/sheets/mob.ts), [equipment.ts](../web/src/sheets/equipment.ts) | DND/; SHEETS registration → app/systems | CharacterSheet, tokenStats, InitiativePanel, TokenCard, unit | 07a,09 |
 | [bonus.ts](../web/src/sheets/bonus.ts) | DND/bonus.ts | sheet, Cards, TokenCard, bonus unit; не в Zustand | 07a |

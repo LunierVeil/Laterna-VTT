@@ -1,4 +1,4 @@
-import { SceneView } from "../../../scene/SceneView";
+import { SceneView } from "../../../widgets/scene-canvas/ui/SceneView";
 import { TopBar } from "../../../ui/TopBar";
 import { ToolRail, ToolHint } from "../../../ui/ToolRail";
 import { Sidebar } from "../../../ui/Sidebar";

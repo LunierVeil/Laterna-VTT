@@ -10,7 +10,10 @@
 Это опасно при отменённом асинхронном mount: B заканчивает init после того,
 как новая A уже начала рисовать.
 
-Оба вызова SceneStage теперь используют официальный renderer destroy option
+После механического переноса FSD-05 SceneStage находится в
+[widgets/scene-canvas/lib/stage.ts](../web/src/widgets/scene-canvas/lib/stage.ts);
+результаты ниже относятся к hotfix до переноса, его логика сохранена.
+Оба вызова SceneStage используют официальный renderer destroy option
 `{ removeView: true, releaseGlobalResources: false }`, сохраняя
 `{ children: true }`. Pixi Application по-прежнему уничтожает ticker, children
 и renderer. GlContextSystem снимает обработчики WebGL и вызывает loseContext.
@@ -99,4 +102,15 @@ TypeScript, frontend unit 54/54, production build, backend 169/169 и полны
 browser regression 35/35 прошли. Skipped/cancelled и ошибки after-hook отсутствуют.
 Статический граф импортов не содержит циклов; production diff ограничен
 двумя аргументами destroy. Предупреждение Vite о chunk > 500 kB сохраняется.
-FSD-05 приостановлен; SceneStage/SceneView физически не перемещены.
+Во время hotfix FSD-05 был приостановлен; SceneStage/SceneView ещё не перемещались.
+
+
+## Контроль после механического переноса FSD-05
+
+Повторный ручной probe на 30 переключениях после переноса файлов в scene-canvas:
+один текущий stage/canvas/socket, 20 window listeners и 208 DOM listeners,
+DOM nodes 166 (169 во время screenshot). Локальная очистка старых сцен и after-hook
+успешны. Heap после GC на 30-м переключении — 10 529 080 байт; в контрольном
+hotfix-прогоне — 10 532 432 байт. Нового ухудшения в этом конечном опыте не выявлено;
+уже задокументированный рост shader cache сохраняется и отслеживается отдельно
+в [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
