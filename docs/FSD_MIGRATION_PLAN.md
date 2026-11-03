@@ -95,14 +95,19 @@ reduced motion и ограничения визуализации сохране
 - Chat, DicePanel, Sidebar и TopBar → `state/store.ts`: один прежний useUi,
   до отдельного этапа 08, без новой topology или prop drilling.
 - На FSD-06a Sidebar составлял legacy `ui/{CharactersPanel,ScenesPanel,PlayersPanel}`.
-  ScenesPanel/PlayersPanel перенесены в FSD-06b ниже; CharactersPanel остаётся до 06c.
+  ScenesPanel/PlayersPanel перенесены в FSD-06b ниже; CharactersPanel перенесён в 06c.
 
 Compatibility re-export, event bus, Context, новые зависимости и CSS не добавляются.
 SceneStage, SceneSocket, backend и правила НРИ не меняются. Shader cache остаётся
 открытой [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16).
 FSD-06a не включал переносы 06b/06c; 35 Chromium tests и строгий gate сохранены.
 
-## Статус FSD-06b в текущем PR
+## Завершённый этап FSD-06b
+
+Объединён обычным Merge commit в [PR #19](https://github.com/LunierVeil/Laterna-VTT/pull/19),
+master `9429255110762e06778b74c07b5f79f48acf10d9`.
+[Full CI этого master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41713926052)
+успешен: backend/frontend, Chromium 8/8/5/14 и CI required. Ниже сохранён контекст этапа.
 
 Проверенный BASE после обычного Merge commit PR #18 —
 `39925e7267a512cb3a78972ede942b3d10951ba6`; Full CI этого master успешен.
@@ -139,10 +144,10 @@ refs, JSX/keys, DOM/CSS, localStorage, timers и payload побайтно сох
 - Все шесть перенесённых UI-компонентов по-прежнему используют `state/store.ts`.
   Снятие исключения — отдельный FSD-08 с проверкой contracts/reset; FSD-06b не
   определяет новую topology или зоны ответственности Zustand.
-- Sidebar → legacy `ui/CharactersPanel` остаётся до FSD-06c. ScenesPanel и
-  PlayersPanel больше не являются legacy UI-зависимостями Sidebar.
-- TablePage продолжает составлять legacy TokenCard/InitiativePanel/CharacterSheet;
-  их переносы относятся к FSD-06c/07 и не включены в этот PR.
+- На момент FSD-06b Sidebar → legacy `ui/CharactersPanel` оставался до FSD-06c.
+  ScenesPanel и PlayersPanel уже перестали быть legacy UI-зависимостями Sidebar.
+- На момент FSD-06b TablePage составлял legacy TokenCard/InitiativePanel/CharacterSheet;
+  первые два перенесены в FSD-06c ниже, CharacterSheet остаётся до FSD-07.
 
 Сохранены current/active scene, папки/порядок/private lazy previews и ключ
 `lanterna.sceneFolders.${userId}`, карта/лимиты/сетка/ошибки; shared/reset invites,
@@ -154,6 +159,52 @@ Backend, SceneSocket, SceneStage/PixiJS, Zustand, CSS, dependencies и gate не
 
 [Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16) остаётся отдельной
 открытой задачей shader cache. FSD-06c/07/08 не начинаются автоматически.
+
+## Статус FSD-06c в текущем PR
+
+Проверенная база — master `9429255110762e06778b74c07b5f79f48acf10d9`, после PR #19.
+Три последовательных логических коммита: Character Management → Token Inspector →
+Combat Tracker и документация. После каждого — Fast CI конкретного SHA; для
+одного ready/non-Draft PR обязателен Full CI актуального test merge. Fast CI не
+разрешает merge; требуется отдельное разрешение владельца.
+
+| На BASE FSD-06c | Текущий канонический путь |
+| --- | --- |
+| [ui/CharactersPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/9429255110762e06778b74c07b5f79f48acf10d9/web/src/ui/CharactersPanel.tsx) | [features/character-management/ui/CharactersPanel.tsx](../web/src/features/character-management/ui/CharactersPanel.tsx) |
+| [ui/SheetRow.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/9429255110762e06778b74c07b5f79f48acf10d9/web/src/ui/SheetRow.tsx) | [features/character-management/ui/SheetRow.tsx](../web/src/features/character-management/ui/SheetRow.tsx) |
+| [ui/TokenCard.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/9429255110762e06778b74c07b5f79f48acf10d9/web/src/ui/TokenCard.tsx) | [widgets/token-inspector/ui/TokenCard.tsx](../web/src/widgets/token-inspector/ui/TokenCard.tsx) |
+| [ui/InitiativePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/9429255110762e06778b74c07b5f79f48acf10d9/web/src/ui/InitiativePanel.tsx) | [widgets/combat-tracker/ui/InitiativePanel.tsx](../web/src/widgets/combat-tracker/ui/InitiativePanel.tsx) |
+
+Это физический перенос ownership и module specifiers, **не system abstraction**.
+Четыре bodies побайтно сохраняются после маскирования только module specifiers;
+Sidebar/TablePage меняют только imports. SheetRow остаётся внутри character-management.
+Sidebar составляет feature, TablePage непосредственно составляет token-inspector и
+combat-tracker. Прямых sibling-widget/feature imports, новых adapters, barrels или
+compatibility re-export нет. TokenPlacementPort/TokenAnchorPort остаются в entities.
+DOM/CSS, hooks/dependencies/refs/keys, anchor cleanup, порядок команд и payload прежние.
+
+Явный временный legacy allowlist:
+
+| Потребитель | Сохраняемые зависимости | Условие удаления исключения |
+| --- | --- | --- |
+| CharactersPanel, SheetRow, TokenCard, InitiativePanel | `state/store.ts`, тот же useUi | FSD-08 после отдельного пересмотра ADR D5 и согласования зон ответственности/reset; здесь Zustand не меняется |
+| CharactersPanel | `sheets/tokenStats.ts` (`at`) | FSD-07a может изменить физический путь; окончательное отделение от системных helpers — согласованный FSD-09 |
+| TokenCard | `sheets/dnd5e.ts` (SHEETS registry), `tokenStats.ts`, `bonus.ts`, `HpControls.tsx` | FSD-07 сохраняет вычисления при переносах; FSD-09 удаляет direct registry/rules/UI imports через реально нужные projections/health slot |
+| InitiativePanel | `sheets/dnd5e.ts` (SHEETS registry) | FSD-07 сохраняет путь инициативы/формулу; FSD-09 передаёт необходимую системную проекцию вместо direct registry import |
+| TablePage | `sheets/CharacterSheet.tsx` | Отдельный механический FSD-07d, без зависимости inspector → character-sheet widget |
+
+HP PC/temporary HP остаются в character.update/hpChanges; HP экземпляров mob —
+в token.update, максимум — из шаблона. owner=null для инспектора и точное
+владение для combat tracker намеренно не объединены в общий permission helper.
+LSS импортирует сервер с прежним лимитом 512 КБ на клиенте; scene GET для
+предупреждения удаления и fallback сохранены. InitiativeStrip остаётся в TopBar;
+InitInput draft/Enter/blur/null/integer, combat.* и серверный 1d20 + bonus прежние.
+
+35 Chromium tests и строгий gate, backend, protocol/DTO, SceneSocket, PixiJS,
+app/session, Zustand, зависимости и CSS не изменены. Issue #16 остаётся открытой.
+FSD-07/08/09 не начинаются автоматически. Решение о будущих зонах ответственности
+Zustand требует **отдельного пересмотра ADR D5 перед FSD-08**: исторический D5 ниже
+не является финальным решением этого вопроса и не реализуется в FSD-06c.
 
 ## 1. Направления зависимостей
 
@@ -276,7 +327,7 @@ UI slots из композиции. Domain rules системы не импор�
 
 ## 3. Таблица перемещений
 
-Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05/06a/06b текущие пути
+Левые ссылки — существующие файлы на базе аудита. Правые пути — исходный проект относительно `web/src`; для FSD-05/06a/06b/06c текущие пути
 и статус отмечены отдельно выше. Остальные строки сохраняют исходный план.
 Новые переносы требуют отдельного разрешения.
 Префикс `DND/` означает будущий `systems/dnd5e/model` согласно принятому D2. Механический move не меняет export,
@@ -299,14 +350,14 @@ JSON key, command payload, CSS class или runtime policy.
 | [sheetOps.ts](../web/src/sheets/sheetOps.ts), [richDoc.ts](../web/src/sheets/richDoc.ts), [RichText.tsx](../web/src/sheets/RichText.tsx), [DocEditor.tsx](../web/src/sheets/DocEditor.tsx) | widgets/character-sheet/legacy | Cards, SpellBook, CharacterSheet; сохранить context identity и lazy import | 07b |
 | [Cards.tsx](../web/src/sheets/Cards.tsx), [SpellBook.tsx](../web/src/sheets/SpellBook.tsx) | widgets/character-sheet/legacy | renderer; пока не shared и не Book System | 07c |
 | [CharacterSheet.tsx](../web/src/sheets/CharacterSheet.tsx) | widgets/character-sheet/legacy | App → TablePage; HpControls предварительно извлечён | 02,07d,09 |
-| [TokenCard.tsx](../web/src/ui/TokenCard.tsx) | widgets/token-inspector/ui | TablePage; health slot/projection вместо sibling sheet import | 02,06c,09 |
+| [TokenCard.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TokenCard.tsx) | widgets/token-inspector/ui | TablePage; health slot/projection — будущий 09, не 06c | 02,06c,09 |
 | [Sidebar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Sidebar.tsx) | widgets/sidebar/ui | TablePage; children features без пересоздания Chat | 06a–c |
 | [TopBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/TopBar.tsx) | widgets/table-header/ui | TablePage; turns/logout пока внутри slice, извлечение по реальной нужде | 06a |
-| [InitiativePanel.tsx](../web/src/ui/InitiativePanel.tsx) | widgets/combat-tracker/ui | TablePage; bonus supplied через definition, сервер combat.* прежний | 06c,09 |
+| [InitiativePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/InitiativePanel.tsx) | widgets/combat-tracker/ui | TablePage; bonus supplied через definition — будущий 09, сервер combat.* прежний | 06c,09 |
 | [Login.tsx](../web/src/features/access/ui/Login.tsx) | features/access/ui | pages/access; GmSetup/Invite/Login сохраняются | 04 |
 | [Chat.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/Chat.tsx) | features/chat/ui | Sidebar; draft, scroll и hidden behaviour прежние | 06a |
 | [DicePanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DicePanel.tsx), [DiceAnimation.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/DiceAnimation.tsx), [diceDisplay.ts](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/diceDisplay.ts) | features/dice/ui + lib | Chat, TablePage, dice unit; не переигрывать history rolls | 06a |
-| [CharactersPanel.tsx](../web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](../web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |
+| [CharactersPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/CharactersPanel.tsx), [SheetRow.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/SheetRow.tsx) | features/character-management/ui | Sidebar; stage port и character operations, import LSS остаётся серверным | 06c |
 | [ScenesPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ScenesPanel.tsx), [MapSettings.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/MapSettings.tsx) | features/scene-management/ui | Sidebar; GM current vs active, private lazy preview | 06b |
 | [PlayersPanel.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/PlayersPanel.tsx) | features/player-management/ui | Sidebar; invite/pause/reset/delete и pending прежние | 06b |
 | [ToolRail.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ToolRail.tsx), [SelectionBar.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/SelectionBar.tsx), [ZoomControl.tsx](https://github.com/LunierVeil/Laterna-VTT/blob/1b215596cb9cb1917ba8fce3f249d1c7789d2df5/web/src/ui/ZoomControl.tsx) | features/scene-tools/ui | TablePage; small stage ports, не весь widget engine | 05,06b |
@@ -432,6 +483,11 @@ PR-01 разрешается разделять на независимые не
 
 ### Когда безопасно заниматься Zustand
 
+**Актуальное ограничение FSD-06c:** дальнейший текст сохраняет исходный вариант
+Stage 1, а не финальные зоны ответственности Zustand. До FSD-08 нужен отдельный
+пересмотр ADR D5 с владельцем. Этот PR не выбирает topology, location store или
+способ подключения consumers и не реализует actions/selectors/connectors.
+
 Не первым PR и не одновременно с перемещением App/renderer или rules extraction.
 После PR-04/05 и canonical imports можно отдельно фиксировать наблюдаемые контракты:
 setMe/logout/identity change, campaign GM/player clearing, character deletion/open
@@ -464,6 +520,11 @@ stores по каждой entity — иной архитектурный выбо
 одном варианте.
 
 ## 6. Согласованные ADR D1–D7
+
+Историческая запись ADR сохранена без ретроспективного изменения решений.
+Уточнение владельца на FSD-06c: будущие зоны ответственности Zustand отличаются
+от исходного D5; его пересмотр — отдельный этап **до FSD-08**. Строка D5 и
+исходные схемы TO-BE не утверждают финальную структуру store.
 
 **Статус всех семи ADR: согласовано пользователем 03.11.2026.** Они задают
 направление, но не утверждают детали каждого будущего PR и не разрешают Stage 2.

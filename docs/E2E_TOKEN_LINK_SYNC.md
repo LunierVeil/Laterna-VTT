@@ -8,7 +8,7 @@ PR #5 не менял этот тест или цепочку привязки; 
 
 ## Цепочка обновления
 
-1. [TokenCard](../web/src/ui/TokenCard.tsx): CharacterLink отправляет `token.update`
+1. [TokenCard](../web/src/widgets/token-inspector/ui/TokenCard.tsx): CharacterLink отправляет `token.update`
    с ID токена и character_id. Оптимистичного изменения selected здесь нет.
 2. [handlers](../server/app/handlers.py): token_update проверяет права и записывает
    character_id, возвращает полный `token.updated`.

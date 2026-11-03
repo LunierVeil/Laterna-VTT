@@ -4,7 +4,7 @@ import { ToolRail, ToolHint } from "../../../features/scene-tools/ui/ToolRail";
 import { Sidebar } from "../../../widgets/sidebar/ui/Sidebar";
 import { ZoomControl } from "../../../features/scene-tools/ui/ZoomControl";
 import { TokenCard } from "../../../widgets/token-inspector/ui/TokenCard";
-import { InitiativePanel } from "../../../ui/InitiativePanel";
+import { InitiativePanel } from "../../../widgets/combat-tracker/ui/InitiativePanel";
 import { CharacterSheet } from "../../../sheets/CharacterSheet";
 import { DiceMenu } from "../../../features/dice/ui/DicePanel";
 import { DiceAnimation } from "../../../features/dice/ui/DiceAnimation";
