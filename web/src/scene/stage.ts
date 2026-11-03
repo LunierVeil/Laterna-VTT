@@ -232,7 +232,10 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     // (StrictMode монтирует эффекты дважды). Тогда сворачиваемся.
     if (this.destroyed) {
       try {
-        this.app.destroy(true, { children: true });
+        this.app.destroy(
+          { removeView: true, releaseGlobalResources: false },
+          { children: true },
+        );
       } catch {
         /* нечего разрушать */
       }
@@ -384,7 +387,10 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       // Pixi's canvas getter requires an initialized renderer, too.
       const canvas = this.app.canvas as HTMLCanvasElement | undefined;
       if (canvas) canvas.removeEventListener("wheel", this.onWheel);
-      this.app.destroy(true, { children: true });
+      this.app.destroy(
+        { removeView: true, releaseGlobalResources: false },
+        { children: true },
+      );
     } catch {
       /* app мог не успеть инициализироваться - разрушать нечего */
     }
