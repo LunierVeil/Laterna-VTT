@@ -15,12 +15,11 @@ import { DiceMenu } from "./ui/DicePanel";
 import { DiceAnimation } from "./ui/DiceAnimation";
 import { SelectionBar } from "./ui/SelectionBar";
 import type { Message } from "./shared/api/protocol";
-import type { Scene, SceneInfo } from "./shared/api/protocol";
+import type { Scene } from "./shared/api/protocol";
 
 import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin } from "./app/session/access";
 
-const GM_SCENE = "lanterna.gmScene";
-
+import { useCampaignScene } from "./app/session/useCampaignScene";
 
 export default function App() {
   const [hideSidebar, setHideSidebar] = useState(true);
@@ -31,10 +30,13 @@ export default function App() {
   const [setupKey, setSetupKey] = useState<string | null>(null);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(INVITE_FROM_URL);
-  const [sceneId, setSceneId] = useState<string | null>(null);
   const stageRef = useRef<SceneStage | null>(null);
   const [animatedRoll, setAnimatedRoll] = useState<Message | null>(null);
   const seenRolls = useRef(new Set<string>());
+  const resetRolls = useCallback(() => {
+    setAnimatedRoll(null);
+    seenRolls.current.clear();
+  }, []);
   const diceOpen = useUi(s => s.diceOpen), diceAnimation = useUi(s => s.diceAnimation);
   const closeDice = useCallback(() => useUi.getState().setDiceOpen(false), []);
   useEffect(() => {if (!diceAnimation) setAnimatedRoll(null);}, [diceAnimation]);
@@ -68,37 +70,7 @@ export default function App() {
     })();
   }, []);
 
-  // Игрок всегда в активной сцене. ГМ возвращается туда, где был.
-  // Вышел - сцены больше нет, сокет закроется вместе с ней.
-  useEffect(() => {
-    if (!me) {
-      setSceneId(null);
-      setAnimatedRoll(null);
-      seenRolls.current.clear();
-      useUi.getState().setCharacters([]);
-      useUi.getState().openCharacter(null);
-      return;
-    }
-    setLoginNotice(null);
-    // Листы - свои, у ГМ все. Дальше их держат в актуальном виде сообщения сокета.
-    void fetch("/api/characters")
-      .then((r) => r.json())
-      .then((list) => useUi.getState().setCharacters(list))
-      .catch((e) => console.error("не получил листы", e));
-    void fetch("/api/campaign")
-      .then((r) => r.json())
-      .then((c: { active_scene_id: string; scenes?: SceneInfo[] }) => {
-        const saved = localStorage.getItem(GM_SCENE);
-        const ok = c.scenes?.some((s) => s.id === saved);
-        setSceneId(ok ? saved : c.active_scene_id);
-      })
-      .catch((e) => console.error("не получил кампанию", e));
-  }, [me?.id]);
-
-  const openScene = useCallback((id: string) => {
-    localStorage.setItem(GM_SCENE, id);
-    setSceneId(id);
-  }, []);
+  const { sceneId, setSceneId, openScene } = useCampaignScene(me, resetRolls, setLoginNotice);
 
   const socket = useMemo(
     // me?.id в зависимостях: вошёл другим - это другое подключение.

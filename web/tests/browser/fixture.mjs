@@ -50,7 +50,7 @@ export async function pageFor(context, options = {}) {
   const startupConsole=[];p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')startupConsole.push(m.text());});
   if(options.trackSockets)await p.addInitScript(()=>{const Native=window.WebSocket;window.sceneSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/ws/scene/'))window.sceneSockets.push(this);}};});
   p.received=capture(p); p.setDefaultTimeout(8000); p.on('pageerror', e => errors.push(e.message));
-  if(sceneId) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
+  if(sceneId && !options.preserveSavedScene) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
   await p.route('**/src/main.tsx', async route => {
     const response = await route.fetch();
     const source = await response.text();
