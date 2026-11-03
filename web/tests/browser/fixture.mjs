@@ -58,15 +58,23 @@ export async function pageFor(context, options = {}) {
 const originalMount=ObservedStage.prototype.mount;
 window.observedStages=[];
 window.stageMounts=[];
+window.stageMountGates=[];
 Object.defineProperty(window,'observedStage',{get:()=>window.observedStages.findLast(s=>s.isAlive&&s.app.canvas.isConnected)});
 ObservedStage.prototype.mount=async function(...args){
   const timing={start:performance.now(),finish:null};window.stageMounts.push(timing);
-  try {await originalMount.apply(this,args);window.observedStages.push(this);}
+  try {${options.beforeStageMount ? 'await new Promise(resolve=>window.stageMountGates.push(resolve));' : ''}await originalMount.apply(this,args);window.observedStages.push(this);}
   finally {timing.finish=performance.now();}
 };
 ` + source});
   });
   await p.goto(base);
+  if(options.beforeStageMount) {
+    await until(()=>p.received.some(m=>m.type==='snapshot'),'snapshot before renderer mount');
+    assert.equal(await p.locator('canvas').count(),0,'renderer is still held before mount');
+    await until(()=>p.evaluate(()=>window.stageMountGates.length>0),'renderer mount gate registered');
+    await options.beforeStageMount(p);
+    await p.evaluate(()=>window.stageMountGates.splice(0).forEach(release=>release()));
+  }
   try { await p.locator('canvas').waitFor(); }
   catch(error) {
     startupRecords.push({elapsedMs:Date.now()-started,failed:true,console:startupConsole,mounts:await p.evaluate(()=>window.stageMounts??[])});

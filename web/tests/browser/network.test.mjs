@@ -9,7 +9,18 @@ import { browser, base, api, gm, player, sceneId, control, setSceneId,
 
 
 test('B06: portrait edits and mob deletion update both live scenes after automatic reconnect',{timeout:90000},async()=>{
-  const master=await pageFor(gm), observer=await pageFor(player);const frames=observer.received;
+  const early=(await command('token.add',{x:105,y:105,name:'Buffered session token'})).payload.token;
+  const master=await pageFor(gm,{trackSockets:true,beforeStageMount:async p=>{
+    const start=p.received.length;
+    await command('token.move',{id:early.id,x:175,y:105});
+    await command('token.move',{id:early.id,x:245,y:175});
+    await until(()=>p.received.slice(start).filter(m=>m.name==='token.moved'&&m.payload.id===early.id).length===2,'ordered events arrive before mount');
+    assert.equal(await p.locator('canvas').count(),0);
+  }}), observer=await pageFor(player);const frames=observer.received;
+  await until(async()=>{const t=await stageToken(master,early.id);return t?.data.x===245&&t.data.y===175;},'snapshot then ordered events replay after mount');
+  assert.equal(await master.evaluate(()=>window.observedStages.filter(s=>s.isAlive&&s.app.canvas.isConnected).length),1,'one live renderer');
+  assert.equal(await master.evaluate(()=>window.sceneSockets.filter(s=>s.readyState===1).length),1,'one live app connection');
+  const firstSocket=await master.evaluate(()=>window.sceneSockets.findIndex(s=>s.readyState===1));
   const c=(await command('character.create',{name:'Portrait mob',system:'mob'})).payload.character;
   await command('character.update',{id:c.id,set:{'hp.max':8}});
   // Upload a real PNG through the application endpoint (not a synthetic URL).
@@ -34,5 +45,7 @@ test('B06: portrait edits and mob deletion update both live scenes after automat
   for(const p of [master,observer]) await until(async()=>{const t=await stageToken(p,plain.id);return t&&t.data.character_id===null&&!t.hpVisible;},'detached rendered token');
   assert.equal((await stageToken(observer,own.id)).image,url);
   assert.ok(frames.some(m=>m.type==='snapshot'&&m.scene.tokens.some(t=>t.id===plain.id&&t.character_id===null&&t.hp===null)));
+  assert.equal(await master.evaluate(i=>window.sceneSockets[i].readyState,firstSocket),3,'old connection closed after resync');
+  assert.equal(await master.evaluate(()=>window.sceneSockets.filter(s=>s.readyState===1).length),1,'reconnect leaves one live connection');
   await master.close();await observer.close();
 });
