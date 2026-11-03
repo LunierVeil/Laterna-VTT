@@ -8,7 +8,7 @@ import { SHEETS } from "../sheets/dnd5e";
 import { at, characterStats } from "../sheets/tokenStats";
 import { HpControls } from "../sheets/CharacterSheet";
 import { hpChanges } from "../sheets/bonus";
-import { Icon } from "./icons";
+import { Icon } from "../shared/ui/icons/icons";
 
 const PALETTE = [
   "#c75c5c", "#d98e48", "#d4c05a", "#6cae5f", "#4fa3a5",

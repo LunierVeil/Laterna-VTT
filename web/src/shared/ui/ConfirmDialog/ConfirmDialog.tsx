@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Button } from "../shared/ui/Button/Button";
+import { Button } from "../Button/Button";
 
 /**
  * Маленький диалог подтверждения вместо window.confirm: тот блокирует

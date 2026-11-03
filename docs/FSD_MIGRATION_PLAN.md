@@ -172,8 +172,8 @@ JSON key, command payload, CSS class или runtime policy.
 | [ScenesPanel.tsx](../web/src/ui/ScenesPanel.tsx), [MapSettings.tsx](../web/src/ui/MapSettings.tsx) | features/scene-management/ui | Sidebar; GM current vs active, private lazy preview | 06b |
 | [PlayersPanel.tsx](../web/src/ui/PlayersPanel.tsx) | features/player-management/ui | Sidebar; invite/pause/reset/delete и pending прежние | 06b |
 | [ToolRail.tsx](../web/src/ui/ToolRail.tsx), [SelectionBar.tsx](../web/src/ui/SelectionBar.tsx), [ZoomControl.tsx](../web/src/ui/ZoomControl.tsx) | features/scene-tools/ui | TablePage; small stage ports, не весь widget engine | 05,06b |
-| [ConfirmDialog.tsx](../web/src/ui/ConfirmDialog.tsx), [icons.tsx](../web/src/ui/icons.tsx) | shared/ui/ConfirmDialog, shared/ui/icons | SheetRow/PlayersPanel/ScenesPanel/SpellBook и остальные consumers | 02 |
-| [input.ts](../web/src/ui/input.ts) | shared/lib/input/useTouchInput.ts | ToolRail; media/listener cleanup сохранить | 02 |
+| [ConfirmDialog.tsx](../web/src/shared/ui/ConfirmDialog/ConfirmDialog.tsx), [icons.tsx](../web/src/shared/ui/icons/icons.tsx) | shared/ui/ConfirmDialog, shared/ui/icons | SheetRow/PlayersPanel/ScenesPanel/SpellBook и остальные consumers | 02 |
+| [input.ts](../web/src/shared/lib/input/useTouchInput.ts) | shared/lib/input/useTouchInput.ts | ToolRail; media/listener cleanup сохранить | 02 |
 | [styles.css](../web/src/styles.css) | оставить; scoped extraction отдельно | main и browser fixtures; порядок cascade прежний | не обязательный move |
 | [shared/ui](../web/src/shared/ui/Button/Button.tsx), [tokens.css](../web/src/shared/styles/tokens.css) | все 8 компонентов и CSS оставить | только нужные imports при переносе потребителей; без DS migration | сохранять |
 
