@@ -1,6 +1,6 @@
 import { useUi, type SideTab } from "../state/store";
 import type { SceneSocket } from "../shared/api/scene-socket";
-import type { SceneStage } from "../scene/stage";
+import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
 import { Chat } from "./Chat";
 import { ScenesPanel } from "./ScenesPanel";
 import { PlayersPanel } from "./PlayersPanel";

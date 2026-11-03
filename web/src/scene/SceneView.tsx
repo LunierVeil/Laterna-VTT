@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { SceneStage } from "./stage";
+import { SceneStage } from "../widgets/scene-canvas/lib/stage";
 import { statsOf } from "../sheets/tokenStats";
 import type { SceneSocket } from "../shared/api/scene-socket";
 import { useUi } from "../state/store";
