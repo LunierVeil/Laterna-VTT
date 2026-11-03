@@ -50,7 +50,7 @@ export async function pageFor(context, options = {}) {
   const startupConsole=[];p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')startupConsole.push(m.text());});
   if(options.trackSockets)await p.addInitScript(()=>{const Native=window.WebSocket;window.sceneSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/ws/scene/'))window.sceneSockets.push(this);}};});
   p.received=capture(p); p.setDefaultTimeout(8000); p.on('pageerror', e => errors.push(e.message));
-  if(sceneId) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
+  if(sceneId && !options.preserveSavedScene) await p.addInitScript(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
   await p.route('**/src/main.tsx', async route => {
     const response = await route.fetch();
     const source = await response.text();
@@ -58,15 +58,23 @@ export async function pageFor(context, options = {}) {
 const originalMount=ObservedStage.prototype.mount;
 window.observedStages=[];
 window.stageMounts=[];
+window.stageMountGates=[];
 Object.defineProperty(window,'observedStage',{get:()=>window.observedStages.findLast(s=>s.isAlive&&s.app.canvas.isConnected)});
 ObservedStage.prototype.mount=async function(...args){
   const timing={start:performance.now(),finish:null};window.stageMounts.push(timing);
-  try {await originalMount.apply(this,args);window.observedStages.push(this);}
+  try {${options.beforeStageMount ? 'await new Promise(resolve=>window.stageMountGates.push(resolve));' : ''}await originalMount.apply(this,args);window.observedStages.push(this);}
   finally {timing.finish=performance.now();}
 };
 ` + source});
   });
   await p.goto(base);
+  if(options.beforeStageMount) {
+    await until(()=>p.received.some(m=>m.type==='snapshot'),'snapshot before renderer mount');
+    assert.equal(await p.locator('canvas').count(),0,'renderer is still held before mount');
+    await until(()=>p.evaluate(()=>window.stageMountGates.length>0),'renderer mount gate registered');
+    await options.beforeStageMount(p);
+    await p.evaluate(()=>window.stageMountGates.splice(0).forEach(release=>release()));
+  }
   try { await p.locator('canvas').waitFor(); }
   catch(error) {
     startupRecords.push({elapsedMs:Date.now()-started,failed:true,console:startupConsole,mounts:await p.evaluate(()=>window.stageMounts??[])});

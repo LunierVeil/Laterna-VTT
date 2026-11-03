@@ -126,7 +126,8 @@ test('v012 scenes: folder CRUD, menu/order/drag, private lazy previews and persi
 });
 
 test('Final scenes: explicit current/active labels, one-tap preview, rename without switching and settings',{timeout:90000},async()=>{
- const master=await pageFor(gm),observer=await pageFor(player);assert.equal(await master.evaluate(()=>window.observedStages.length),1,'StrictMode must not initialize a discarded WebGL renderer');await master.getByRole('tab',{name:'Сцены',exact:true}).click();
+ await control.evaluate(id=>localStorage.setItem('lanterna.gmScene',id),sceneId);
+ const master=await pageFor(gm,{preserveSavedScene:true}),observer=await pageFor(player);assert.equal(await master.evaluate(()=>window.observedStages.length),1,'StrictMode must not initialize a discarded WebGL renderer');await master.getByRole('tab',{name:'Сцены',exact:true}).click();
  const created=(await command('scene.create',{name:'UX hidden card'})).payload.id;const card=()=>master.locator(`.scene-row[data-scene-id="${created}"]`);await card().waitFor();
  await card().getByRole('button',{name:'Действия сцены UX hidden card',exact:true}).click();await card().getByRole('button',{name:'Переименовать сцену',exact:true}).click();await card().getByRole('textbox',{name:'Новое название сцены'}).fill('UX renamed hidden');await card().getByRole('button',{name:'Сохранить название',exact:true}).click();await card().getByText('UX renamed hidden',{exact:true}).waitFor();
  assert.equal((await master.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName)).includes('UX renamed hidden'),false,'rename does not open scene');
@@ -136,6 +137,10 @@ test('Final scenes: explicit current/active labels, one-tap preview, rename with
  await master.locator('details.scene-settings > summary').click();await card().getByRole('button',{name:'Действия сцены UX renamed hidden',exact:true}).click();await card().getByRole('button',{name:'Настройки сцены',exact:true}).click();assert.equal(await master.locator('details.scene-settings').getAttribute('open'),'');
  const touchContext=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,storageState:await gm.storageState()}),touch=await pageFor(touchContext);
  assert.equal(await touch.evaluate(()=>window.observedStages.length),1,'mobile StrictMode initializes one renderer');await touch.getByRole('button',{name:'Открыть панели',exact:true}).tap();await touch.getByRole('tab',{name:'Сцены',exact:true}).tap();await touch.getByRole('button',{name:'Открыть сцену UX renamed hidden',exact:true}).tap();await until(()=>touch.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'touch scene opens');assert.equal(await touch.locator('.sidebar').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);await touchContext.close();
+ await master.reload();await master.locator('canvas').waitFor();
+ await until(()=>master.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'GM restores saved private scene after reload');
+ assert.equal(await master.evaluate(()=>localStorage.getItem('lanterna.gmScene')),created);
+ await master.getByRole('tab',{name:'Сцены',exact:true}).click();
  assert.equal(JSON.stringify(observer.received).includes('UX renamed hidden'),false);
  await card().getByRole('button',{name:'Показать',exact:true}).click();await until(()=>observer.evaluate(async()=> (await import('/src/state/store.ts')).useUi.getState().sceneName==='UX renamed hidden'),'player active label');await card().getByText('видят игроки',{exact:true}).waitFor();
  await command('scene.activate',{id:sceneId});await command('scene.delete',{id:created});await master.close();await observer.close();
