@@ -190,6 +190,17 @@ scene transient state сбрасывается отдельно, connected от�
 sessionEpoch, без переноса renderer/транспорта в Zustand. Проверки циклов и
 архитектурных границ остаются обязательными. Исторические измерения ниже не переписаны.
 
+## Дополнение FSD-09a
+
+Универсальные SceneView/TokenCard/InitiativePanel получают pure projections/UI slots
+через app composition и не импортируют D&D rules/schema/UI. Registry разрешает только
+прежние dnd5e/mob keys; unknown не становится dnd5e. [Контракты и исключения](FSD_SYSTEM_BOUNDARIES.md).
+HpControls стал системным leaf с неизменённым телом. До отдельно разрешённого 09b
+остаются три consumers системных модулей: CharactersPanel, CharacterSheet, Cards;
+SHEETS — только legacy lookup sheet renderer. Renderer family, store/lifecycle,
+backend и PixiJS runtime в 09a не перестраиваются. Новый initiative E2E закрывает
+выявленный пробел; общий Chromium count 36. Метрики исходного аудита ниже исторические.
+
 ## 1. AS-IS: структура
 
 Все пути дерева относительно `web/src/`:

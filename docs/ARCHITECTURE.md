@@ -836,3 +836,13 @@ combat, сохраняя лист; reconnect обновляет connected и sna
 Toast callbacks проверяют собственную generation и identity epoch. Один Zustand
 store, state/public и ограниченный bridge сохраняются; backend, protocol, PixiJS
 runtime, история чата и правила D&D 5e не меняются. Merge 08b пока требует разрешения.
+
+## Системные bindings FSD-09a
+
+[Граница и remaining allowlist](FSD_SYSTEM_BOUNDARIES.md): static registry в app,
+чистые D&D projectors и отдельные стабильные UI slots. Универсальные SceneView,
+TokenCard и InitiativePanel получают callbacks/slots через TablePage и не делают
+registry lookup или расчёт D&D. HpControls находится в systems/dnd5e/ui; его тело
+сохранено. Wire keys dnd5e/mob, Character JSON, HP/temp HP, server d20 combat и
+CharacterStats прежние. SHEETS и legacy CharacterSheet/Cards/catalog dependencies
+остаются точными исключениями до 09b. 09b не начат и требует отдельного разрешения.

@@ -11,6 +11,7 @@ test('Initiative: linked bonus, server d20 result, owner/GM rights and missing b
   gm.on('page', observe); player.on('page', observe);
   const master = await pageFor(gm), owner = await pageFor(player);
   try {
+    for (const p of [master, owner]) await p.evaluate(() => {window.initiativeStage=window.observedStage;window.initiativeMounts=window.stageMounts.length;});
     await probe(owner, sceneId);
     const c = (await command('character.create', {name:'Initiative owner'}, owner)).payload.character;
     await command('character.update', {id:c.id, set:{'vitals.initiative':3}}, owner);
@@ -69,6 +70,7 @@ test('Initiative: linked bonus, server d20 result, owner/GM rights and missing b
       assert.equal(await row(owner,token.name).getByRole('button',{name:'🎲',exact:true}).count(),0);
       await deny('combat.roll',{entry_id:entry.id,bonus:0});
     }
+    for (const p of [master, owner]) assert.equal(await p.evaluate(() => window.observedStage===window.initiativeStage&&window.observedStage.app.canvas.isConnected&&window.stageMounts.length===window.initiativeMounts),true,'bindings rerenders preserve Stage/canvas identity');
   } finally {
     gm.off('page',observe); player.off('page',observe);
     await master.close(); await owner.close();
