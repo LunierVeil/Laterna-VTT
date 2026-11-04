@@ -287,6 +287,21 @@ ROADMAP не актуализируется в FSD-07: отдельный docs-o
 завершения Frontend FSD, модульного монолита FastAPI и Alembic с проверками БД,
 по полному тексту ROADMAP v5, который владелец предоставит отдельно.
 
+## FSD-09a: системные проекции в текущем PR
+
+После завершения 08a/08b на master `321d80309c4e7563dabb8bd5b579bd388cf2c63f`
+отдельно согласован FSD-09a: pure definitions, static app registry, callbacks для
+SceneView/TokenCard/InitiativePanel и системный HP slot. [Реализация, контракты и
+точный legacy allowlist](FSD_SYSTEM_BOUNDARIES.md). Сохранены dnd5e/mob/JSON, серверный
+combat.roll и HP semantics. HpControls перенесён в systems UI без изменения тела;
+legacy sheet family/catalog остаются на месте. Подписки/React keys/Stage callbacks
+сохранены, getCharacterStats — стабильная новая зависимость эффектов SceneView.
+
+Добавлен один initiative Chromium case: interaction 15, всего 36, strict gate
+усилен на новый count. 09b предварительно согласован архитектурно, но его реализация
+требует merge 09a и отдельного разрешения. Merge текущего PR не автоматический.
+Исторические планы и ADR ниже не переписаны.
+
 ## FSD-08b: lifecycle/reset в текущей рабочей ветке
 
 Согласован отдельным решением после зелёного merge 08a. Один PR, четыре логических

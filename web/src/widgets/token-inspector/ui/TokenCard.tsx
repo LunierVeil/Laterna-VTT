@@ -4,10 +4,8 @@ import type { SelectedToken } from "../../../entities/token/model/selection";
 import { uploadImage } from "../../../shared/api/upload";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenAnchorPort } from "../../../entities/scene/model/scene-port";
-import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
-import { at, characterStats } from "../../../systems/dnd5e/model/tokenStats";
-import { HpControls } from "../../../sheets/HpControls";
-import { hpChanges } from "../../../systems/dnd5e/model/bonus";
+import type { CharacterPresentation } from "../../../entities/character/model/definition";
+import type { HealthControlResolver } from "../../../entities/character/ui/health-slot";
 import { Icon } from "../../../shared/ui/icons/icons";
 
 const PALETTE = [
@@ -27,9 +25,12 @@ const SIZES = [
  * то, что вернул сервер.
  */
 export function TokenCard({
+  presentation, healthControl,
   socket,
   stageRef,
 }: {
+  presentation: Pick<CharacterPresentation, "tokenInspector" | "healthChange">;
+  healthControl: HealthControlResolver;
   socket: SceneSocket;
   stageRef: React.MutableRefObject<TokenAnchorPort | null>;
 }) {
@@ -82,12 +83,11 @@ export function TokenCard({
   const ownerName = owner?.name ?? "?";
   // ГМ правит любой токен, но видит, чей он.
   const editable = mine || isGm;
-  const schema = character ? SHEETS[character.system] : undefined;
-  const stats = character ? characterStats(character) : null;
-  // Экземпляр моба: хиты свои, на токене; максимум - из листа-шаблона.
-  const isMob = character?.system === "mob";
-  const hp = isMob ? selected.hp ?? undefined : stats?.hp;
-  const subtitle = schema && character ? schema.summary.subtitle.map((p) => at(character.data, p)).filter((v) => v != null && v !== "").join(" ") : "";
+  const view = character ? presentation.tokenInspector(character, selected) : null;
+  const stats = view?.stats;
+  const hp = stats?.hp;
+  const subtitle = view?.subtitle ?? "";
+  const HealthControls = character ? healthControl(character.system) : undefined;
   const tile = (label: string, value: unknown) => (
     <div className="card-stat">
       <span className="card-stat-label">{label}</span>
@@ -108,18 +108,18 @@ export function TokenCard({
         <>
           <div className="card-stats">
             {tile("Хиты", hp !== undefined ? `${hp}${stats.max ? `/${stats.max}` : ""}` : undefined)}
-            {tile(SHEETS[character.system]?.token?.badge.label ?? "КД", stats.badge)}
+            {tile(view!.badgeLabel, stats.badge)}
             {tile("Скор.", stats.speed)}
           </div>
-          {(isMob || schema?.token) && (
-            <HpControls
-              current={hp}
-              max={stats.max}
-              onSet={(v) =>
-                isMob
-                  ? socket.send("token.update", { id: selected.id, hp: v })
-                  : socket.send("character.update", { id: character.id, set: hpChanges(schema!, character.data, v) })
-              }
+          {view?.health && HealthControls && (
+            <HealthControls
+              current={view.health.current}
+              max={view.health.max}
+              onSet={(v) => {
+                const change = presentation.healthChange(character, selected, v);
+                if (change?.target === "token") socket.send("token.update", { id: selected.id, hp: change.hp });
+                else if (change?.target === "character") socket.send("character.update", { id: character.id, set: change.set });
+              }}
             />
           )}
         </>

@@ -1,6 +1,6 @@
 import type { CharacterStats } from "../../../entities/token/model/presentation";
-import { SHEETS } from "./dnd5e";
 import type { Character } from "../../../shared/api/protocol";
+import type { SheetSchema } from "../../../entities/character/model/legacy-sheet-schema";
 
 export function at(data: unknown, path: string): unknown {
   let node = data as any;
@@ -11,22 +11,9 @@ export function at(data: unknown, path: string): unknown {
   return node;
 }
 
-/**
- * Хиты и КД для токенов - из листов, которые этому клиенту видны. Что брать,
- * говорит схема листа (token); чужих листов здесь нет, значит и полосок нет.
- */
-export function statsOf(characters: Record<string, Character>): Map<string, CharacterStats> {
-  const out = new Map<string, CharacterStats>();
-  for (const c of Object.values(characters)) {
-    const stats = characterStats(c);
-    if (stats) out.set(c.id, stats);
-  }
-  return out;
-}
-
-/** То же для одного листа: карточка токена показывает те же числа, что токен. */
-export function characterStats(c: Character): CharacterStats | null {
-  const view = SHEETS[c.system]?.token;
+/** Pure projector for an explicitly resolved legacy schema; no global registry. */
+export function characterStatsFor(c: Character, schema: SheetSchema | undefined): CharacterStats | null {
+  const view = schema?.token;
   if (!view) return null;
   const num = (p: string) => (typeof at(c.data, p) === "number" ? (at(c.data, p) as number) : undefined);
   const badge = at(c.data, view.badge.key);
