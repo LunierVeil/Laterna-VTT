@@ -824,5 +824,15 @@ app/session пишет проекции через state/bridge. Entities/shared
 Server projections, UI data, lifecycle scopes различаются: один Gameplay reset при
 смене сцены не вводится, открытый лист и прежние drafts сохраняются. Порядок snapshot/
 events, seq/rollback, PixiJS callbacks и существующие partial transitions прежние.
-FSD-08b, новые reset/reconnect policies и stale-response guards требуют отдельного
-согласования; FSD-08a их не реализует. [Структура и allowlist](FSD_MIGRATION_PLAN.md#статус-fsd-08a-в-текущем-pr).
+FSD-08a не реализовал новые reset/reconnect policies и stale-response guards.
+После его merge отдельно согласован FSD-08b; [Структура и allowlist](FSD_MIGRATION_PLAN.md#статус-fsd-08a-в-текущем-pr).
+
+## Lifecycle состояния FSD-08b
+
+[Контракт/reset-матрица](STATE_LIFECYCLE.md): identity reset атомарно удаляет приватные
+client projections, сохраняя preference анимации и расположение панелей. Local-only
+sessionEpoch защищает загрузки и callbacks. Смена сцены очищает transient selection/
+combat, сохраняя лист; reconnect обновляет connected и snapshot без полного reset.
+Toast callbacks проверяют собственную generation и identity epoch. Один Zustand
+store, state/public и ограниченный bridge сохраняются; backend, protocol, PixiJS
+runtime, история чата и правила D&D 5e не меняются. Merge 08b пока требует разрешения.

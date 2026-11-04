@@ -30,19 +30,24 @@ export async function gmKeyLogin(
   key: string,
   onSetup: (key: string) => void,
 ): Promise<string | null> {
+  const current = projectionActions.captureSession();
   const res = await fetch("/api/gm/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key }),
   });
   const data = await res.json().catch(() => ({}));
+  if (!current()) return null;
   if (res.ok && data.needs_setup) onSetup(key);
   else if (res.ok) acceptSession(data as UserInfo);
   else return data.detail || "ключ ГМ не подошёл";
   return null;
 }
 
-/** Existing auth projection write, shared by App auth callbacks; no reset added. */
+/** Auth projection write; a changed identity atomically resets private client data. */
 export function acceptSession(user: UserInfo | null): void {
   projectionActions.setMe(user);
 }
+
+/** Lease for asynchronous bootstrap auth; no projection data is exposed. */
+export const captureSession = projectionActions.captureSession;

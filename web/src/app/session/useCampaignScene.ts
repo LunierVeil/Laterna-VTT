@@ -1,47 +1,61 @@
 import { useCallback, useEffect, useState } from "react";
-import { uiActions } from "../../state/public";
+import { useUi, selectSessionEpoch } from "../../state/public";
 import { projectionActions } from "../../state/bridge";
 import type { SceneInfo, UserInfo } from "../../shared/api/protocol";
 
 const GM_SCENE = "lanterna.gmScene";
 
-/** resetRolls и setLoginNotice — стабильные callback/setter из App. */
+/** Cancellation saves work; the epoch also rejects responses that ignore abort. */
+export function loadCampaignData(onScene: (id: string) => void): {cancel: () => void; settled: Promise<void>} {
+  const controller = new AbortController();
+  const current = projectionActions.captureSession();
+  const active = () => !controller.signal.aborted && current();
+  const read = async (url: string) => {
+    const response = await fetch(url, {signal: controller.signal});
+    if (!response.ok) throw new Error(`${url}: ${response.status}`);
+    return response.json();
+  };
+  const characters = read("/api/characters")
+    .then(list => {if (active()) projectionActions.setCharacters(list);})
+    .catch(error => {if (active()) console.error("не получил листы", error);});
+  const campaign = read("/api/campaign")
+    .then((campaign: {active_scene_id: string; scenes?: SceneInfo[]}) => {
+      if (!active()) return;
+      const saved = localStorage.getItem(GM_SCENE);
+      const allowed = campaign.scenes?.some(scene => scene.id === saved);
+      onScene(allowed ? saved! : campaign.active_scene_id);
+    })
+    .catch(error => {if (active()) console.error("не получил кампанию", error);});
+  return {cancel: () => controller.abort(), settled: Promise.all([characters, campaign]).then(() => {})};
+}
+
+/** The route belongs to a session epoch, not merely to a possibly reused user id. */
 export function useCampaignScene(
   me: UserInfo | null,
   resetRolls: () => void,
   setLoginNotice: (notice: string | null) => void,
 ) {
-  const [sceneId, setSceneId] = useState<string | null>(null);
-  // Игрок всегда в активной сцене. ГМ возвращается туда, где был.
-  // Вышел - сцены больше нет, сокет закроется вместе с ней.
+  const epoch = useUi(selectSessionEpoch);
+  const [route, setRoute] = useState<{epoch: number; id: string | null}>({epoch, id: null});
+  const sceneId = me && route.epoch === epoch ? route.id : null;
   useEffect(() => {
+    resetRolls();
     if (!me) {
-      setSceneId(null);
-      resetRolls();
-      projectionActions.setCharacters([]);
-      uiActions.openCharacter(null);
+      setRoute({epoch, id: null});
       return;
     }
     setLoginNotice(null);
-    // Листы - свои, у ГМ все. Дальше их держат в актуальном виде сообщения сокета.
-    void fetch("/api/characters")
-      .then((r) => r.json())
-      .then((list) => projectionActions.setCharacters(list))
-      .catch((e) => console.error("не получил листы", e));
-    void fetch("/api/campaign")
-      .then((r) => r.json())
-      .then((c: { active_scene_id: string; scenes?: SceneInfo[] }) => {
-        const saved = localStorage.getItem(GM_SCENE);
-        const ok = c.scenes?.some((s) => s.id === saved);
-        setSceneId(ok ? saved : c.active_scene_id);
-      })
-      .catch((e) => console.error("не получил кампанию", e));
-  }, [me?.id]);
+    return loadCampaignData(id => setRoute({epoch, id})).cancel;
+  }, [epoch]);
 
+  const setSceneId = useCallback((id: string) => {
+    if (useUi.getState().sessionEpoch === epoch && useUi.getState().me) setRoute({epoch, id});
+  }, [epoch]);
   const openScene = useCallback((id: string) => {
+    if (useUi.getState().sessionEpoch !== epoch || !useUi.getState().me) return;
     localStorage.setItem(GM_SCENE, id);
-    setSceneId(id);
-  }, []);
+    setRoute({epoch, id});
+  }, [epoch]);
 
   return { sceneId, setSceneId, openScene };
 }

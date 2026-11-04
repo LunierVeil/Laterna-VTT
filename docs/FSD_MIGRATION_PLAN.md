@@ -287,7 +287,24 @@ ROADMAP не актуализируется в FSD-07: отдельный docs-o
 завершения Frontend FSD, модульного монолита FastAPI и Alembic с проверками БД,
 по полному тексту ROADMAP v5, который владелец предоставит отдельно.
 
+## FSD-08b: lifecycle/reset в текущей рабочей ветке
+
+Согласован отдельным решением после зелёного merge 08a. Один PR, четыре логических
+коммита: characterization/matrix; identity reset и HTTP guards; scene/reconnect;
+toast generations, регрессии и документация. [Контракт и изменения поведения](STATE_LIFECYCLE.md).
+Один store и flat state сохраняются. Добавлены local-only sessionEpoch и beginScene,
+общие [defaults](../web/src/state/defaults.ts); канонические DTO не меняются.
+Public/bridge allowlist прежний, raw UI writes запрещены. Смена identity теперь
+сбрасывает приватные проекции атомарно; reconnect не является logout. Старые HTTP,
+socket callbacks и toast timers не применяются к новой сессии. Политика истории
+setMessages/pushMessage сохранена. Требуются Fast CI каждого SHA и Full CI актуального
+test merge. Merge и FSD-09 без отдельного разрешения запрещены.
+
 ## Статус FSD-08a в текущем PR
+
+Исторический срез PR #22: объединён в master `73f7b9769d88bfd6c192c24acac14be274dec698`,
+Full CI master №41800244382 успешен. Ниже сохранён scope 08a; текущие разрешённые
+lifecycle-изменения описаны в [FSD-08b](STATE_LIFECYCLE.md).
 
 Согласованы [ADR D5-v2 / уточнение D1](ADR_STATE_BOUNDARY.md). База — master
 `922a58c6463e8582a125558e9ad30f9113fa7840`, после PR #21. Один PR и пять логических
@@ -660,7 +677,8 @@ stores по каждой entity — иной архитектурный выбо
 Для FSD-08a отдельно согласованы [ADR D5-v2 и уточнение D1](ADR_STATE_BOUNDARY.md):
 один плоский store, четыре логические области и инфраструктурные state/public и
 app/session bridge. Старый план размещения в app/model не обязателен. Историческая
-таблица ниже не переписывается. Reset/reconnect semantics и FSD-08b не разрешены.
+таблица ниже не переписывается. В разрешении на 08a reset/reconnect semantics и FSD-08b ещё не были разрешены;
+позднее отдельно согласован [контракт 08b](STATE_LIFECYCLE.md).
 
 Историческая запись ADR сохранена без ретроспективного изменения решений.
 Уточнение владельца на FSD-06c: будущие зоны ответственности Zustand отличаются

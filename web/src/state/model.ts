@@ -9,6 +9,8 @@ export interface SessionSlice {
   /** Решает сервер (по сессии), здесь - только чтобы показать инструменты ГМ. */
   isGm: boolean;
   connected: boolean;
+  /** Client identity generation; never serialized or sent to the server. */
+  sessionEpoch: number;
 
   setMe: (me: UserInfo | null) => void;
   setConnected: (c: boolean) => void;
@@ -46,6 +48,8 @@ export interface GameplaySlice {
   sceneName: string;
   gridSize: number;
   background: string | null;
+  /** New scene connection, not reconnect: retain campaign/character context. */
+  beginScene: () => void;
   setMessages: (m: Message[]) => void;
   pushMessage: (m: Message) => void;
   setScene: (name: string, gridSize: number, background: string | null) => void;
@@ -108,6 +112,7 @@ export interface UiSlice {
 
 export type UiState = SessionSlice & CampaignSlice & GameplaySlice & UiSlice;
 export type UiData = Pick<UiState,
+  "sessionEpoch" |
   "me" | "isGm" | "accounts" | "invites" | "lastInvite" | "characters" | "openCharacterId" | "combat" | "combatOpen" | "placeHidden" | "fogMode" | "wallKind" | "hiddenRolls" | "sideTab" | "zoom" | "tool" | "messages" | "users" | "connected" | "error" | "notice" | "sceneName" | "gridSize" | "background" | "chaining" | "selected" | "selectionCount" | "selectionEditable" | "activeSceneId" | "scenes" | "folders" | "diceOpen" | "diceAnimation"
 >;
 export type SliceCreator<T> = StateCreator<UiState, [], [], T>;

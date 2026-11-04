@@ -37,7 +37,7 @@ const invites = [{id: "invite", user_id: null, expires_at: "later"}];
 test("state defaults preserve the complete flat data contract and stable actions", () => {
   const data = Object.fromEntries(Object.entries(initial).filter(([, v]) => typeof v !== "function"));
   assert.deepEqual(data, {
-    me: null, isGm: false, accounts: [], invites: [], lastInvite: null, characters: {},
+    me: null, isGm: false, sessionEpoch: 0, accounts: [], invites: [], lastInvite: null, characters: {},
     openCharacterId: null, combat: null, combatOpen: false, placeHidden: false,
     fogMode: "cover", wallKind: "wall", hiddenRolls: false, sideTab: "chat", zoom: 1,
     tool: "select", messages: [], users: [], connected: false, error: null, notice: null,
@@ -51,29 +51,37 @@ test("state defaults preserve the complete flat data contract and stable actions
   }
 });
 
-test("setMe sanitizes exactly the existing GM tools/tabs in one notification", () => {
+test("identity change sanitizes every transient tool/tab atomically", () => {
   for (const next of [player, null]) for (const tool of ["select", "ruler", "ping", "token", "wall", "erase", "fog"] as Tool[]) {
     useUi.setState({...initial, me: gm, isGm: true, scenes, folders: [{id: "folder", name: "Folder"}], tool, sideTab: "players"}, true);
     let notifications = 0; const off = useUi.subscribe(() => notifications++);
-    initial.setMe(next); off();
-    const state = useUi.getState();
-    assert.equal(state.me, next); assert.equal(state.isGm, false);
-    assert.equal(state.tool, ["token", "wall", "erase", "fog"].includes(tool) ? "select" : tool);
-    assert.equal(state.sideTab, "chat"); assert.deepEqual(state.scenes, []); assert.deepEqual(state.folders, []);
-    assert.equal(notifications, 1);
+    initial.setMe(next); off(); const state = useUi.getState();
+    assert.equal(state.me, next); assert.equal(state.isGm, false); assert.equal(state.sessionEpoch, 1);
+    assert.equal(state.tool, "select"); assert.equal(state.sideTab, "chat");
+    assert.deepEqual(state.scenes, []); assert.deepEqual(state.folders, []); assert.equal(notifications, 1);
   }
-  useUi.setState({...initial, tool: "ruler", sideTab: "characters", scenes}, true);
-  initial.setMe(gm); assert.equal(useUi.getState().scenes, scenes); assert.equal(useUi.getState().sideTab, "characters");
+  initial.setMe(gm); initial.setTool("ruler"); initial.setSideTab("characters");
+  initial.setCampaign("scene", scenes, [gm], invites); const before = useUi.getState();
+  initial.setMe({...gm}); assert.equal(useUi.getState().scenes, scenes);
+  assert.equal(useUi.getState().sideTab, "characters"); assert.equal(useUi.getState().sessionEpoch, before.sessionEpoch);
 });
 
-test("AS-IS identity/logout setter preserves caches; full reset is reserved for 08b", () => {
-  initial.setMe(gm); initial.setCharacters([character("c")]); initial.openCharacter("c");
-  initial.setCampaign("scene", scenes, [gm], invites); initial.setLastInvite({token: "test-only", user_id: null});
-  initial.setMessages([message("m")]); initial.setCombat({round: 1, current: null, entries: []});
-  const before = useUi.getState();
+test("identity/logout atomically clears every private projection and preserves device preference", () => {
   for (const me of [player, null]) {
-    initial.setMe(me); const state = useUi.getState();
-    for (const key of ["characters", "openCharacterId", "invites", "lastInvite", "messages", "combat", "activeSceneId"] as const) assert.equal(state[key], before[key], key);
+    useUi.setState(initial, true); initial.setMe(gm);
+    initial.setCharacters([character("c")]); initial.openCharacter("c");
+    initial.setCampaign("scene", scenes, [gm], invites); initial.setLastInvite({token: "test-only", user_id: null});
+    initial.setMessages([message("m")]); initial.setCombat({round: 1, current: null, entries: []});
+    initial.setDiceAnimation(false); initial.setConnected(true); initial.setCombatOpen(true);
+    initial.setSelected({id: "t"} as any); initial.setSelectionCounts(3, 2); initial.setChaining(true);
+    let notifications = 0; const off = useUi.subscribe(() => notifications++);
+    initial.setMe(me); off(); const state = useUi.getState();
+    const expected = {...initial, me, isGm: me?.is_gm ?? false, sessionEpoch: 2, diceAnimation: false};
+    for (const [key, value] of Object.entries(expected)) {
+      if (typeof value !== "function") assert.deepEqual((state as any)[key], value, key);
+      else assert.equal((state as any)[key], value, key);
+    }
+    assert.equal(notifications, 1); assert.equal(saved.get("lanterna.diceAnimation"), "off");
   }
 });
 
@@ -117,13 +125,14 @@ test("scene/projection setters do not introduce a reset or touch unrelated cache
   assert.deepEqual([state.sceneName, state.gridSize, state.background], ["Next", 100, "/uploads/test.png"]);
 });
 
-test("toast timing preserves newer different messages and the existing same-text timer limitation", t => {
+test("toast timing preserves newer different or identical messages for their full duration", t => {
   t.mock.timers.enable({apis: ["setTimeout", "Date"], now: 0});
   initial.flashError("first"); t.mock.timers.tick(1000); initial.flashError("second");
   t.mock.timers.tick(1500); assert.equal(useUi.getState().error, "second");
   t.mock.timers.tick(1000); assert.equal(useUi.getState().error, null);
   initial.flashError("same"); t.mock.timers.tick(1000); initial.flashError("same");
-  t.mock.timers.tick(1500); assert.equal(useUi.getState().error, null, "AS-IS, not a new desired reset policy");
+  t.mock.timers.tick(1500); assert.equal(useUi.getState().error, "same", "older identical-message timer is invalid");
+  t.mock.timers.tick(1000); assert.equal(useUi.getState().error, null);
   initial.flashNotice("notice"); t.mock.timers.tick(7999); assert.equal(useUi.getState().notice, "notice");
   t.mock.timers.tick(1); assert.equal(useUi.getState().notice, null);
 });

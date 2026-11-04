@@ -1,8 +1,13 @@
 import { useUi as store } from "./store";
 import type { UiState } from "./model";
 
-/** App/session-only projection writer. Preserve separate calls and their order. */
-export const projectionActions: Pick<UiState, "setMe" | "setConnected" | "setCampaign" | "setUsers" | "setLastInvite" | "setMessages" | "pushMessage" | "setScene" | "setCharacters" | "putCharacter" | "dropCharacter" | "setCombat" | "setSelected" | "setChaining" | "flashError" | "flashNotice" | "openCharacter"> = {
+/** App/session-only projection writer and identity/scene lifecycle boundary. */
+export const projectionActions: Pick<UiState, "beginScene" | "setMe" | "setConnected" | "setCampaign" | "setUsers" | "setLastInvite" | "setMessages" | "pushMessage" | "setScene" | "setCharacters" | "putCharacter" | "dropCharacter" | "setCombat" | "setSelected" | "setChaining" | "flashError" | "flashNotice" | "openCharacter"> & {captureSession: () => () => boolean} = {
+  captureSession: () => {
+    const epoch = store.getState().sessionEpoch;
+    return () => store.getState().sessionEpoch === epoch;
+  },
+  beginScene: () => store.getState().beginScene(),
   setMe: (...args) => store.getState().setMe(...args),
   setConnected: (...args) => store.getState().setConnected(...args),
   setCampaign: (...args) => store.getState().setCampaign(...args),

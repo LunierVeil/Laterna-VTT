@@ -1,13 +1,14 @@
+import { gameplayDefaults } from "./defaults";
 import type { GameplaySlice, SliceCreator } from "./model";
 
 /** Existing gameplay defaults/actions; cross-domain partial updates retain their original order. */
 export const createGameplaySlice: SliceCreator<GameplaySlice> = (set) => ({
-  characters: {},
-  combat: null,
-  messages: [],
-  sceneName: "",
-  gridSize: 70,
-  background: null,
+  ...gameplayDefaults(),
+  beginScene: () => set({
+    combat: null, sceneName: "", gridSize: 70, background: null,
+    users: [], connected: false, selected: null, selectionCount: 0,
+    selectionEditable: 0, chaining: false, zoom: 1,
+  }),
   setMessages: (messages) => set({ messages }),
   pushMessage: (m) => set((s) => ({ messages: [...s.messages, m].slice(-200) })),
   setScene: (sceneName, gridSize, background) => set({ sceneName, gridSize, background }),

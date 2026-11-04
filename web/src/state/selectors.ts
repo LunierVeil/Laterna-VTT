@@ -4,6 +4,7 @@ import type { UiData } from "./model";
 export const selectMe = (state: Readonly<UiData>) => state.me;
 export const selectIsGm = (state: Readonly<UiData>) => state.isGm;
 export const selectConnected = (state: Readonly<UiData>) => state.connected;
+export const selectSessionEpoch = (state: Readonly<UiData>) => state.sessionEpoch;
 
 // CampaignSlice data; no store, commands or calculations.
 export const selectAccounts = (state: Readonly<UiData>) => state.accounts;

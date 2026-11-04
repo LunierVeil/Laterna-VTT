@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TablePage } from "../pages/table/ui/TablePage";
 import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
-import { useUi, uiActions, selectMe, selectDiceOpen, selectDiceAnimation, selectError, selectNotice } from "../state/public";
+import { useUi, uiActions, selectMe, selectDiceOpen, selectDiceAnimation, selectError, selectNotice, selectSessionEpoch } from "../state/public";
 import { AccessPage } from "../pages/access/ui/AccessPage";
 import type { Message } from "../shared/api/protocol";
 
-import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin, acceptSession } from "./session/access";
+import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin, acceptSession, captureSession } from "./session/access";
 
 import { useCampaignScene } from "./session/useCampaignScene";
 import { useSceneConnection } from "./session/useSceneConnection";
@@ -14,16 +14,19 @@ export default function App() {
   const [hideSidebar, setHideSidebar] = useState(true);
   const [hideRail, setHideRail] = useState(false);
   const me = useUi(selectMe);
+  const epoch = useUi(selectSessionEpoch);
   // Экран до игры: проверяем сессию, затем вход или первый вход мастера.
   const [checking, setChecking] = useState(true);
   const [setupKey, setSetupKey] = useState<string | null>(null);
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(INVITE_FROM_URL);
   const stageRef = useRef<SceneStage | null>(null);
-  const [animatedRoll, setAnimatedRoll] = useState<Message | null>(null);
+  const [animation, setAnimation] = useState<{epoch: number; message: Message} | null>(null);
+  const animatedRoll = animation?.epoch === epoch ? animation.message : null;
+  const setAnimatedRoll = useCallback((message: Message | null) => setAnimation(message ? {epoch, message} : null), [epoch]);
   const seenRolls = useRef(new Set<string>());
   const resetRolls = useCallback(() => {
-    setAnimatedRoll(null);
+    setAnimation(null);
     seenRolls.current.clear();
   }, []);
   const diceOpen = useUi(selectDiceOpen), diceAnimation = useUi(selectDiceAnimation);
@@ -32,21 +35,28 @@ export default function App() {
   const loginWithKey = (key: string) => gmKeyLogin(key, setSetupKey);
 
   useEffect(() => {
+    const current = captureSession();
+    let cancelled = false;
     void (async () => {
       try {
         if (GM_KEY_FROM_URL) {
           const error = await loginWithKey(GM_KEY_FROM_URL);
           if (!error) return;
+          if (cancelled || !current()) return;
           setLoginNotice(error);
         }
         const res = await fetch("/api/me");
-        if (res.ok) acceptSession(await res.json()); // null, если сессии нет
+        if (res.ok) {
+          const user = await res.json();
+          if (!cancelled && current()) acceptSession(user);
+        } // null, если сессии нет
       } catch (e) {
         console.error("не проверил сессию", e);
       } finally {
-        setChecking(false);
+        if (!cancelled) setChecking(false);
       }
     })();
+    return () => {cancelled = true;};
   }, []);
 
   const { sceneId, setSceneId, openScene } = useCampaignScene(me, resetRolls, setLoginNotice);

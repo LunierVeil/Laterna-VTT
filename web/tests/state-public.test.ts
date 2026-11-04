@@ -40,7 +40,7 @@ test("selectors are pure projections of their argument rather than hidden single
   assert.equal(boundary.selectIsGm(alternate), true); assert.equal(boundary.selectZoom(alternate), 7);
   assert.equal(boundary.selectCharacters(alternate), alternate.characters);
   assert.equal(raw.getState().isGm, false); assert.equal(raw.getState().zoom, 1);
-  assert.equal(Object.keys(boundary).filter(name => name.startsWith("select")).length, 33);
+  assert.equal(Object.keys(boundary).filter(name => name.startsWith("select")).length, 34);
 });
 
 test("named selection and dismiss actions preserve the original one-patch notification behavior", () => {
@@ -52,9 +52,11 @@ test("named selection and dismiss actions preserve the original one-patch notifi
   assert.equal(raw.getState().messages, messages);
 });
 
-test("public logout intent delegates to the existing partial setMe(null) transition", () => {
+test("public logout intent atomically removes private projections", () => {
   raw.setState({me: {id: "gm", name: "GM", is_gm: true}, isGm: true, lastInvite: {token: "test-only", user_id: null}, combatOpen: true});
   const before = raw.getState(); uiActions.endSession();
   assert.equal(raw.getState().me, null); assert.equal(raw.getState().isGm, false);
-  assert.equal(raw.getState().lastInvite, before.lastInvite); assert.equal(raw.getState().combatOpen, true);
+  assert.equal(raw.getState().lastInvite, null); assert.equal(raw.getState().combatOpen, false);
+  assert.equal(raw.getState().sessionEpoch, before.sessionEpoch + 1);
+  assert.equal(raw.getState().diceAnimation, before.diceAnimation);
 });
