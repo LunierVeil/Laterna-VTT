@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { useUi } from "../../state/store";
+import { uiActions } from "../../state/public";
+import { projectionActions } from "../../state/bridge";
 import type { SceneInfo, UserInfo } from "../../shared/api/protocol";
 
 const GM_SCENE = "lanterna.gmScene";
@@ -17,15 +18,15 @@ export function useCampaignScene(
     if (!me) {
       setSceneId(null);
       resetRolls();
-      useUi.getState().setCharacters([]);
-      useUi.getState().openCharacter(null);
+      projectionActions.setCharacters([]);
+      uiActions.openCharacter(null);
       return;
     }
     setLoginNotice(null);
     // Листы - свои, у ГМ все. Дальше их держат в актуальном виде сообщения сокета.
     void fetch("/api/characters")
       .then((r) => r.json())
-      .then((list) => useUi.getState().setCharacters(list))
+      .then((list) => projectionActions.setCharacters(list))
       .catch((e) => console.error("не получил листы", e));
     void fetch("/api/campaign")
       .then((r) => r.json())

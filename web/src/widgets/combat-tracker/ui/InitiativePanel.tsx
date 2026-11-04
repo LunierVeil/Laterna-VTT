@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectCombat, selectCombatOpen, selectIsGm, selectMe, selectSelected } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { CombatEntry } from "../../../shared/api/protocol";
 import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
@@ -44,11 +44,11 @@ function InitInput({ entry, onCommit }: { entry: CombatEntry; onCommit: (v: numb
  * строку и заканчивает только свой ход.
  */
 export function InitiativePanel({ socket }: { socket: SceneSocket }) {
-  const combat = useUi((s) => s.combat);
-  const open = useUi((s) => s.combatOpen);
-  const isGm = useUi((s) => s.isGm);
-  const me = useUi((s) => s.me);
-  const selected = useUi((s) => s.selected);
+  const combat = useUi(selectCombat);
+  const open = useUi(selectCombatOpen);
+  const isGm = useUi(selectIsGm);
+  const me = useUi(selectMe);
+  const selected = useUi(selectSelected);
   const [confirmEnd, setConfirmEnd] = useState(false);
 
   // Очередь видна в шапке; полный трекер - по кнопке или клику по очереди.
@@ -68,7 +68,7 @@ export function InitiativePanel({ socket }: { socket: SceneSocket }) {
       <header className="initiative-head">
         <strong>Бой</strong>
         <span className="muted">{started ? `раунд ${combat!.round}` : entries.length ? "не начат" : "пусто"}</span>
-        <button className="tool initiative-close" title="свернуть" onClick={() => useUi.getState().setCombatOpen(false)}>
+        <button className="tool initiative-close" title="свернуть" onClick={() => uiActions.setCombatOpen(false)}>
           ×
         </button>
       </header>

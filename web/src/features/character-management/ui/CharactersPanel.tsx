@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectAccounts, selectIsGm, selectPlaceHidden, selectCharacters } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenPlacementPort } from "../../../entities/scene/model/scene-port";
 import type { Character } from "../../../shared/api/protocol";
@@ -9,14 +9,14 @@ import { SheetRow } from "./SheetRow";
 
 /** Листы персонажей: свои; у ГМ - все, с подписью, чей. */
 function PlayerSheets({ socket, list, stageRef }: { socket: SceneSocket; list: Character[]; stageRef: React.MutableRefObject<TokenPlacementPort | null> }) {
-  const accounts = useUi((s) => s.accounts);
-  const isGm = useUi((s) => s.isGm);
+  const accounts = useUi(selectAccounts);
+  const isGm = useUi(selectIsGm);
   const file = useRef<HTMLInputElement>(null);
 
   // Файл читаем и отправляем как есть: разбирает его адаптер на сервере.
   // Размер проверяем и здесь, чтобы не гонять заведомо лишнее.
   const importFile = async (f: File) => {
-    if (f.size > 512 * 1024) return useUi.getState().flashError("файл больше 512 КБ");
+    if (f.size > 512 * 1024) return uiActions.flashError("файл больше 512 КБ");
     socket.send("character.import", { source: await f.text() });
   };
 
@@ -73,7 +73,7 @@ function MobSheets({
   list: Character[];
   stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
-  const placeHidden = useUi((s) => s.placeHidden);
+  const placeHidden = useUi(selectPlaceHidden);
   const place = (c: Character) => {
     const p = stageRef.current?.freeCellNearCenter();
     if (!p) return;
@@ -128,7 +128,7 @@ function MobSheets({
         Новый моб
       </button>
       <label className="side-check" title="новые токены сразу скрыты от игроков - засада">
-        <input type="checkbox" checked={placeHidden} onChange={(e) => useUi.getState().setPlaceHidden(e.target.checked)} />
+        <input type="checkbox" checked={placeHidden} onChange={(e) => uiActions.setPlaceHidden(e.target.checked)} />
         Ставить скрытыми
       </label>
       <p className="muted side-note">
@@ -145,8 +145,8 @@ export function CharactersPanel({
   socket: SceneSocket;
   stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
-  const characters = useUi((s) => s.characters);
-  const isGm = useUi((s) => s.isGm);
+  const characters = useUi(selectCharacters);
+  const isGm = useUi(selectIsGm);
   const [kind, setKind] = useState<"pc" | "mob">("pc");
   const all = Object.values(characters);
   const mobs = all.filter((c) => c.system === "mob");

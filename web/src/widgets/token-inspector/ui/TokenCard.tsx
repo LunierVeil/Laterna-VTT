@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectSelected, selectMe, selectIsGm, selectAccounts, selectCharacters } from "../../../state/public";
 import type { SelectedToken } from "../../../entities/token/model/selection";
 import { uploadImage } from "../../../shared/api/upload";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
@@ -33,10 +33,10 @@ export function TokenCard({
   socket: SceneSocket;
   stageRef: React.MutableRefObject<TokenAnchorPort | null>;
 }) {
-  const selected = useUi((s) => s.selected);
-  const me = useUi((s) => s.me);
-  const isGm = useUi((s) => s.isGm);
-  const accounts = useUi((s) => s.accounts);
+  const selected = useUi(selectSelected);
+  const me = useUi(selectMe);
+  const isGm = useUi(selectIsGm);
+  const accounts = useUi(selectAccounts);
   const character = useUi((s) => (selected?.character_id ? s.characters[selected.character_id] : undefined));
   const [settings, setSettings] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -128,7 +128,7 @@ export function TokenCard({
 
       <div className="token-card-actions">
         {character && (
-          <button className="btn btn-accent grow" title="или двойной клик по токену" onClick={() => useUi.getState().openCharacter(character.id)}>
+          <button className="btn btn-accent grow" title="или двойной клик по токену" onClick={() => uiActions.openCharacter(character.id)}>
             Открыть лист
           </button>
         )}
@@ -179,7 +179,7 @@ export function TokenCard({
  * поставить - тот, кто может править токен, это проверяет сервер.
  */
 function TokenImage({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
-  const isGm = useUi((s) => s.isGm);
+  const isGm = useUi(selectIsGm);
   const file = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const pick = async (f: File) => {
@@ -193,7 +193,7 @@ function TokenImage({ token, socket }: { token: SelectedToken; socket: SceneSock
       });
       socket.send("token.update", { id: token.id, image_url: url });
     } catch (e) {
-      useUi.getState().flashError(e instanceof Error ? e.message : "загрузка не удалась");
+      uiActions.flashError(e instanceof Error ? e.message : "загрузка не удалась");
     } finally {
       setBusy(false);
     }
@@ -224,7 +224,7 @@ function TokenImage({ token, socket }: { token: SelectedToken; socket: SceneSock
 }
 
 function CharacterLink({ token, socket }: { token: SelectedToken; socket: SceneSocket }) {
-  const characters = useUi((s) => s.characters);
+  const characters = useUi(selectCharacters);
   const list = Object.values(characters);
   return (
     <div className="token-link">

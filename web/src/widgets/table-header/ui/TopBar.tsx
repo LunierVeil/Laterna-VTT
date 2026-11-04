@@ -1,4 +1,4 @@
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectCombat, selectIsGm, selectMe } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import { Icon, Logo } from "../../../shared/ui/icons/icons";
 
@@ -7,16 +7,16 @@ import { Icon, Logo } from "../../../shared/ui/icons/icons";
  * открывает трекер; управление ходом - те же команды combat.*.
  */
 function InitiativeStrip({ socket }: { socket: SceneSocket }) {
-  const combat = useUi((s) => s.combat);
-  const isGm = useUi((s) => s.isGm);
-  const me = useUi((s) => s.me);
+  const combat = useUi(selectCombat);
+  const isGm = useUi(selectIsGm);
+  const me = useUi(selectMe);
   if (!combat || combat.entries.length === 0) return <div className="initiative-strip" />;
 
   const current = combat.entries.find((e) => e.id === combat.current);
   const myTurn = !!current && !!me && current.owner_id === me.id;
   return (
     <nav className="initiative-strip" aria-label="Инициатива">
-      <button className="strip-round" title="открыть трекер" onClick={() => useUi.getState().setCombatOpen(true)}>
+      <button className="strip-round" title="открыть трекер" onClick={() => uiActions.setCombatOpen(true)}>
         {current ? `Раунд ${combat.round}` : "Бой не начат"}
       </button>
       {combat.entries.map((e) => (
@@ -24,7 +24,7 @@ function InitiativeStrip({ socket }: { socket: SceneSocket }) {
           key={e.id}
           className={e.id === combat.current ? "strip-chip strip-chip-current" : "strip-chip"}
           title="открыть трекер"
-          onClick={() => useUi.getState().setCombatOpen(true)}
+          onClick={() => uiActions.setCombatOpen(true)}
         >
           <span className="strip-avatar">{e.name.trim().charAt(0).toUpperCase() || "?"}</span>
           <span className="strip-name">
@@ -91,7 +91,7 @@ export function TopBar({ socket, sceneId }: { socket: SceneSocket; sceneId: stri
           aria-label="выйти"
           onClick={async () => {
             await fetch("/api/logout", { method: "POST" }).catch(() => {});
-            useUi.getState().setMe(null);
+            uiActions.endSession();
           }}
         >
           <Icon name="logout" size={18} />

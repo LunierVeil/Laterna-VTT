@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { SceneStage } from "../lib/stage";
 import { statsOf } from "../../../systems/dnd5e/model/tokenStats";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectTool, selectIsGm, selectCharacters, selectFogMode } from "../../../state/public";
 
 export function SceneView({
   socket,
@@ -14,9 +14,9 @@ export function SceneView({
   onReady: (stage: SceneStage) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const tool = useUi((s) => s.tool);
-  const isGm = useUi((s) => s.isGm);
-  const characters = useUi((s) => s.characters);
+  const tool = useUi(selectTool);
+  const isGm = useUi(selectIsGm);
+  const characters = useUi(selectCharacters);
 
   useEffect(() => {
     const stage = new SceneStage({
@@ -48,9 +48,7 @@ export function SceneView({
         socket.send("wall.remove", { id });
       },
       onSelect: (t) =>
-        useUi
-          .getState()
-          .setSelected(
+        uiActions.setSelected(
             t
               ? {
                   id: t.id,
@@ -65,14 +63,14 @@ export function SceneView({
                 }
               : null,
           ),
-      onSelectionChange: (selectionCount, selectionEditable) => useUi.setState({selectionCount, selectionEditable}),
-      onChainChange: (active) => useUi.getState().setChaining(active),
+      onSelectionChange: (selectionCount, selectionEditable) => uiActions.setSelectionCounts(selectionCount, selectionEditable),
+      onChainChange: (active) => uiActions.setChaining(active),
       onOpenToken: (t) => {
         // Лист открывается, только если он этому клиенту виден.
         const ui = useUi.getState();
-        if (t.character_id && ui.characters[t.character_id]) ui.openCharacter(t.character_id);
+        if (t.character_id && ui.characters[t.character_id]) uiActions.openCharacter(t.character_id);
       },
-      onZoom: (scale) => useUi.getState().setZoom(scale),
+      onZoom: (scale) => uiActions.setZoom(scale),
       onPing: (x, y) => socket.send("ping", { x, y }),
       onFog: (mode, x, y, w, h) => socket.send(mode === "cover" ? "fog.cover" : "fog.reveal", { x, y, w, h }),
       onFogUndo: () => {
@@ -99,7 +97,7 @@ export function SceneView({
         stage.setGm(useUi.getState().isGm);
         stage.setFogMode(useUi.getState().fogMode);
         stage.setCharacterStats(statsOf(useUi.getState().characters));
-        useUi.getState().setZoom(1);
+        uiActions.setZoom(1);
         onReady(stage);
       })
       .catch((e) => console.error("не удалось поднять сцену", e));
@@ -107,7 +105,7 @@ export function SceneView({
     return () => {
       cancelled = true;
       offDisconnect();
-      if (stageRef.current === stage) {stageRef.current = null; useUi.setState({selectionCount: 0, selectionEditable: 0});}
+      if (stageRef.current === stage) {stageRef.current = null; uiActions.setSelectionCounts(0, 0);}
       void mounted.finally(() => stage.destroy());
     };
   }, [socket, stageRef, onReady]);
@@ -120,7 +118,7 @@ export function SceneView({
     stageRef.current?.setGm(isGm);
   }, [isGm, stageRef]);
 
-  const fogMode = useUi((s) => s.fogMode);
+  const fogMode = useUi(selectFogMode);
   useEffect(() => {
     stageRef.current?.setFogMode(fogMode);
   }, [fogMode, stageRef]);

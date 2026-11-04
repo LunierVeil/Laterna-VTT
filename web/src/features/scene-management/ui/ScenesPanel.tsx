@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, selectScenes, selectFolders, selectActiveSceneId } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { SceneInfo } from "../../../shared/api/protocol";
 import { MapSettings } from "./MapSettings";
@@ -10,8 +10,8 @@ import { Logo } from "../../../shared/ui/icons/icons";
 export function ScenesPanel({ socket, sceneId, onOpenScene }: {
   socket: SceneSocket; sceneId: string; onOpenScene: (id: string) => void;
 }) {
-  const scenes = useUi(s => s.scenes), folders = useUi(s => s.folders);
-  const activeSceneId = useUi(s => s.activeSceneId), userId = useUi(s => s.me?.id);
+  const scenes = useUi(selectScenes), folders = useUi(selectFolders);
+  const activeSceneId = useUi(selectActiveSceneId), userId = useUi(s => s.me?.id);
   const [name, setName] = useState(""), [folderName, setFolderName] = useState("");
   const [menu, setMenu] = useState<string | null>(null);
   const [sceneRename, setSceneRename] = useState<{id: string; name: string} | null>(null);

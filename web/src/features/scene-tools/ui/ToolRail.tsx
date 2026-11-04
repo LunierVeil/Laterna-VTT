@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTouchInput } from "../../../shared/lib/input/useTouchInput";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectIsGm, selectFogMode, selectWallKind, selectPlaceHidden, selectTool, selectCombat, selectCombatOpen, selectDiceOpen, selectChaining } from "../../../state/public";
 import type { Tool } from "../../../entities/scene/model/tool";
 import { Icon, type IconName } from "../../../shared/ui/icons/icons";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
@@ -20,12 +20,12 @@ const TOOLS: { id: Tool; icon: IconName; label: string; hint: string; gm?: boole
 
 /** Параметры инструмента - выезжают рядом с его кнопкой. */
 function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSocket; stageRef: React.MutableRefObject<FogUndoPort | null> }) {
-  const isGm = useUi((s) => s.isGm);
-  const fogMode = useUi((s) => s.fogMode);
+  const isGm = useUi(selectIsGm);
+  const fogMode = useUi(selectFogMode);
   // Кнопки "всё" - тоже свои действия: Ctrl+Z их отменяет.
   const fogAll = (name: string) => stageRef.current?.noteMyFogCmd(socket.send(name, {}));
-  const wallKind = useUi((s) => s.wallKind);
-  const placeHidden = useUi((s) => s.placeHidden);
+  const wallKind = useUi(selectWallKind);
+  const placeHidden = useUi(selectPlaceHidden);
   if (!isGm) return null;
   if (tool === "wall") {
     return (
@@ -34,7 +34,7 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
           <button
             key={k}
             className={wallKind === k ? "seg seg-on" : "seg"}
-            onClick={() => useUi.getState().setWallKind(k)}
+            onClick={() => uiActions.setWallKind(k)}
           >
             <Icon name={k} size={16} />
             {k === "wall" ? "Стена" : "Дверь"}
@@ -47,7 +47,7 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
     return (
       <div className="rail-flyout" role="group" aria-label="туман">
         {(["cover", "reveal"] as const).map((m) => (
-          <button key={m} className={fogMode === m ? "seg seg-on" : "seg"} onClick={() => useUi.getState().setFogMode(m)}>
+          <button key={m} className={fogMode === m ? "seg seg-on" : "seg"} onClick={() => uiActions.setFogMode(m)}>
             {m === "cover" ? "Скрыть" : "Открыть"}
           </button>
         ))}
@@ -68,7 +68,7 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
           className={placeHidden ? "seg seg-on" : "seg"}
           title="новые токены сразу скрыты от игроков - засада"
           aria-pressed={placeHidden}
-          onClick={() => useUi.getState().setPlaceHidden(!placeHidden)}
+          onClick={() => uiActions.setPlaceHidden(!placeHidden)}
         >
           <Icon name="eyeOff" size={16} />
           Ставить скрытыми
@@ -81,13 +81,13 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
 
 /** Колонка инструментов слева от сцены. */
 export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: React.MutableRefObject<FogUndoPort | null> }) {
-  const tool = useUi((s) => s.tool);
-  const isGm = useUi((s) => s.isGm);
+  const tool = useUi(selectTool);
+  const isGm = useUi(selectIsGm);
   const touch = useTouchInput();
-  useEffect(() => { if (!touch && tool === "ping") useUi.getState().setTool("select"); }, [touch, tool]);
-  const combat = useUi((s) => s.combat);
-  const combatOpen = useUi((s) => s.combatOpen);
-  const diceOpen = useUi(s => s.diceOpen);
+  useEffect(() => { if (!touch && tool === "ping") uiActions.setTool("select"); }, [touch, tool]);
+  const combat = useUi(selectCombat);
+  const combatOpen = useUi(selectCombatOpen);
+  const diceOpen = useUi(selectDiceOpen);
 
   return (
     <nav className="rail" aria-label="Инструменты">
@@ -99,7 +99,7 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
             title={`${t.label}. ${t.hint}`}
             aria-label={t.label}
             aria-pressed={t.id === tool}
-            onClick={() => useUi.getState().setTool(t.id)}
+            onClick={() => uiActions.setTool(t.id)}
           >
             <Icon name={t.icon} />
           </button>
@@ -107,14 +107,14 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
         </div>
       ))}
       </div>)}
-      <button className="rail-btn" aria-label="Кубики" title="Кубики" aria-expanded={diceOpen} onClick={() => useUi.getState().setDiceOpen(!useUi.getState().diceOpen)}><Icon name="dice" /></button>
+      <button className="rail-btn" aria-label="Кубики" title="Кубики" aria-expanded={diceOpen} onClick={() => uiActions.setDiceOpen(!useUi.getState().diceOpen)}><Icon name="dice" /></button>
       <div className="rail-sep" />
       <button
         className={combat || combatOpen ? "rail-btn rail-btn-on" : "rail-btn"}
         title="Трекер инициативы"
         aria-label="Трекер инициативы"
         aria-pressed={combatOpen}
-        onClick={() => useUi.getState().setCombatOpen(!combatOpen)}
+        onClick={() => uiActions.setCombatOpen(!combatOpen)}
       >
         <Icon name="combat" />
       </button>
@@ -124,8 +124,8 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
 
 /** Подсказка к инструменту - внизу слева поверх сцены. */
 export function ToolHint() {
-  const tool = useUi((s) => s.tool);
-  const chaining = useUi((s) => s.chaining);
+  const tool = useUi(selectTool);
+  const chaining = useUi(selectChaining);
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
     : TOOLS.find((t) => t.id === tool)?.hint;
