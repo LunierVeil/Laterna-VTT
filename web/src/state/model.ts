@@ -48,6 +48,8 @@ export interface GameplaySlice {
   sceneName: string;
   gridSize: number;
   background: string | null;
+  /** New scene connection, not reconnect: retain campaign/character context. */
+  beginScene: () => void;
   setMessages: (m: Message[]) => void;
   pushMessage: (m: Message) => void;
   setScene: (name: string, gridSize: number, background: string | null) => void;
