@@ -12,7 +12,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-_TMP = Path(tempfile.mkdtemp(prefix="laterna-tests-"))
+# Keep ownership until interpreter shutdown, then remove only this fixture's
+# database/uploads/key. mkdtemp alone left these synthetic files behind.
+_TEMPORARY = tempfile.TemporaryDirectory(prefix="laterna-tests-")
+_TMP = Path(_TEMPORARY.name)
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP / 'test.db'}"
 os.environ["UPLOAD_DIR"] = str(_TMP / "uploads")
 os.environ["GM_KEY_FILE"] = str(_TMP / "gm_key.txt")
