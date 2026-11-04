@@ -1,5 +1,38 @@
 # Laterna VTT - архитектура
 
+## Актуальный срез перед Beta (DOCS-00)
+
+**AS-IS:** master `ff9681769978e295a763bcdea8aba536b7967566`, FSD-09b завершён,
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41884690439)
+успешен: backend/frontend и 38 Chromium cases. App композиция передаёт стабильные
+system bindings в pages/widgets/features; renderer family — systems/dnd5e/ui,
+универсальные consumers не импортируют D&D. Zustand один, доступ через state/public
+и ограниченный app/session bridge; SceneStage/PixiJS runtime остаётся в widget.
+
+Backend ещё сосредоточен в server/app/main.py, handlers.py и существующих helpers.
+По умолчанию SQLite URL относителен cwd (`config.py`); launcher работает из server,
+uploads и gm_key.txt там же. `db.py` использует create_all/_check_columns, Alembic
+не внедрён. Windows-меню делает ручную копию остановленной Alpha, но не G3 backup.
+Устойчивый DataHome вне установки и полный модульный монолит — **APPROVED цель**.
+Compose с PostgreSQL остаётся dev-альтернативой, не целевой topology Beta G1.
+
+**Секретность AS-IS:** snapshot/REST/event_for фильтруют GM tokens и ручной FoW,
+используют noop/add/remove с сохранением seq. Это не LOS. Обычная подложка выдаётся
+целиком; /uploads смонтирован через StaticFiles без будущего per-object AccessPolicy.
+Поля blocks_sight/vision_range/emits_light ещё не дают работающий движок света.
+
+**APPROVED:** сервер проверяет видимость и доступ к секретным объектам/медиа;
+PixiJS остаётся renderer, не security boundary. Цель: один SQLite на DataHome,
+Alembic, проверенные automatic/manual/pre-upgrade instance backup и restore,
+несколько сохранённых кампаний с одной активной партией, серверный AccessPolicy.
+Журнал/книга/ширма — представления одних материалов (G6), не отдельные базы.
+Физическая SQL-схема, редактор, personal/shared vision и временный показ — **OPEN**.
+Порядок **A → B → C → D → E** и migration stop-gate — в [BETA_DECISIONS](BETA_DECISIONS.md).
+DOCS-00 меняет только документацию; реализации LOS/света/миграций здесь нет.
+
+Далее описаны действующие механизмы и сохранённая история этапов. Хронологические
+«ещё не начато» в FSD-разделах относятся к их прежним базам; актуальный статус выше.
+
 Открытый self-hosted VTT. Laterna VTT - финальное название (лат. "фонарь").
 
 Во внутренних именах осталось старое написание `lanterna`: cookie
@@ -21,9 +54,9 @@
 
 1. **Сервер - источник правды.** Клиент не меняет состояние сам, он шлёт команду. Сервер валидирует, применяет, рассылает событие. Клиент применяет событие.
 2. **Клиент может применить оптимистично**, но помечает изменение как неподтверждённое и откатывает, если сервер прислал другое.
-3. **Геометрия и рендер - на клиенте.** Python ничего не рисует и не считает полигоны видимости. Его работа: auth, хранение, валидация, рассылка, броски кубов.
+3. **PixiJS рисует, сервер проверяет права и секретность.** Сейчас серверная геометрия проверяет движение, LOS ещё не реализован. Будущее вычислительное ядро видимости должно быть пригодно для серверной проверки; клиентский полигон не разрешает выдачу секретных данных.
 4. **Стены существуют с первого дня**, даже пока свет не реализован. Переделывать схему сцены потом дороже, чем заложить поля сейчас.
-5. **Никакой системы правил в ядре.** Лист персонажа - это JSON + схема полей. Хардкод одной системы появится позже, модульность - ещё позже, и только после того, как одна система заработает.
+5. **Универсальный VTT отделён от игровых правил.** Существующая D&D реализация находится в systems/dnd5e, bindings — в app; сохранённый JSON не преобразован. Единственный встроенный rules engine Beta — D&D 5e 2014; другие системы и SDK не внедряются заранее.
 
 ## Модель данных
 
@@ -223,8 +256,8 @@ Campaign           active_scene_id
   форме. Поэтому на токен портрет попадает через `_upload_url`, а клиент
   рисует только адрес вида `/uploads/...` (`safeUpload`).
 - Новая колонка, которая может быть NULL, добавляется в старую базу при
-  запуске (`db._check_columns`). Остальные изменения схемы - всё ещё
-  пересоздание базы, пока нет alembic.
+  запуске (`db._check_columns`). Полноценный миграционный путь ещё предстоит внедрить через Alembic;
+  пересоздавать пользовательскую базу ради обновления запрещено.
 
 ### Ручной туман и пинг
 
@@ -300,13 +333,15 @@ Campaign           active_scene_id
 
 ## Лист персонажа
 
-Актуальный ownership после механического FSD-07: definitions/bonus/tokenStats —
+Актуальный ownership после FSD-09b: definitions/bonus/tokenStats —
 `web/src/systems/dnd5e/model`, legacy DSL — `entities/character/model/legacy-sheet-schema.ts`,
-renderer/documents/Context/cards — `widgets/character-sheet/legacy` (относительно web/src).
-`SheetOpsContext` единственный, DocEditor остаётся lazy. `SHEETS` и отдельный
-`sheets/HpControls.tsx` сохраняются до FSD-09; полноценная multi-system abstraction
-здесь не вводилась. Правила, JSON, серверные команды и прежний UI не изменены.
-Подробнее: [текущий этап и legacy-исключения](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-07).
+renderer/documents/Context/cards — `systems/dnd5e/ui/legacy`, HpControls —
+`systems/dnd5e/ui/HpControls.tsx`. Connected host листа —
+`widgets/character-sheet/ui/CharacterSheet.tsx`, static bindings — `app/systems`.
+`SheetOpsContext` единственный, DocEditor остаётся lazy, SHEETS и direct-system
+legacy allowlist удалены. Полноценный multi-system SDK не вводился. Правила,
+JSON, серверные команды, React keys и локальные drafts сохранены.
+Подробнее: [системные границы](FSD_SYSTEM_BOUNDARIES.md).
 
 **Форма, а не создатель персонажа.** Как лист в Roll20: игрок вписывает
 значения руками, правила никто не проверяет. Создатель (выбор класса,
@@ -637,15 +672,16 @@ X-Forwarded-For так приходят все игроки, и один оши�
 - Туман войны с сохранением.
 - Автоматика правил в листе персонажа (пересчёт бонусов, выбор класса). Лист - форма, см. "Лист персонажа".
 - Голос, LiveKit.
-- Ограничение попыток входа и HTTPS. Аккаунты и сессии есть, но перебор паролей ничем, кроме медленного argon2, не тормозится, а cookie без `Secure`.
+- HTTPS из коробки ещё не предоставляется. Ограничение попыток входа уже есть
+  (ratelimit.py); оно не заменяет HTTPS и защиту публичного развёртывания.
 - Несколько кампаний у одного мастера. Модель готова (всё привязано к
   Campaign), не хватает выбора кампании и кампании в адресе. Открытый
   вопрос: аккаунт на кампанию (как сейчас) или на сервер с ролью в
   каждой кампании. Решить до появления реальных пользователей.
 - Генератор событий в духе RimWorld Director. Делается поздно, но почти не зависит от канваса, так что может идти параллельно.
-- Порядок до освещения: редактор стен/дверей/окон -> видимость
-  токена -> источники света -> туман войны. Свет считается от стен,
-  без них его не на чем проверять.
+- Текущий порядок Beta — A (базовые LOS/свет/FoW), B (сохранность/backend),
+  C (кампании/ACL), D (остальные функции, включая сохраняемую разведку), E (приёмка).
+  Если A требует изменения схемы, необходимая часть B выполняется раньше.
 - Импорт Universal VTT (.uvtt, .dd2vtt, .df2vtt - один формат):
   картинка, клетка, стены, порталы, свет. Ложится на нашу модель:
   дверь/окно = kind, барьер = стена с blocks_sight=false. Нужна
@@ -667,9 +703,10 @@ X-Forwarded-For так приходят все игроки, и один оши�
   (Cloudflare Tunnel) вместо проброса портов.
 ## Стек
 
-- Бэкенд: Python 3.12, FastAPI, SQLAlchemy 2 async, Postgres (SQLite как fallback для локального запуска без docker)
+- Бэкенд: Python 3.12, FastAPI, SQLAlchemy 2 async. SQLite — default Alpha и
+  утверждённая цель Beta/DataHome; PostgreSQL остаётся существующей dev Compose альтернативой.
 - Фронтенд: React 18, TypeScript, Vite, PixiJS 8 для сцены, zustand для состояния
-- Инфра: docker compose
+- Запуск: Linux shell/Windows ZIP; Docker Compose — dev-альтернатива, не обязательная инфраструктура Beta.
 
 ### Один порт для игры
 
@@ -844,8 +881,8 @@ runtime, история чата и правила D&D 5e не меняются.
 TokenCard и InitiativePanel получают callbacks/slots через TablePage и не делают
 registry lookup или расчёт D&D. HpControls находится в systems/dnd5e/ui; его тело
 сохранено. Wire keys dnd5e/mob, Character JSON, HP/temp HP, server d20 combat и
-CharacterStats прежние. SHEETS и legacy CharacterSheet/Cards/catalog dependencies
-остаются точными исключениями до 09b. 09b не начат и требует отдельного разрешения.
+CharacterStats прежние. Это описание результата 09a: тогда SHEETS и sheet/catalog
+зависимости оставались исключениями. Ниже зафиксировано их удаление завершённым 09b.
 
 
 ## Системные renderer/catalog boundaries FSD-09b
@@ -856,4 +893,5 @@ Context и lazy DocEditor — systems/dnd5e/ui/legacy. Catalog UI — systems, c
 root/list/row hosts — features. App передаёт stable UI slots; generic consumers
 больше не импортируют системы. SHEETS и legacy allowlist удалены. Один store,
 server-authoritative commands, JSON dnd5e/mob, keys, drafts, UI/CSS и SceneStage
-сохранены. SDK/multi-system loader не создаётся. Merge 09b отдельно согласуется.
+сохранены. SDK/multi-system loader не создан. FSD-09b объединён в PR #25; новый master и
+успешный Full CI приведены в актуальном статусе документа.

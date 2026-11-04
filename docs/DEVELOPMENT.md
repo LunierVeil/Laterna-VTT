@@ -1,104 +1,189 @@
 # Локальная разработка и Pull Request
 
-Функциональная альфа завершена. Первый слой Design System Foundation описан в docs/DESIGN_SYSTEM.md. Упрощённый FSD с Zustand store/actions/selectors и модульный монолит FastAPI остаются отдельными следующими этапами; они не начаты. B01/B02 через Porthole и исходный выход рамки листа B14 остаются открытыми: см. docs/BUGS.md.
+**AS-IS, DOCS-00:** frontend FSD до FSD-09b завершён. Design System
+**Foundation/Components v0.3 реализована**: канонические токены и компоненты доступны
+в shared/styles и shared/ui, но **весь пользовательский интерфейс ещё не переведён**
+на них. Полный редизайн и завершённая интеграция всех экранов не заявляются.
+Исторический baseline FSD-09b — `ff9681769978e295a763bcdea8aba536b7967566`;
+для новой работы проверяются актуальные master, ветка и HEAD PR.
+Backend modular monolith, устойчивый
+DataHome/Alembic и расширенная Beta — будущая работа по [BETA_DECISIONS](BETA_DECISIONS.md).
+Ручные B01/B02 через Porthole и исходный B14 не закрываются автоматизацией;
+см. [BUGS](BUGS.md). Текущие пути: app/App.tsx, pages/table, widgets/scene-canvas,
+shared/api/scene-socket.ts, state/public и systems/dnd5e (относительно web/src).
 
 ## Окружение
 
-Проверяемая конфигурация: Python 3.12 (`.python-version`) и Node 24 LTS (`.nvmrc`). Node 20 не подходит для прямого запуска существующих TypeScript-тестов. Windows ZIP содержит встроенный Python 3.12; Node нужен только сборщику, не игроку.
+Python **3.12** ([.python-version](../.python-version)), Node **24** ([.nvmrc](../.nvmrc)),
+npm ci по lockfile. Node 20 не подходит для прямых TypeScript-тестов.
+Windows ZIP включает embedded Python; игроку Node не требуется. Для browser fixture
+с POSIX server/.venv/bin используйте Linux/WSL; ZIP отдельно проверяется в Windows Actions.
 
 Из корня свежей копии:
 
 ```bash
 python3.12 -m venv server/.venv
 server/.venv/bin/python -m pip install -r server/requirements.txt
-cd web
-npm ci
-cd ..
+npm --prefix web ci
 ./dev.sh
 ```
 
-Vite: http://localhost:5173, API: http://127.0.0.1:8000. Игровой запуск: `./laterna.sh`, `./laterna.sh porthole` или `./laterna.sh tunnel`; подробности в README и FIRST_SESSION.md. `.env.example` - пример параметров, не автоматически загружаемый конфиг. Секретные значения задаются в локальном окружении, не в Git.
+Vite — http://localhost:5173, API — http://127.0.0.1:8000.
+`./dev.sh` запускает оба процесса; Ctrl+C останавливает их. `./dev.sh check` требует
+живой **тестовый** сервер и не заменяет build/Chromium. `dev.sh reset` — разрушительный
+режим, не использовать для проверки пользовательской кампании.
+`.env.example` — пример, не автоматически загружаемый конфиг; секреты не в Git.
 
-`dev.sh reset` удаляет игровую базу и uploads. Для тестов его не использовать. `dev.sh check` не заменяет полный CI: он требует живой сервер для smoke и не запускает production build/Chromium.
+## Игровой, ручной и Docker-запуск
+
+Linux: `./laterna.sh`, `./laterna.sh porthole`, `./laterna.sh gm`, `PORT=9000 ./laterna.sh`.
+Windows: laterna.bat из проверенного распакованного ZIP; исходный
+[windows/laterna.bat](../windows/laterna.bat) требует embedded Python и собранный frontend
+рядом. LAN/Porthole — [README](../README.md), [FIRST_SESSION](FIRST_SESSION.md).
+
+Ручной backend, после создания venv выше:
+
+```bash
+cd server
+.venv/bin/python -m uvicorn app.main:app --reload --port 8000 --no-proxy-headers
+```
+
+Frontend в другом терминале из корня:
+
+```bash
+npm --prefix web ci
+npm --prefix web run dev
+```
+
+SQLite DATABASE_URL по умолчанию относителен cwd; скрипты запуска используют server.
+UPLOAD_DIR и GM_KEY_FILE по умолчанию указывают в server. Это текущие пути Alpha,
+не будущий DataHome. Не меняйте cwd/параметры поверх единственной игровой БД без проверки.
+
+Dev Compose (существующая PostgreSQL-альтернатива):
+
+```bash
+docker compose up --build
+```
+
+Vite :5173, API :8000; тестовые credentials и bind mounts. Это не production
+и не утверждённая topology Beta (цель G1 — SQLite/DataHome). `docker compose down`
+сохраняет volume pgdata; `down -v` и volume prune запрещены для пользовательских данных.
+`make clean` удаляет только web/dist; не путать с dev.sh reset.
+
+## Экспериментальные подключения
+
+Сохранённые рабочие режимы кода, **не официальное обещание поддержки Beta**:
+
+```bash
+./laterna.sh tunnel
+TUNNEL_VIA=ssh ./laterna.sh tunnel
+```
+
+Первый требует cloudflared, аккаунт Cloudflare для quick tunnel не нужен; второй
+использует ssh/localhost.run. PUBLIC_URL попадает в приглашения, вывод — в
+server/tunnel.log. URL может меняться при перезапуске. При TLS/порт-7844 ошибке
+проверьте доступность провайдера; SSH — существующая альтернатива. Региональные
+блокировки/VPN/виртуальная LAN могут влиять на доступность; работоспособность
+не гарантируется. Не выставляйте обычный HTTP-порт публично; нужны корректный
+HTTPS-прокси, сессионные настройки и стойкие пароли. Меню/скрипты DOCS-00 не меняет.
 
 ## Все проверки
 
+Только изолированные временные данные. Из корня:
+
 ```bash
-# Корень; pytest сам устанавливает временные DATABASE_URL/UPLOAD_DIR/GM_KEY_FILE.
 server/.venv/bin/python -m pytest server/tests -q
-python3 -m unittest discover -s scripts/tests -v
+server/.venv/bin/python -m unittest discover -s scripts/tests -v
+python3 scripts/check-doc-links.py
+npm --prefix web run typecheck
+npm --prefix web test
+npm --prefix web run build
 cd web
-npm ci
-npm run typecheck
-npm test
-npm run build
 npx --no-install playwright install --with-deps chromium
 npm run test:browser
 ```
 
-В Linux для системного Chromium допустим `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`; CI устанавливает версию браузера из package-lock Playwright. На Windows разработчику browser fixture сейчас требуется POSIX-структура `server/.venv/bin` - полный браузерный прогон выполняйте в WSL/Linux; Windows ZIP отдельно проверяется в Windows Actions.
+pytest/Chromium fixtures устанавливают временные DATABASE_URL/UPLOAD_DIR/GM_KEY_FILE,
+порты и тестовые аккаунты. Не направлять smoke_test.py вручную на пользовательский
+сервер: он меняет сущности. Оригинальный smoke выполняется отдельной suite с
+временной SQLite; backend/frontend counts сверяются на каждом SHA, не хардкодятся.
 
-Browser fixture сам выбирает свободные порты, создаёт временную SQLite/uploads/ключ и тестовые аккаунты, запускает uvicorn/Vite, ждёт `/api/health`, выполняет оригинальный `server/smoke_test.py` в отдельной smoke-suite. Остальные suites выполняют 34 UI-теста с настоящим Chromium. Останавливает дочерние серверы и удаляет тестовые данные. Не направляйте `smoke_test.py` вручную на пользовательский сервер: он меняет тестовые сущности; в CI используется только изолированный fixture. Скриншоты и server/Vite logs сохраняются в `BROWSER_RESULTS_DIR` (по умолчанию temp/laterna-browser-results).
-
-## Работа через PR
-
-1. После перехода клонировать новый репозиторий заново. Не смешивать старую и новую несвязанные истории.
-2. Создать ветку `git switch -c fix/short-description` от актуального master.
-3. Внести изменение, добавить соответствующую регрессию и обновить документацию.
-4. В PR описать проблему, итоговое поведение, проверки и ограничения. Не включать данные кампаний/логи/ключи.
-5. Дождаться `CI required`, устранить ошибки и конфликты; слить PR средствами GitHub. Новые функции не пушить прямо в master после включения защиты.
-
-Для одного владельца защита требует PR и CI, но не чужой approval (`required_approving_review_count: 0`). Когда появятся reviewers, владелец может отдельно включить один обязательный approval. Не включать запрет self-review без второго доступного reviewer.
-
-## Обновление локальной установки
-
-Внутри новой истории: сначала остановить стол и сохранить игровые данные по REPOSITORY_MIGRATION.md, затем `git status --short` и `git pull --ff-only`. Если есть свои изменения - остановиться и сохранить их отдельной веткой/копией, не использовать reset/clean. Далее:
-
-```bash
-server/.venv/bin/python -m pip install -r server/requirements.txt
-cd web
-npm ci
-npm run build
-```
-
-Первый переход Alpha Legacy -> новый Laterna-VTT делается новым clone/папкой, а не pull с `--allow-unrelated-histories`. Windows: распаковать новый проверенный ZIP в новую папку, сохранить старую папку, после резервного копирования перенести только свои DB/uploads/ключ, не старые Python/app/dist. Изменения схемы сначала проверять на копии базы. Запуск может выполнить добавочные миграции; откат бинарника не равен откату данных.
-
-
-## Локальный Compose и очистка
-
-Compose использует тестовые PostgreSQL credentials и bind mounts для разработки, не для production. Обычный `docker compose down` не удаляет именованный volume pgdata. Не использовать `down -v` или volume prune для пользовательских данных. `make clean` очищает только web/dist. Dockerfile frontend использует тот же Node 24 и npm ci, что локальная разработка/CI.
-
-Для Codex инструкции находятся в корневом AGENTS.md. CLAUDE.md может существовать только как локальный игнорируемый файл; в Initial Commit он не включается.
-
+[Подтверждённый CI master №41884690439](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41884690439):
+backend/frontend и Chromium **38/38**, без failed/skipped/cancelled. На том же коде
+локально: 169 backend, 118 frontend unit, 31 scripts tests; typecheck/build успешны.
+Для DOCS-00 эти старые результаты не выдаются за новый запуск.
 
 ### Изолированные Chromium suites
 
-`npm run test:browser` запускает десять независимых файлов последовательно:
-`sheets`, `tokens`, `scenes`, `network`, `chat-dice`, `auth`, `ui`, `smoke`, `design-system`, `components-v03`.
-Каждый файл получает собственные SQLite, uploads, ключ, API/Vite, браузер и
-контексты аккаунтов. Общая фикстура — `web/tests/browser/fixture.mjs`.
-Итого: 34 UI-теста и один самостоятельный repository smoke (35 проверок).
-Исходный B10 разделён на PC/NPC с теми же assertions и лимитом 120 с для каждого.
-Assertions и исходные таймауты при разделении сохранены.
+Manifest — [run.mjs](../web/tests/browser/run.mjs), strict expected counts —
+[ci_gate.py](../scripts/ci_gate.py); **13 suites, 37 UI cases + 1 smoke = 38**:
 
-Из каталога `web` можно запускать только нужную часть:
+| Группа | Suites | Cases |
+| --- | --- | --- |
+| sheets | sheets, sheet-lifecycle | 9 |
+| tokens | tokens, network | 8 |
+| scenes | scenes, auth | 5 |
+| interaction | chat-dice, ui, smoke, design-system, components-v03, initiative, catalog | 16 |
+
+Из web: `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --suite scenes`
+или `npm run test:browser -- --group tokens`. Системный Chromium допустим локально;
+CI устанавливает pinned Playwright browser. Неизвестная группа отвергается.
+
+Каждый файл получает собственные DB/uploads/key, API/Vite, browser/contexts;
+runner последователен внутри группы, GitHub matrix — четыре независимых runners.
+Fixture [fixture.mjs](../web/tests/browser/fixture.mjs) закрывает процессы/contexts
+в cleanup. BROWSER_RESULTS_DIR содержит подпапки suites, logs/screenshots/startup.json;
+BROWSER_JUNIT=/absolute/path/results.xml включает новый JUnit, старый файл удаляется.
+Тестовые БД и ключи не включаются в artifacts. Без sleep/ослабления assertions/gate.
+
+## Работа через PR и CI
+
+1. Актуальный master, чистый Git; отдельная ветка на логически связанный блок.
+   Не смешивать старую несвязанную историю Alpha Legacy с новой.
+2. Scope, regression tests, документация; игровые данные/секреты/логи не коммитить.
+3. После разрешённого логического commit/push — Fast CI точного SHA; следующий этап
+   только после success. Fast CI не публикует CI required и не разрешает merge.
+4. Ready PR → Full CI актуального test merge: backend, frontend, четыре Chromium
+   группы и CI required. Head/base/merge должны оставаться актуальными; strict gate
+   отвергает failed/skipped/cancelled/stale evidence, см. [CI_CD](CI_CD.md).
+5. Commit, push, создание PR, merge, release — по отдельному разрешению владельца.
+   При разрешённом merge сохранять согласованный способ/историю, затем проверить CI master.
+
+Ruleset master требует PR, CI required от GitHub Actions и up-to-date branch;
+required approvals = 0 для одного владельца. Не обходить защиту и не менять настройки
+без разрешения. Windows candidate — отдельный ручной запуск без публикации;
+выпуск не должен следовать из обычного push master.
+
+## Обновление и сохранность данных
+
+Остановить стол; сохранить **БД + uploads + ключи** вне заменяемой папки приложения
+по [REPOSITORY_MIGRATION](REPOSITORY_MIGRATION.md). В Windows ручной пункт «Копия базы»
+копирует остановленную Alpha в backup; полноценные G3 automatic/pre-upgrade backups
+и проверяемый restore ещё не внедрены. Не копировать живую SQLite обычным file copy,
+не терять возможные WAL/SHM, не восстанавливать поверх единственного оригинала.
+Instance backup ≠ экспорт одной кампании. Новый DataHome/Alembic — только отдельная
+разработка с upgrade/restore tests, не команды DOCS-00.
+
+Из чистой установки исходников после резервного копирования:
 
 ```bash
-CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --suite scenes
-CHROMIUM_PATH=/usr/bin/chromium npm run test:browser -- --group tokens
+git status --short
+git pull --ff-only
+server/.venv/bin/python -m pip install -r server/requirements.txt
+npm --prefix web ci
+npm --prefix web run build
 ```
 
-Группы для будущей матрицы CI: `sheets` (sheets), `tokens` (tokens/network),
-`scenes` (scenes/auth), `interaction` (chat-dice/ui/smoke/design-system/components-v03).
-Runner отклоняет неизвестное имя вместо пустого успешного прогона.
-`BROWSER_RESULTS_DIR` автоматически получает подпапку по имени suite,
-чтобы параллельные процессы не перезаписывали логи и скриншоты.
-После сценария фикстура закрывает дополнительные contexts, в том числе при
-ошибке; после suite закрывает браузер, серверы и временные данные.
+При незакоммиченных изменениях остановиться, сохранить их отдельно; без reset/clean.
+Windows: новый проверенный ZIP в новую папку; перенос только копии DB/uploads/key,
+не старых Python/app/dist. Старую папку не удалять до проверки. Запуск Alpha может
+выполнить добавочные schema checks; откат бинарника не равен откату данных.
+Не применять эти инструкции как разрешение на реальное обновление в docs-only задаче.
 
-`BROWSER_JUNIT=/absolute/path/results.xml` включает JUnit вместе с обычным stdout;
-runner удаляет старый файл перед запуском. CI принимает только полный отчёт текущего запуска.
+## Историческая диагностика CI (HISTORICAL)
 
+Следующие результаты относятся к восстановлению CI, а не к текущему count 38.
+Базы/наблюдения оставлены без пересчёта; новая проблема требует нового воспроизведения.
 
 ### Диагностика Final scenes
 
@@ -129,4 +214,5 @@ renderer: его canvas нигде не проверялся, а постоян�
 конкурировал с реальными GM/player/touch страницами. Все игровые страницы по-прежнему
 запускаются через pageFor с прежним ожиданием canvas и проверками StrictMode.
 
-Design System Foundation: [токены, компоненты и проверки](DESIGN_SYSTEM.md).
+
+[Design System](DESIGN_SYSTEM.md), [архитектурные границы](FSD_SYSTEM_BOUNDARIES.md).
