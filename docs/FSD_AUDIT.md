@@ -118,6 +118,9 @@ Store остаётся прежним до FSD-08; **пересмотр ADR D5 �
 
 ## Актуальные пути FSD-07
 
+Этап объединён в PR #21; master `922a58c6463e8582a125558e9ad30f9113fa7840`.
+Далее сохранён контекст 07; текущее состояние store boundary уточнено в 08a ниже.
+
 База — master `ab08d0b320950df4ab5cb5c72ebf66af11e41c94`. Перенесены 13 модулей:
 
 - [legacy-sheet-schema](../web/src/entities/character/model/legacy-sheet-schema.ts) — прежний контракт schema.ts в entities/character/model.
@@ -138,12 +141,41 @@ TablePage меняет только импорт CharacterSheet. Нет sibling-
 
 Исторические AS-IS, метрики и D1–D7 ниже не пересчитываются. Ссылки исторических
 разделов на перенесённые модули закреплены на исходной базе аудита.
-[Актуальный allowlist и направления](FSD_MIGRATION_PLAN.md#статус-fsd-07-в-текущем-pr):
+[Актуальный allowlist и направления](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-07):
 legacy useUi до FSD-08; direct system imports/SHEETS и HpControls до FSD-09.
 Пересмотр D5 перед FSD-08 обязателен отдельно; будущие зоны ответственности Zustand
 здесь не утверждаются. Сам schema DSL остаётся legacy 5e-oriented, а не generic SDK.
 FSD-08/09, backend decomposition/Alembic и обновление ROADMAP не начаты этим PR.
 Issue #16 остаётся открытой и вне scope.
+
+## Актуальная граница состояния FSD-08a
+
+Основание — [согласованный ADR D5-v2 и уточнение D1](ADR_STATE_BOUNDARY.md).
+Один production store, плоская форма и четыре логические области: Session,
+Campaign, Gameplay, UI. [Полная структура и ограничения](FSD_MIGRATION_PLAN.md#статус-fsd-08a-в-текущем-pr).
+
+[model](../web/src/state/model.ts), factories session/campaign/gameplay/ui и
+[canonical store](../web/src/state/store.ts) сохраняют 33 поля и 28 прежних actions;
+два named actions заменяют три прежние direct writes. Текущая server-authoritative
+модель, partial reset policy, таймеры и notifications не переписывались.
+
+20 production consumers переведены на [public](../web/src/state/public.ts)/
+[bridge](../web/src/state/bridge.ts); computed selectors, subscriptions (включая
+три whole-store hooks), effect dependencies и JSX сохранены. App auth projection
+проходит через app/session; bridge доступен только трём app/session модулям.
+Public не экспортирует arbitrary setState/projection writers. Его endSession и
+clearLastInvite — только существующие UI cleanup intents без расширения reset.
+
+Raw imports остались в state internals и test-only canonical getState/subscribe.
+Нет lower→app, entity/shared/system→store, новых providers/prop drilling или циклов.
+Архитектурные guards проверяют imports (включая dynamic/type-only), единственность
+create, отсутствие raw writes снаружи и неизменённые whole-store subscriptions.
+Чистые selectors не выполняют game math; instance factories не импортируют singleton.
+
+Historical AS-IS/метрики/D1–D7 далее сохранены. Известные AS-IS ограничения описаны
+characterization tests, не объявлены исправленными. ADR D5-v2 разрешает только 08a:
+08b/reset/stale HTTP/reconnect policies ждут отдельного решения. Direct D&D imports,
+HpControls и Issue #16 остаются отдельными ограничениями до согласованных этапов.
 
 ## 1. AS-IS: структура
 

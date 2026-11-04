@@ -212,7 +212,12 @@ FSD-07/08/09 не начинаются автоматически. Решени�
 Zustand требует **отдельного пересмотра ADR D5 перед FSD-08**: исторический D5 ниже
 не является финальным решением этого вопроса и не реализуется в FSD-06c.
 
-## Статус FSD-07 в текущем PR
+## Завершённый этап FSD-07
+
+Объединён в [PR #21](https://github.com/LunierVeil/Laterna-VTT/pull/21), master
+`922a58c6463e8582a125558e9ad30f9113fa7840`.
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41738827947) успешен.
+Далее сохранён контекст этапа; raw store imports заменены в FSD-08a ниже.
 
 Проверенная база — master `ab08d0b320950df4ab5cb5c72ebf66af11e41c94`, после PR #20. Один PR и четыре последовательных
 логических коммита: 07a definitions/bonus/tokenStats → 07b Context/documents →
@@ -281,6 +286,61 @@ Zustand, CSS, зависимости и строгий CI gate не измене
 ROADMAP не актуализируется в FSD-07: отдельный docs-only этап допускается после
 завершения Frontend FSD, модульного монолита FastAPI и Alembic с проверками БД,
 по полному тексту ROADMAP v5, который владелец предоставит отдельно.
+
+## Статус FSD-08a в текущем PR
+
+Согласованы [ADR D5-v2 / уточнение D1](ADR_STATE_BOUNDARY.md). База — master
+`922a58c6463e8582a125558e9ad30f9113fa7840`, после PR #21. Один PR и пять логических
+коммитов с Fast CI точного SHA до следующего шага. Merge требует Full CI текущего
+test merge (35 Chromium, 8/8/5/14, CI required) и отдельного разрешения владельца.
+
+Текущее расположение и ответственность:
+
+| Модуль относительно web/src/state | Назначение |
+| --- | --- |
+| [model.ts](../web/src/state/model.ts) | Независимые типы Session/Campaign/Gameplay/UI, плоский UiState/UiData; нет обратного импорта factories |
+| [session.ts](../web/src/state/session.ts), [campaign.ts](../web/src/state/campaign.ts), [gameplay.ts](../web/src/state/gameplay.ts), [ui.ts](../web/src/state/ui.ts) | Прежние defaults/actions по областям; существующие cross-domain partial updates сохранены |
+| [factory.ts](../web/src/state/factory.ts) | Сборка одной плоской формы через set/get, без singleton self-import |
+| [store.ts](../web/src/state/store.ts) | Один production create, canonical instance и прежний test instrumentation URL |
+| [selectors.ts](../web/src/state/selectors.ts) | 33 чистые проекции аргумента, без hidden singleton reads |
+| [public.ts](../web/src/state/public.ts) | Readonly data-only snapshots/hooks и UI intents; нет raw setState/subscribe/projection setters |
+| [bridge.ts](../web/src/state/bridge.ts) | Ограниченные projection writers только для трёх app/session consumers |
+
+Сохраняются 33 data fields и все 28 прежних actions с теми же bodies/defaults
+(только singleton self-read заменён на instance get). Добавлены два именованных
+эквивалента трёх direct writes: setSelectionCounts и dismissNotice. Порядок updates
+не объединён в новый atomic snapshot/reset. Таймеры 2500/8000 и storage key
+lanterna.diceAnimation, short-circuit/default hardware behavior прежние.
+
+Все 20 source consumers используют public/bridge. Конкретный bridge allowlist:
+app/session/access.ts, useCampaignScene.ts, useSceneConnection.ts. Auth composition
+App вызывает acceptSession в существующем access module; network commands/requests
+и порядок выполнения остались у прежних владельцев. UI может только завершить
+существующую session и очистить прежний invite code через endSession/clearLastInvite;
+произвольный UserInfo или новый код через public записать нельзя.
+
+Public data snapshots кешируются по root identity и сохраняют вложенные references.
+Все 17 hook consumers выбирают прежние значения; Chat/TopBar/DiceMenu сохраняют три
+whole-store subscriptions, в том числе уведомление на каждый root update. Computed
+selectors, effect dependency arrays, JSX/keys и composition прежние. Нет новых
+providers, prop chains, aliases, Redux или дополнительных production stores.
+
+Снято прежнее исключение features/widgets → raw state/store. Новая state/public
+граница — согласованная инфраструктура D1, а не замаскированный import app/store.
+Entities/shared/systems не импортируют state; state не импортирует app/widgets/
+features/systems. AST architecture tests проверяют направления и циклы, including types.
+Исключение raw store URL остаётся только для state internals и существующих unit/
+Chromium diagnostics getState/subscribe; эти imports не создают второй instance.
+
+Другие legacy exceptions не расширяются: direct D&D imports и sheets/HpControls
+остаются до FSD-09. FSD-08a не завершает все будущие lifecycle задачи. Characterization
+сохраняет partial setMe/logout, omitted campaign fields, messages replacement/live cap,
+selection/scene cache и same-text toast limitation. Stale HTTP guards, новое reset/
+reconnect/role/campaign поведение и FSD-08b **не разрешены**. Сначала отдельное
+согласование reset matrix; исторические ADR и AS-IS ниже не переписываются.
+
+Backend/DB/API/WS/seq, SceneSocket, PixiJS runtime, игровые правила, CSS, sheets UX,
+анимация, ROADMAP и Beta functionality не изменены. Issue #16 остаётся вне scope.
 
 ## 1. Направления зависимостей
 

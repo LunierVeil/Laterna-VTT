@@ -306,7 +306,7 @@ renderer/documents/Context/cards — `widgets/character-sheet/legacy` (отно�
 `SheetOpsContext` единственный, DocEditor остаётся lazy. `SHEETS` и отдельный
 `sheets/HpControls.tsx` сохраняются до FSD-09; полноценная multi-system abstraction
 здесь не вводилась. Правила, JSON, серверные команды и прежний UI не изменены.
-Подробнее: [текущий этап и legacy-исключения](FSD_MIGRATION_PLAN.md#статус-fsd-07-в-текущем-pr).
+Подробнее: [текущий этап и legacy-исключения](FSD_MIGRATION_PLAN.md#завершённый-этап-fsd-07).
 
 **Форма, а не создатель персонажа.** Как лист в Roll20: игрок вписывает
 значения руками, правила никто не проверяет. Создатель (выбор класса,
@@ -813,3 +813,16 @@ Chromium с MiddleClickAutoscroll действительно запускает 
 Подготовлена CI/release-инфраструктура без изменения архитектуры приложения или схемы игровых данных. CI однократно разрешает ref в SHA, затем backend/frontend/Chromium и обязательный aggregate проверяют этот коммит. Windows release вызывает CI как dependency, собирает только tested_sha, запускает распакованный ZIP через embedded Python с временными DB/uploads/ключом и оригинальным smoke-test; write permission получает только отдельный publish job. Обычный push master не выпускает релиз. Workflow и инструкции не выполняют перенос GitHub самостоятельно.
 
 Новая история готовится отдельным снимком working tree без старой .git; Alpha Legacy сохраняет прежние ветки, теги, коммиты и авторов. Mirrors/bundles не заменяют экспорт GitHub-объектов и локальных игровых данных. Подробности: docs/REPOSITORY_MIGRATION.md, docs/CI_CD.md и docs/DEVELOPMENT.md. Реальное исполнение GitHub/Windows требует следующего согласованного этапа; локальная валидация не выдаётся за запуск на Actions.
+
+
+## Граница Zustand после FSD-08a
+
+Согласованный [ADR D5-v2 / D1](ADR_STATE_BOUNDARY.md) задаёт одну плоскую production
+instance и логические Session/Campaign/Gameplay/UI. UI импортирует state/public;
+app/session пишет проекции через state/bridge. Entities/shared/systems store не
+импортируют. Canonical state/store.ts остаётся внутренним и test instrumentation URL.
+Server projections, UI data, lifecycle scopes различаются: один Gameplay reset при
+смене сцены не вводится, открытый лист и прежние drafts сохраняются. Порядок snapshot/
+events, seq/rollback, PixiJS callbacks и существующие partial transitions прежние.
+FSD-08b, новые reset/reconnect policies и stale-response guards требуют отдельного
+согласования; FSD-08a их не реализует. [Структура и allowlist](FSD_MIGRATION_PLAN.md#статус-fsd-08a-в-текущем-pr).

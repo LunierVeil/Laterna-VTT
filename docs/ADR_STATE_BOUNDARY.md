@@ -24,7 +24,8 @@
 setState не экспортируется. `state/bridge` разрешён только app/session для записи
 серверных проекций. Auth composition App делегирует такую запись app/session.
 UI logout остаётся отдельным намерением после прежнего HTTP logout, не API записи
-произвольной identity. SceneView пишет существующие UI-проекции именованными actions.
+произвольной identity. Очистка старого lastInvite перед новым запросом также остаётся
+узким UI intent: clearLastInvite не принимает новый код от UI. SceneView пишет существующие UI-проекции именованными actions.
 
 Направления: app/pages/widgets/features → state/public; app/session → state/bridge;
 state → entities/shared. Entities/shared/systems не импортируют state. State не
@@ -63,3 +64,18 @@ scenes, история setMessages не ограничивается push-лим
 logout/role/scene/reconnect/campaign policies, atomic snapshot/reset, изменение
 connected, исправление таймеров и расширение persistence. UI/CSS, листы, Dice Overlay
 и ROADMAP/Beta-функции не меняются. Merge требует отдельного разрешения.
+
+## Реализация и проверяемые ограничения 08a
+
+Raw production imports теперь разрешены только внутри state. Bridge allowlist —
+app/session/access.ts, useCampaignScene.ts, useSceneConnection.ts. Публичный data-only
+hook сохраняет field references и отдельные subscriptions; snapshots кешируются по
+root identity. Whole-store consumers продолжают наблюдать каждый root update.
+setSelectionCounts/dismissNotice воспроизводят прежние partial writes без batching.
+Diagnostics продолжают использовать тот же canonical store URL и subscribe; тестовые
+factory instances изолированы и не являются дополнительными production stores.
+
+Characterization, factory, public, bridge и AST architecture tests проверяют совместимость.
+Исправление сохранённых ограничений не входит в 08a и потребует явного изменения
+контракта в отдельно согласованном 08b. Новые тесты не ослабляют существующие 35
+Chromium scenarios, их assertions, timeouts, manifest или CI required.
