@@ -150,6 +150,9 @@ Issue #16 остаётся открытой и вне scope.
 
 ## Актуальная граница состояния FSD-08a
 
+Исторический baseline PR #22; разрешённые позднее исправления lifecycle 08b
+описаны в [STATE_LIFECYCLE](STATE_LIFECYCLE.md).
+
 Основание — [согласованный ADR D5-v2 и уточнение D1](ADR_STATE_BOUNDARY.md).
 Один production store, плоская форма и четыре логические области: Session,
 Campaign, Gameplay, UI. [Полная структура и ограничения](FSD_MIGRATION_PLAN.md#статус-fsd-08a-в-текущем-pr).
@@ -176,6 +179,16 @@ Historical AS-IS/метрики/D1–D7 далее сохранены. Изве�
 characterization tests, не объявлены исправленными. ADR D5-v2 разрешает только 08a:
 08b/reset/stale HTTP/reconnect policies ждут отдельного решения. Direct D&D imports,
 HpControls и Issue #16 остаются отдельными ограничениями до согласованных этапов.
+
+## Дополнение FSD-08b
+
+Подтверждённые AS-IS дефекты 08a исправлены в текущей рабочей ветке: приватные
+проекции очищаются при identity boundary, старые HTTP/socket callbacks блокируются,
+scene transient state сбрасывается отдельно, connected отражает disconnect/retry,
+одинаковые toast больше не очищаются старым таймером. [Инварианты и риски](STATE_LIFECYCLE.md).
+Слой state/public и три app/session bridge consumers сохранены; добавлена локальная
+sessionEpoch, без переноса renderer/транспорта в Zustand. Проверки циклов и
+архитектурных границ остаются обязательными. Исторические измерения ниже не переписаны.
 
 ## 1. AS-IS: структура
 

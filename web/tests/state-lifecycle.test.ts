@@ -42,3 +42,35 @@ test("new scene combat projection preserves character context and closes no shee
   assert.equal(s.getState().characters.c, character); a.setCombat(null);
   assert.equal(s.getState().combat, null); assert.equal(s.getState().openCharacterId, "c");
 });
+
+for (const [field, action, duration] of [["error", "flashError", 2500], ["notice", "flashNotice", 8000]] as const) {
+  test(`${field}: repeated identical text survives old timer and expires at its own exact deadline`, t => {
+    t.mock.timers.enable({apis: ["setTimeout", "Date"], now: 0});
+    const s = createStore(createUiState), a = s.getState();
+    a[action]("same"); t.mock.timers.tick(1000); a[action]("same");
+    t.mock.timers.tick(duration - 1000); assert.equal(s.getState()[field], "same");
+    t.mock.timers.tick(999); assert.equal(s.getState()[field], "same");
+    t.mock.timers.tick(1); assert.equal(s.getState()[field], null);
+  });
+  test(`${field}: logout/new identity invalidates the previous user's timer`, t => {
+    t.mock.timers.enable({apis: ["setTimeout", "Date"], now: 0});
+    const s = createStore(createUiState), a = s.getState(); a.setMe(gm);
+    a[action]("same"); t.mock.timers.tick(1000); a.setMe(null);
+    a.setMe({id: "p", name: "Player", is_gm: false}); a[action]("same");
+    t.mock.timers.tick(duration - 1000); assert.equal(s.getState()[field], "same");
+    t.mock.timers.tick(1000); assert.equal(s.getState()[field], null);
+    assert.equal(s.getState().diceAnimation, false);
+  });
+}
+
+test("manual error/dismiss actions retire pending toast callbacks without changing their semantics", t => {
+  t.mock.timers.enable({apis: ["setTimeout", "Date"], now: 0});
+  const s = createStore(createUiState), a = s.getState();
+  a.flashError("same"); t.mock.timers.tick(1000); a.setError("same");
+  t.mock.timers.tick(1500); assert.equal(s.getState().error, "same", "manual error has no auto-dismiss timer");
+  a.setError(null); assert.equal(s.getState().error, null);
+  a.flashNotice("same"); t.mock.timers.tick(1000); a.dismissNotice();
+  assert.equal(s.getState().notice, null); a.flashNotice("same");
+  t.mock.timers.tick(7000); assert.equal(s.getState().notice, "same");
+  t.mock.timers.tick(1000); assert.equal(s.getState().notice, null);
+});

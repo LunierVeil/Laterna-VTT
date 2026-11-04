@@ -60,7 +60,7 @@ Characterization tests описывают AS-IS, включая известны
 scenes, история setMessages не ограничивается push-лимитом, same-text timer может
 очистить новое уведомление. Это не утверждение желаемого поведения навсегда.
 
-08b **не разрешён**. Отдельного согласования требуют reset matrix, stale HTTP guards,
+В разрешении на 08a этап 08b **не был разрешён**. Отдельного согласования требовали reset matrix, stale HTTP guards,
 logout/role/scene/reconnect/campaign policies, atomic snapshot/reset, изменение
 connected, исправление таймеров и расширение persistence. UI/CSS, листы, Dice Overlay
 и ROADMAP/Beta-функции не меняются. Merge требует отдельного разрешения.
@@ -79,3 +79,13 @@ Characterization, factory, public, bridge и AST architecture tests провер
 Исправление сохранённых ограничений не входит в 08a и потребует явного изменения
 контракта в отдельно согласованном 08b. Новые тесты не ослабляют существующие 35
 Chromium scenarios, их assertions, timeouts, manifest или CI required.
+
+## Дополнение: согласован FSD-08b lifecycle/reset
+
+После merge PR #22 и зелёного master CI владелец отдельно разрешил 08b.
+[Reset-матрица, реализация и оставшиеся ограничения](STATE_LIFECYCLE.md) заменяют
+AS-IS lifecycle ограничения 08a: атомарный identity reset с сохранением device
+preferences, epoch/cancellation guards, scene-bound reset, connected на disconnect,
+toast generations. Архитектура D5-v2/D1 не меняется; исторический D5 остаётся историей.
+Не вводятся campaign switch, live role-switch, новый транспорт или игровые правила.
+Merge 08b и FSD-09 требуют отдельных разрешений.

@@ -125,13 +125,14 @@ test("scene/projection setters do not introduce a reset or touch unrelated cache
   assert.deepEqual([state.sceneName, state.gridSize, state.background], ["Next", 100, "/uploads/test.png"]);
 });
 
-test("toast timing preserves newer different messages and the existing same-text timer limitation", t => {
+test("toast timing preserves newer different or identical messages for their full duration", t => {
   t.mock.timers.enable({apis: ["setTimeout", "Date"], now: 0});
   initial.flashError("first"); t.mock.timers.tick(1000); initial.flashError("second");
   t.mock.timers.tick(1500); assert.equal(useUi.getState().error, "second");
   t.mock.timers.tick(1000); assert.equal(useUi.getState().error, null);
   initial.flashError("same"); t.mock.timers.tick(1000); initial.flashError("same");
-  t.mock.timers.tick(1500); assert.equal(useUi.getState().error, null, "AS-IS, not a new desired reset policy");
+  t.mock.timers.tick(1500); assert.equal(useUi.getState().error, "same", "older identical-message timer is invalid");
+  t.mock.timers.tick(1000); assert.equal(useUi.getState().error, null);
   initial.flashNotice("notice"); t.mock.timers.tick(7999); assert.equal(useUi.getState().notice, "notice");
   t.mock.timers.tick(1); assert.equal(useUi.getState().notice, null);
 });
