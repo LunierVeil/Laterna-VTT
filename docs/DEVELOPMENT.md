@@ -1,7 +1,12 @@
 # Локальная разработка и Pull Request
 
-**AS-IS, DOCS-00:** frontend FSD до FSD-09b и Design System завершены на master
-`ff9681769978e295a763bcdea8aba536b7967566`. Backend modular monolith, устойчивый
+**AS-IS, DOCS-00:** frontend FSD до FSD-09b завершён. Design System
+**Foundation/Components v0.3 реализована**: канонические токены и компоненты доступны
+в shared/styles и shared/ui, но **весь пользовательский интерфейс ещё не переведён**
+на них. Полный редизайн и завершённая интеграция всех экранов не заявляются.
+Исторический baseline FSD-09b — `ff9681769978e295a763bcdea8aba536b7967566`;
+для новой работы проверяются актуальные master, ветка и HEAD PR.
+Backend modular monolith, устойчивый
 DataHome/Alembic и расширенная Beta — будущая работа по [BETA_DECISIONS](BETA_DECISIONS.md).
 Ручные B01/B02 через Porthole и исходный B14 не закрываются автоматизацией;
 см. [BUGS](BUGS.md). Текущие пути: app/App.tsx, pages/table, widgets/scene-canvas,
