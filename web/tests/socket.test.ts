@@ -64,6 +64,20 @@ function transport(t: any) {
   return {peers, create:(id="first")=>{const s=new SceneSocket(id);sockets.push(s);s.connect();peers.at(-1)!.onopen();return s;}};
 }
 
+test("disconnect signal covers retry and explicit cleanup without replaying old packets", t => {
+  const h = transport(t), s = h.create(), seen: unknown[] = [];
+  let drops = 0; const off = s.onDisconnect(() => drops++); s.on(m => seen.push(m));
+  h.peers[0].receive({type: "snapshot", seq: 7, scene: {}});
+  h.peers[0].close(); assert.equal(drops, 1);
+  t.mock.timers.tick(999); assert.equal(h.peers.length, 1);
+  t.mock.timers.tick(1); assert.equal(h.peers.length, 2);
+  h.peers[1].onopen(); h.peers[1].receive({type: "snapshot", seq: 8, scene: {}});
+  h.peers[0].receive({type: "snapshot", seq: 1, scene: {}});
+  assert.equal(seen.length, 2); assert.equal(s.sequence, 8);
+  s.close(); assert.equal(drops, 2); off();
+  t.mock.timers.tick(8000); assert.equal(h.peers.length, 2);
+});
+
 test("gap automatically reconnects with fresh snapshot; concurrent old messages cannot overwrite it", t=>{
   const h=transport(t),s=h.create(),messages:any[]=[];s.on(m=>messages.push(m));
   h.peers[0].receive({type:"snapshot",seq:8,scene:{fog:[]}});
