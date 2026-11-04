@@ -1,3 +1,4 @@
+import type { CatalogBindings } from "../../../entities/character/ui/catalog-slot";
 import { useUi, type SideTab, uiActions, selectSideTab, selectIsGm } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenPlacementPort } from "../../../entities/scene/model/scene-port";
@@ -17,12 +18,14 @@ const TABS: { id: SideTab; label: string; gm?: boolean }[] = [
 /** Правая колонка: чат и всё, что раньше висело кнопками в шапке. */
 export function Sidebar({
   socket,
+  catalog,
   onHide,
   sceneId,
   onOpenScene,
   stageRef,
 }: {
   socket: SceneSocket;
+  catalog: CatalogBindings;
   onHide?: () => void;
   sceneId: string;
   onOpenScene: (id: string) => void;
@@ -49,7 +52,7 @@ export function Sidebar({
       </div>
       {/* Чат не размонтируем: иначе теряется недописанное сообщение и прокрутка. */}
       <Chat socket={socket} hidden={tab !== "chat"} diceControls={<DicePanel socket={socket} />} />
-      {tab === "characters" && <CharactersPanel socket={socket} stageRef={stageRef} />}
+      {tab === "characters" && <CharactersPanel catalog={catalog} socket={socket} stageRef={stageRef} />}
       {tab === "scenes" && isGm && <ScenesPanel socket={socket} sceneId={sceneId} onOpenScene={onOpenScene} />}
       {tab === "players" && isGm && <PlayersPanel socket={socket} />}
     </aside>

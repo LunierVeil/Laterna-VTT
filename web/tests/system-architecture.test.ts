@@ -28,7 +28,6 @@ for (const {file,name,ast} of sources) {
   visit(ast);
 }
 const legacy = [
-  "features/character-management/ui/CharactersPanel.tsx",
   "widgets/character-sheet/legacy/CharacterSheet.tsx",
 ];
 test("only app composition and the exact 09b legacy allowlist import D&D modules", () => {

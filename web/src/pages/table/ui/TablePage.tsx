@@ -62,7 +62,7 @@ export function TablePage({
           <DiceAnimation key={animatedRoll?.id ?? "none"} message={diceAnimation ? animatedRoll : null} />
           <ZoomControl stageRef={stageRef} />
         </div>
-        <Sidebar onHide={onHideSidebar} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
+        <Sidebar catalog={systemBindings.catalog} onHide={onHideSidebar} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
       </main>
       {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}

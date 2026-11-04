@@ -42,3 +42,23 @@ test("renderer aggregation accepts injected system-free projections and only rea
   assert.deepEqual(calls,["visible"]); assert.equal(result.get(c.id),stats); assert.equal(result.has("private"),false);
   assert.deepEqual([...projectStats({c},()=>null)],[]); assert.deepEqual(c.data,{});
 });
+
+test("catalog slots stay stable; unknown records remain in the PC catalog and mob impact is supplied by the system", () => {
+  const make = (id: string, system: string) => ({id,name:id,system,data:{},owner_id:null,source_format:null});
+  const pc = make("pc", "dnd5e"), unknown = make("unknown", "other"), mob = make("mob", "mob");
+  const lists: string[][] = [];
+  const Root = systemBindings.catalog.Root;
+  const html = renderToStaticMarkup(createElement(Root, {
+    characters: {pc,unknown,mob}, isGm: true,
+    renderPlayers: list => {lists.push(list.map(c=>c.id)); return null;},
+    renderMobs: () => {throw new Error("default tab must remain PC");},
+  }));
+  assert.deepEqual(lists, [["pc","unknown"]]); assert.match(html, /Мобы и NPC/);
+  const rows: any[] = [];
+  renderToStaticMarkup(createElement(systemBindings.catalog.Mobs, {
+    list: [mob], placeHidden: false, renderRow: row => {rows.push(row); return null;},
+    onCreate:()=>{}, onCopy:()=>{}, onPlace:()=>{}, onPlaceHidden:()=>{},
+  }));
+  assert.equal(rows[0].character, mob); assert.equal(rows[0].deletionImpact, " и потеряют свои хиты");
+  assert.equal(systemBindings.catalog.Root, Root);
+});
