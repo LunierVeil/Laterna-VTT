@@ -6,8 +6,8 @@ import { createContext, useContext } from "react";
  * блок только просит. Контекст - чтобы не тянуть их пропсами через
  * все виды блоков.
  */
-import type { SheetOps } from "../../../entities/character/ui/sheet-port";
-export type { SheetOps } from "../../../entities/character/ui/sheet-port";
+import type { SheetOps } from "../../../../entities/character/ui/sheet-port";
+export type { SheetOps } from "../../../../entities/character/ui/sheet-port";
 
 export const SheetOpsContext = createContext<SheetOps | null>(null);
 

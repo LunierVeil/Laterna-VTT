@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { HpControls } from "../../../systems/dnd5e/ui/HpControls";
-import type { CharacterSheetProps, SheetActions } from "../../../entities/character/ui/sheet-port";
-import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../entities/character/model/legacy-sheet-schema";
+import { HpControls } from "../HpControls";
+import type { CharacterSheetProps, SheetActions } from "../../../../entities/character/ui/sheet-port";
+import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../../entities/character/model/legacy-sheet-schema";
 import { Cards, cardMatches } from "./Cards";
 import { SpellBook } from "./SpellBook";
 import { SheetOpsContext, type SheetOps } from "./sheetOps";
-import { safeUpload } from "../../../shared/api/upload";
-import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../../../systems/dnd5e/model/bonus";
+import { safeUpload } from "../../../../shared/api/upload";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../../model/bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {

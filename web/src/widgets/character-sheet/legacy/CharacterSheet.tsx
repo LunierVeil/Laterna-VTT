@@ -3,7 +3,7 @@ import type { Character } from "../../../shared/api/protocol";
 import { uploadImage } from "../../../shared/api/upload";
 import { useUi, uiActions, selectIsGm, selectAccounts } from "../../../state/public";
 import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
-import { CharacterSheetView } from "./CharacterSheetView";
+import { CharacterSheetView } from "../../../systems/dnd5e/ui/legacy/CharacterSheetView";
 import { createSheetActions } from "../model/sheet-actions";
 
 /** Connected host; editing, drafts and Context remain in the renderer. */
