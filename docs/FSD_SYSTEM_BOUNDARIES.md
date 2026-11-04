@@ -1,5 +1,19 @@
 # FSD-09 — системные проекции, renderer family и статическая композиция
 
+<!-- DOCS-00 STATUS BEGIN -->
+**AS-IS, DOCS-00 · 04.11.2026:** frontend FSD завершён до FSD-09b,
+[PR #25](https://github.com/LunierVeil/Laterna-VTT/pull/25) объединён в master
+`ff9681769978e295a763bcdea8aba536b7967566`;
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41884690439)
+успешен (38 Chromium cases). Один Zustand-store, state/public/bridge и system UI
+bindings реализованы. Модульный монолит backend/DataHome/Alembic и функции расширенной Beta
+ещё предстоит внедрять; см. [реестр решений](BETA_DECISIONS.md).
+
+Ниже сохранены исторические базы, метрики и контекст отдельных PR. «Текущий PR»,
+«не начат» и «merge требует разрешения» внутри прежних этапов относятся к моменту
+их записи, не к состоянию master сейчас. Исходные свидетельства не переписаны.
+<!-- DOCS-00 STATUS END -->
+
 Статус: FSD-09a объединён в PR #24; FSD-09b реализован в текущей ветке.
 Merge FSD-09b требует отдельного разрешения владельца.
 База — master `321d80309c4e7563dabb8bd5b579bd388cf2c63f` после FSD-08a/08b.

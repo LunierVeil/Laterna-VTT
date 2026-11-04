@@ -1,5 +1,21 @@
 # CI/CD и выпуск кандидата
 
+## Подтверждённый baseline DOCS-00
+
+Master `ff9681769978e295a763bcdea8aba536b7967566`, FSD-09b завершён (PR #25).
+[Full CI №41884690439](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41884690439)
+успешен непосредственно на этом merge-коммите: resolve, backend, frontend,
+четыре Chromium jobs и CI required — все success. Manifest содержит **13 suites**,
+38 cases: sheets 9 / tokens 8 / scenes 5 / interaction 16, без failed/skipped/cancelled.
+Локально на том же исходном коде подтверждены 169 backend, 118 frontend unit и
+31 scripts unittest, typecheck/build; это привязанный к срезу результат, не вечный count.
+
+DOCS-00 не меняет workflows, manifest или gate и не запускает Actions без push/PR.
+Для будущего готового PR требуется новый Full CI на актуальном test merge SHA;
+предыдущий зелёный master не подменяет его. Windows release не запускается от
+обычного push master/PR: только v* tag либо отдельный ручной dispatch; публикация
+всегда требует отдельного разрешения.
+
 ## Fast CI и Full CI
 
 `fast-ci.yml` запускает backend и frontend при push в рабочие ветки и для draft PR.

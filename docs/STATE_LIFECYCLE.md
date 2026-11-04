@@ -1,5 +1,19 @@
 # FSD-08b: lifecycle и reset клиентского состояния
 
+<!-- DOCS-00 STATUS BEGIN -->
+**AS-IS, DOCS-00 · 04.11.2026:** frontend FSD завершён до FSD-09b,
+[PR #25](https://github.com/LunierVeil/Laterna-VTT/pull/25) объединён в master
+`ff9681769978e295a763bcdea8aba536b7967566`;
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41884690439)
+успешен (38 Chromium cases). Один Zustand-store, state/public/bridge и system UI
+bindings реализованы. Модульный монолит backend/DataHome/Alembic и функции расширенной Beta
+ещё предстоит внедрять; см. [реестр решений](BETA_DECISIONS.md).
+
+Ниже сохранены исторические базы, метрики и контекст отдельных PR. «Текущий PR»,
+«не начат» и «merge требует разрешения» внутри прежних этапов относятся к моменту
+их записи, не к состоянию master сейчас. Исходные свидетельства не переписаны.
+<!-- DOCS-00 STATUS END -->
+
 Согласованный scope: один плоский store, четыре области из
 [ADR D5-v2](ADR_STATE_BOUNDARY.md). База — FSD-08a, master
 `73f7b9769d88bfd6c192c24acac14be274dec698`; PR #22 объединён с пятью
