@@ -27,12 +27,8 @@ for (const {file,name,ast} of sources) {
   }
   visit(ast);
 }
-const legacy = [
-  "features/character-management/ui/CharactersPanel.tsx",
-  "widgets/character-sheet/legacy/Cards.tsx",
-  "widgets/character-sheet/legacy/CharacterSheet.tsx",
-];
-test("only app composition and the exact 09b legacy allowlist import D&D modules", () => {
+const legacy: string[] = [];
+test("only app composition imports system modules; the legacy allowlist is empty", () => {
   const actual=new Set<string>();
   for (const e of edges.filter(e=>e.to.startsWith("systems/")&&!e.from.startsWith("systems/"))) {
     if (e.from.startsWith("app/systems/")) continue;
@@ -51,7 +47,9 @@ test("system code cannot reach app/store/widgets or the scene transport; model s
     function visit(n: ts.Node) {
       if (ts.isCallExpression(n)) {
         const expression=n.expression.getText(ast);
-        assert.ok(!["fetch","useUi","Math.random","crypto.randomUUID"].includes(expression),name);
+        assert.ok(!["fetch","useUi","Math.random"].includes(expression),name);
+        // Existing card IDs, not game RNG: retain exactly the legacy UUID call.
+        if (expression === "crypto.randomUUID") assert.equal(name,"systems/dnd5e/ui/legacy/Cards.tsx");
         if (ts.isPropertyAccessExpression(n.expression)) assert.ok(!["send","setState","getState"].includes(n.expression.name.text),name);
       }
       if (ts.isNewExpression(n)) assert.ok(!["WebSocket","SceneSocket","SceneStage"].includes(n.expression.getText(ast)),name);
@@ -61,7 +59,7 @@ test("system code cannot reach app/store/widgets or the scene transport; model s
   }
 });
 test("universal consumers cannot resolve app registries or inspect legacy sheet rules", () => {
-  const widgets=["widgets/scene-canvas/ui/SceneView.tsx","widgets/token-inspector/ui/TokenCard.tsx","widgets/combat-tracker/ui/InitiativePanel.tsx"];
+  const widgets=["widgets/scene-canvas/ui/SceneView.tsx","widgets/token-inspector/ui/TokenCard.tsx","widgets/combat-tracker/ui/InitiativePanel.tsx","widgets/character-sheet/ui/CharacterSheet.tsx","features/character-management/ui/CharactersPanel.tsx","features/character-management/ui/SheetRow.tsx"];
   for (const e of edges.filter(e=>widgets.includes(e.from))) {
     assert.ok(!/^(app|systems)\//.test(e.to)&&!e.to.endsWith("legacy-sheet-schema.ts"),JSON.stringify(e));
   }
@@ -72,7 +70,7 @@ test("universal consumers cannot resolve app registries or inspect legacy sheet 
     }
     visit(ast);
   }
-  assert.deepEqual(edges.filter(e=>e.names.includes("SHEETS")).map(e=>e.from),["widgets/character-sheet/legacy/CharacterSheet.tsx"]);
+  assert.deepEqual(edges.filter(e=>e.names.includes("SHEETS")).map(e=>e.from),[]);
   assert.equal(existsSync(path.join(root,"sheets/HpControls.tsx")),false);
 });
 test("renderer CharacterStats keeps one canonical optional hp/max/badge/speed contract", () => {
@@ -82,4 +80,27 @@ test("renderer CharacterStats keeps one canonical optional hp/max/badge/speed co
   assert.deepEqual(definitions[0].node.members.map(m=>({key:m.name?.getText(),optional:ts.isPropertySignature(m)&&!!m.questionToken,type:ts.isPropertySignature(m)?m.type?.getText():null})),[
     {key:"hp",optional:true,type:"number"},{key:"max",optional:true,type:"number"},{key:"badge",optional:true,type:"string"},{key:"speed",optional:true,type:"number"},
   ]);
+});
+
+test("system sheet family has one Context, two lazy editor entries and the unchanged card ID factory", () => {
+  const contexts: string[] = [], lazyEditors: string[] = [], uuids: string[] = [];
+  for (const {name,ast} of sources) {
+    function visit(n: ts.Node) {
+      if (ts.isVariableDeclaration(n) && n.name.getText(ast) === "SheetOpsContext") contexts.push(name);
+      if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword && n.arguments[0]?.getText(ast) === '"./DocEditor"') lazyEditors.push(name);
+      if (name.startsWith("systems/") && ts.isCallExpression(n) && n.expression.getText(ast) === "crypto.randomUUID") uuids.push(name);
+      if (ts.isIdentifier(n)) assert.notEqual(n.text,"SHEETS",`${name}: obsolete second registry`);
+      ts.forEachChild(n,visit);
+    }
+    visit(ast);
+  }
+  assert.deepEqual(contexts,["systems/dnd5e/ui/legacy/sheetOps.ts"]);
+  assert.deepEqual(lazyEditors.sort(),["systems/dnd5e/ui/legacy/Cards.tsx","systems/dnd5e/ui/legacy/SpellBook.tsx"]);
+  assert.deepEqual(uuids,["systems/dnd5e/ui/legacy/Cards.tsx"]);
+  const cards = sources.find(s=>s.name === uuids[0])!;
+  const factory = cards.ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==="newId")!;
+  assert.match(factory.getText(cards.ast), /return `c-\$\{crypto\.randomUUID\(\)\.slice\(0, 12\)\}`;/);
+  assert.equal(existsSync(path.join(root,"widgets/character-sheet/legacy")),false);
+  const table = readFileSync(path.join(root,"pages/table/ui/TablePage.tsx"),"utf8");
+  assert.match(table, /<CharacterSheet sheet=\{systemBindings\.sheet\} key=\{openCharacter\.id\}/);
 });

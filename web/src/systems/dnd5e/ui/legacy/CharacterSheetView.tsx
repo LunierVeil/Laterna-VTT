@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { HpControls } from "../../../systems/dnd5e/ui/HpControls";
-import type { SceneSocket } from "../../../shared/api/scene-socket";
-import { useUi, uiActions, selectIsGm, selectAccounts } from "../../../state/public";
-import type { Character } from "../../../shared/api/protocol";
-import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../entities/character/model/legacy-sheet-schema";
-import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
+import { HpControls } from "../HpControls";
+import type { CharacterSheetProps, SheetActions } from "../../../../entities/character/ui/sheet-port";
+import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../../entities/character/model/legacy-sheet-schema";
 import { Cards, cardMatches } from "./Cards";
 import { SpellBook } from "./SpellBook";
 import { SheetOpsContext, type SheetOps } from "./sheetOps";
-import { safeUpload, uploadImage } from "../../../shared/api/upload";
-import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../../../systems/dnd5e/model/bonus";
+import { safeUpload } from "../../../../shared/api/upload";
+import { blockTotal, checkBonus, computedBonus, computedRowBonus, hpChanges, profLevel } from "../../model/bonus";
 
 /** Значение по пути "a.b.c". */
 function get(data: unknown, path: string): unknown {
@@ -911,23 +908,24 @@ function Portrait({
   name,
   editing,
   onChange,
+  actions,
 }: {
+  actions: SheetActions;
   url: string | null;
   name: string;
   editing: boolean;
   onChange: (url: string | null) => void;
 }) {
-  const isGm = useUi(selectIsGm);
   const file = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const pick = async (f: File) => {
     setBusy(true);
     try {
       // Лимиты - как у картинки токена (server/app/config.py).
-      const { url } = await uploadImage(f, { maxBytes: (isGm ? 25 : 5) * 1024 * 1024, maxSide: 2048, what: "портрет" });
+      const url = await actions.uploadPortrait(f);
       onChange(url);
     } catch (e) {
-      uiActions.flashError(e instanceof Error ? e.message : "загрузка не удалась");
+      actions.error(e instanceof Error ? e.message : "загрузка не удалась");
     } finally {
       setBusy(false);
     }
@@ -1008,16 +1006,13 @@ function AbilityChecks({ block, checks, data, editing, set, roll }: {
 const TAB_KEY = "lanterna.sheetTab";
 
 /** Лист персонажа поверх сцены. Сам ничего не хранит: правки - командами. */
-export function CharacterSheet({ character, socket }: { character: Character; socket: SceneSocket }) {
-  const accounts = useUi(selectAccounts);
-  const isGm = useUi(selectIsGm);
-  const schema = SHEETS[character.system];
+export function CharacterSheetView({ character, isGm, owner, actions, schema }: CharacterSheetProps & { schema?: SheetSchema }) {
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState(() => localStorage.getItem(TAB_KEY) || "main");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReimport, setConfirmReimport] = useState(false);
   const [query, setQuery] = useState("");
-  const close = () => uiActions.openCharacter(null);
+  const close = actions.close;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1029,25 +1024,10 @@ export function CharacterSheet({ character, socket }: { character: Character; so
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const set = (path: string, value: unknown) =>
-    socket.send("character.update", { id: character.id, set: { [path]: value } });
-  const setMany = (changes: Record<string, unknown>) =>
-    socket.send("character.update", { id: character.id, set: changes });
-  // Бросок из листа: формула и подпись - на сервер, число выпадает там.
-  // У ГМ галочка "скрыто" в панели кубов действует и на броски из листа:
-  // атака монстра не должна светить игрокам бонус и урон.
-  const roll: RollFn = (formula, label) =>
-    socket.send("dice.roll", { formula, label, hidden: useUi.getState().isGm && useUi.getState().hiddenRolls });
+  const { set, setMany, roll } = actions;
+  // Keep one Context and the existing per-render callbacks.
+  const ops: SheetOps = { list: actions.list, counter: actions.counter, roll };
 
-  // Списки и счётчики - отдельными командами: пересчитывает сервер.
-  const ops: SheetOps = {
-    list: (path, op, extra) => socket.send("character.list", { id: character.id, path, op, ...extra }),
-    counter: (path, delta, maxPath) =>
-      socket.send("character.counter", { id: character.id, path, delta, ...(maxPath ? { max_path: maxPath } : {}) }),
-    roll,
-  };
-
-  const owner = accounts.find((a) => a.id === character.owner_id)?.name;
   const current = schema?.tabs.find((t) => t.id === tab) ?? schema?.tabs[0];
   const subtitle = schema?.summary.subtitle
     .map((p) => get(character.data, p))
@@ -1079,7 +1059,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
           set,
           roll,
           startEdit: () => setEditing(true),
-          say: (text) => socket.send("chat.say", { text }),
+          say: actions.say,
           who: character.name,
         }),
   }));
@@ -1100,6 +1080,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
               name={character.name}
               editing={editing}
               onChange={(url) => set(schema.portrait!, url)}
+              actions={actions}
             />
           )}
           <div className="sheet-title">
@@ -1107,7 +1088,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
               <FieldInput
                 field={{ key: "name", label: "Имя персонажа", kind: "text" }}
                 value={character.name}
-                onCommit={(v) => socket.send("character.update", { id: character.id, name: v ?? "" })}
+                onCommit={actions.rename}
               />
             ) : (
               <h2>{character.name}</h2>
@@ -1204,7 +1185,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
                   className="tool tool-danger"
                   title="значения из файла (хиты, характеристики, оружие и ресурсы из файла) заменятся; своё - тексты «О персонаже», заметки, портрет, свои бонусы и карточки - останется"
                   onClick={() => {
-                    socket.send("character.reimport", { id: character.id });
+                    actions.reimport();
                     setConfirmReimport(false);
                   }}
                 >
@@ -1222,7 +1203,7 @@ export function CharacterSheet({ character, socket }: { character: Character; so
             {confirmDelete ? (
               <button
                 className="tool tool-danger"
-                onClick={() => socket.send("character.delete", { id: character.id })}
+                onClick={actions.remove}
               >
                 Удалить лист?
               </button>

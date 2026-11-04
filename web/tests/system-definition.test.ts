@@ -9,7 +9,8 @@ registerHooks({resolve(specifier, context, next) {
 }});
 const { resolveDefinition, systemPresentation: view } = await import("../src/app/systems/registry.ts");
 const { characterStatsFor } = await import("../src/systems/dnd5e/model/tokenStats.ts");
-const { SHEETS } = await import("../src/systems/dnd5e/model/dnd5e.ts");
+const { dnd5e } = await import("../src/systems/dnd5e/model/dnd5e.ts");
+const { mob } = await import("../src/systems/dnd5e/model/mob.ts");
 const character = (system: string, data: any = {}) => ({id: "c", name: "C", system, data, owner_id: null, source_format: null});
 const token = (hp: number | null = null) => ({id: "t", name: "T", color: "#fff", owner_id: null, size: 1, character_id: "c", image_url: null, layer: "tokens", hp});
 
@@ -26,7 +27,7 @@ test("static resolver preserves wire keys and rejects unknown/inherited names wi
 });
 test("definition projectors exactly match canonical legacy stats without mutating saved JSON", () => {
   for (const c of [character("dnd5e"), character("mob"), character("dnd5e", {vitals:{hp:{current:-2,max:0},ac:0,speed:" 30 фт"}}), character("mob", {hp:{max:17},ac:"12",speed:"25.5"})]) {
-    const before = JSON.stringify(c); assert.deepEqual(view.tokenStats(c), characterStatsFor(c, SHEETS[c.system]));
+    const before = JSON.stringify(c); assert.deepEqual(view.tokenStats(c), characterStatsFor(c, c.system === "mob" ? mob : dnd5e));
     assert.equal(JSON.stringify(c), before);
   }
 });

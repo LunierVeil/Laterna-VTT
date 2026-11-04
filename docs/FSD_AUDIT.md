@@ -127,10 +127,10 @@ Store остаётся прежним до FSD-08; **пересмотр ADR D5 �
 - [dnd5e](../web/src/systems/dnd5e/model/dnd5e.ts), [mob](../web/src/systems/dnd5e/model/mob.ts),
   [equipment](../web/src/systems/dnd5e/model/equipment.ts), [bonus](../web/src/systems/dnd5e/model/bonus.ts),
   [tokenStats](../web/src/systems/dnd5e/model/tokenStats.ts) — systems/dnd5e/model.
-- [sheetOps](../web/src/widgets/character-sheet/legacy/sheetOps.ts), [richDoc](../web/src/widgets/character-sheet/legacy/richDoc.ts),
-  [RichText](../web/src/widgets/character-sheet/legacy/RichText.tsx), [DocEditor](../web/src/widgets/character-sheet/legacy/DocEditor.tsx),
-  [Cards](../web/src/widgets/character-sheet/legacy/Cards.tsx), [SpellBook](../web/src/widgets/character-sheet/legacy/SpellBook.tsx),
-  [CharacterSheet](../web/src/widgets/character-sheet/legacy/CharacterSheet.tsx) — единый character-sheet widget slice.
+- [sheetOps](../web/src/systems/dnd5e/ui/legacy/sheetOps.ts), [richDoc](../web/src/systems/dnd5e/ui/legacy/richDoc.ts),
+  [RichText](../web/src/systems/dnd5e/ui/legacy/RichText.tsx), [DocEditor](../web/src/systems/dnd5e/ui/legacy/DocEditor.tsx),
+  [Cards](../web/src/systems/dnd5e/ui/legacy/Cards.tsx), [SpellBook](../web/src/systems/dnd5e/ui/legacy/SpellBook.tsx),
+  [CharacterSheet](../web/src/widgets/character-sheet/ui/CharacterSheet.tsx) — единый character-sheet widget slice.
 
 Это механический ownership move. Сохранены bodies, JSX/keys, hooks/dependencies,
 единственный SheetOpsContext, lazy DocEditor, санитайзер и ресурсы rich documents,
@@ -490,3 +490,15 @@ selectors, разделение CSS, typed command map, профилирован
 не новый прогон для этих документов. В Stage 1 проверяются граф, ссылки и paths,
 отсутствие изменений исходников/тестов/dependencies и git diff --check.
 Динамическое профилирование, новая НРИ, воспроизведение R1 и рефакторинг не выполнялись.
+
+
+## Актуализация после реализации FSD-09b
+
+Исторический AS-IS выше сохранён. Live links renderer family теперь указывают в
+systems/dnd5e/ui/legacy; прежний CharacterSheet разделён на connected host в
+widgets/character-sheet/ui и системное представление. Catalog presentation также
+в systems/dnd5e/ui, права/команды/подписки остаются в connected features.
+[Текущая структура, гарантии и ограничения](FSD_SYSTEM_BOUNDARIES.md#fsd-09b-connected-hosts-и-system-ui).
+Direct system allowlist пуст, SHEETS удалён. Legacy D&D schema DSL остаётся
+обозначенным ограничением; универсальный SDK не заявляется. Merge ещё требует
+отдельного разрешения и Full CI актуального test merge. ROADMAP не изменён.

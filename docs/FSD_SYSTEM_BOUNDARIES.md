@@ -1,6 +1,7 @@
-# FSD-09a — системные проекции и статическая композиция
+# FSD-09 — системные проекции, renderer family и статическая композиция
 
-Статус: реализация текущего PR; merge требует отдельного разрешения владельца.
+Статус: FSD-09a объединён в PR #24; FSD-09b реализован в текущей ветке.
+Merge FSD-09b требует отдельного разрешения владельца.
 База — master `321d80309c4e7563dabb8bd5b579bd388cf2c63f` после FSD-08a/08b.
 Архитектура следует [D1–D7](FSD_MIGRATION_PLAN.md#6-согласованные-adr-d1d7) и
 [границе состояния D5-v2](ADR_STATE_BOUNDARY.md). Lifecycle 08b не переписывается.
@@ -54,40 +55,82 @@ Registry — закрытая статическая Map, не public mutable re
   шаблона. Эти разные legacy semantics намеренно не унифицированы.
 - Badge/speed parsing и optional numbers прежние. Speed/измерения пока в футах.
 - Unknown definition не создаёт stats/HP controls. CharacterSheet сохраняет свой
-  прежний unknown-system fallback; его renderer не переносился.
-- Все useUi subscriptions (19 consumers, 3 whole-store hooks), React keys и
+  прежний unknown-system fallback; renderer перенесён в 09b без смены schema semantics.
+- Существующие selector subscriptions и 3 whole-store hooks, React keys и
   имена/ключи WS payload сохранены. Никаких per-frame координат в Zustand.
 - HpControls component types находятся на module scope: нет inline component
   factories или нового key, который сбрасывал бы input drafts.
 - Backend combat.roll остаётся 1d20+bonus. Это явный legacy combat adapter,
   не обещание универсальной инициативы для произвольных НРИ.
 
-## Точный allowlist до FSD-09b
+## FSD-09b: connected hosts и system UI
 
-| Оставшийся consumer | Почему остаётся |
-| --- | --- |
-| [CharactersPanel](../web/src/features/character-management/ui/CharactersPanel.tsx) → tokenStats.at | Catalog UI, PC/mob classification, поля/подписи и LSS будут отделяться в 09b |
-| [CharacterSheet](../web/src/widgets/character-sheet/legacy/CharacterSheet.tsx) → SHEETS/bonus/HpControls | Большой stateful renderer и host ещё не разделены; в 09a изменён только импорт HP leaf |
-| [Cards](../web/src/widgets/character-sheet/legacy/Cards.tsx) → bonus.totalWeight | Часть legacy renderer family до 09b |
+База 09b — master `6d8a9fb89e87c4b2a303115d8cb944fe78688efc`, после зелёного
+[Full CI master 09a](https://github.com/LunierVeil/Laterna-VTT/actions/runs/41815275703).
 
-SHEETS остаётся **только legacy schema lookup для CharacterSheet** в dnd5e.ts,
-ссылаясь на те же dnd5e/mob constants. Это временное исключение, не второй resolver
-для универсальных widgets. Старые characterStats/statsOf wrappers удалены после
-переключения последнего consumer; расчёты не дублируются. Старого sheets/HpControls
-пути и compatibility re-export нет — оба caller обновлены атомарно.
+```text
+app/systems/ui-bindings.ts              стабильная композиция UI slots
+entities/character/ui/
+  sheet-port.ts                        callbacks, props, resolver; без schema/store/socket
+  catalog-slot.ts                       реальные root/list/row contracts
+widgets/character-sheet/
+  ui/CharacterSheet.tsx                 state/public, upload и подключение callbacks
+  model/sheet-actions.ts                прежние команды через supplied send
+features/character-management/ui/
+  CharactersPanel.tsx                   connected root/list hosts, прежние подписки
+  SheetRow.tsx                          права, linkedTokens, ConfirmDialog, drag MIME
+systems/dnd5e/ui/
+  CharacterSheets.tsx                   dnd5e/mob bindings и unsupported chrome
+  CharacterCatalog.tsx                  PC/mob classification, LSS/каталог presentation
+  legacy/                              View, Cards, SpellBook, RichText, DocEditor,
+                                       richDoc, единственный sheetOps Context
+```
 
-Архитектурный scope 09b предварительно согласован, **реализация не разрешена**:
-сначала merge/проверка 09a и отдельное разрешение. Перенос renderer family/catalog,
-его Context/lazy DocEditor/drafts/layout не выполнялся. Другие исключения, включая
-shader cache Issue #16, не исправлялись. ROADMAP/Beta UX, backend/БД, протокол,
-PixiJS runtime, CSS и зависимости не менялись.
+- Прямой legacy allowlist пуст. Только app/systems импортирует systems извне.
+  `SHEETS` и неиспользуемый mob import удалены; pure registry не импортирует React.
+  UI resolver использует те же определения dnd5e/mob; неизвестный ключ возвращает
+  undefined, app явно предоставляет прежний unsupported view без schema.
+- Host листа получает accounts/isGm через прежние selectors и переводит callbacks
+  в прежние character.update/list/counter/delete/reimport, chat.say и dice.roll.
+  Roll читает текущие isGm && hiddenRolls при действии; max_path по-прежнему опущен,
+  если не задан. Portrait limits 25/5 MiB, 2048 px и сообщения ошибок сохранены.
+- Catalog root сохраняет kind локально; unknown records остаются в PC-списке.
+  Conditional list hosts сохраняют accounts/isGm и placeHidden subscriptions в
+  прежних mount branches. Row render callback возвращает SheetRow key=character.id,
+  а не создаёт inline ComponentType. System view передаёт mob deletion suffix;
+  permissions, linkedTokens и безопасный Cancel остаются в feature.
+- PC create по-прежнему не передаёт system, mob create передаёт mob. LSS читается
+  как source с прежним лимитом 512 KiB; copy, placement/freeCellNearCenter, hidden
+  layer, drag MIME и данные сохранений не преобразованы.
+- TablePage key=openCharacter.id сохранён. Stable module-scope sheet slots не
+  размонтируют view на event/snapshot/reconnect. Editing/tab/query/confirms, drafts,
+  refs, card expanded state, onlyPrepared и localStorage key остаются локальными.
+  Новая persistence после закрытия листа или размонтирования вкладки не вводится.
+- Provider/useSheetOps используют один Context. Два module-scope lazy DocEditor
+  imports остаются прежними; TipTap/resources/XSS sanitizers не переписывались.
+- Тела Cards, SpellBook, RichText, DocEditor и richDoc, 17 неизменяемых helpers
+  CharacterSheet и все 35 JSX keys листа совпадают с базой по AST без imports.
 
-## Проверки
+## Сохранённые ограничения
+
+Legacy sheet DSL всё ещё D&D-oriented в entities/character/model; его перемещение
+или универсализация не входят в 09b. HpControls остаётся системным UI. Unsupported
+chrome находится рядом с прежним renderer, но не выдаёт неизвестную систему за
+D&D. UUID в Cards — единственное узкое исключение system guard для существующих
+клиентских card IDs: c- + первые 12 символов randomUUID, legacy row-i fallback
+сохранён. Это не игровой RNG; model/game RNG и transport/store доступ запрещены.
+
+Нет plugin SDK, loader, дополнительных stores/providers, dynamic registry или
+изменения серверной поддержки НРИ. [Shader cache Issue #16](https://github.com/LunierVeil/Laterna-VTT/issues/16)
+не исправлена. ROADMAP/Beta UX, backend/БД, protocol, PixiJS runtime, CSS и зависимости
+не меняются. Этапы после 09b не начинаются автоматически.
+
+## Проверки FSD-09a (сохранённый контекст)
 
 Characterization и definition tests закрепляют optional HP/max, badge 0/empty,
 speed parsing, доступный Map, unknown keys, различие mob HP, temp HP и healing patch.
 UI tests исполняют реальный HpControls и проверяют стабильную identity slots.
-Architecture tests проверяют imports, точный allowlist, отсутствие доступа system
+Architecture tests проверяют imports, пустой legacy allowlist, отсутствие доступа system
 code к store/transport и единственность прежнего CharacterStats. Общие graph tests
 по-прежнему отвергают runtime/type-only cycles.
 
@@ -106,3 +149,23 @@ die в 1..20 и init=die+bonus, UI result, server permission rejection, fallback
 Каждый логический коммит: TypeScript, профильные tests и Fast CI точного SHA до
 следующего шага. Готовый PR: frontend/backend, Chromium 8/8/5/15, строгий CI required
 на актуальном test merge. Merge требует отдельного разрешения; Fast CI его не заменяет.
+
+### Дополнительные regression tests 09b
+
+[Sheet lifecycle](../web/tests/browser/sheet-lifecycle.test.mjs) подтверждает lazy
+loading только при editing, неизменный DOM view/input/editor и несохранённые name,
+quantity/doc после character event, смены сцены и reconnect; явный save сохраняет
+прежний card ID и rich document. Context list/counter проверяется по фактическому
+исходящему payload, серверному character и клиентской проекции. После character.list
+ожидается свежий snapshot/connected: backend уже на базе публикует tokens_refresh;
+клик в retry не является корректной проверкой отправки следующей команды.
+
+[Catalog](../web/tests/browser/catalog.test.mjs) проверяет UI create PC/mob, copy,
+placement, owner/GM visibility, Cancel focus, mob deletion impact и detach на обоих
+клиентах. Оба теста прошли на исходном runtime до extraction. Произвольных sleep,
+глобальных timeout increases и изменений прежних 36 cases нет.
+
+Итог 09b: sheets 9, tokens 8, scenes 5, interaction 16 — 38 Chromium cases. Manifest,
+expected counts и строгий gate согласованы; regression gate tests отвергают старые
+counts, missing/skipped/cancelled/stale результаты по-прежнему запрещены. Node SSR
+тесты исполняют реальные slots с CSS no-op только в test loader; runtime CSS сохранён.

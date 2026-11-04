@@ -41,8 +41,10 @@ export function SheetRow({
   children,
   extra,
   avatar,
+  deletionImpact = "",
 }: {
   character: Character;
+  deletionImpact?: string;
   socket: SceneSocket;
   /** Портрет или буква слева (у мобов). */
   avatar?: React.ReactNode;
@@ -104,7 +106,7 @@ export function SheetRow({
               {confirm.tokens ? (
                 <p>
                   {confirm.tokens} {tokensWord(confirm.tokens)} на сценах останутся без листа
-                  {character.system === "mob" ? " и потеряют свои хиты" : ""}.
+                  {deletionImpact}.
                 </p>
               ) : null}
             </>

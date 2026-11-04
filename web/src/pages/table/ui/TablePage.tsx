@@ -5,7 +5,7 @@ import { Sidebar } from "../../../widgets/sidebar/ui/Sidebar";
 import { ZoomControl } from "../../../features/scene-tools/ui/ZoomControl";
 import { TokenCard } from "../../../widgets/token-inspector/ui/TokenCard";
 import { InitiativePanel } from "../../../widgets/combat-tracker/ui/InitiativePanel";
-import { CharacterSheet } from "../../../widgets/character-sheet/legacy/CharacterSheet";
+import { CharacterSheet } from "../../../widgets/character-sheet/ui/CharacterSheet";
 import { DiceMenu } from "../../../features/dice/ui/DicePanel";
 import { DiceAnimation } from "../../../features/dice/ui/DiceAnimation";
 import { SelectionBar } from "../../../features/scene-tools/ui/SelectionBar";
@@ -62,9 +62,9 @@ export function TablePage({
           <DiceAnimation key={animatedRoll?.id ?? "none"} message={diceAnimation ? animatedRoll : null} />
           <ZoomControl stageRef={stageRef} />
         </div>
-        <Sidebar onHide={onHideSidebar} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
+        <Sidebar catalog={systemBindings.catalog} onHide={onHideSidebar} socket={socket} sceneId={sceneId!} onOpenScene={openScene} stageRef={stageRef} />
       </main>
-      {openCharacter && <CharacterSheet key={openCharacter.id} character={openCharacter} socket={socket} />}
+      {openCharacter && <CharacterSheet sheet={systemBindings.sheet} key={openCharacter.id} character={openCharacter} socket={socket} />}
       {error && <div className="toast">{error}</div>}
       {notice && !error && (
         <div className="toast toast-notice" role="status" onClick={onDismissNotice}>

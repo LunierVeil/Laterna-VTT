@@ -846,3 +846,14 @@ registry lookup или расчёт D&D. HpControls находится в system
 сохранено. Wire keys dnd5e/mob, Character JSON, HP/temp HP, server d20 combat и
 CharacterStats прежние. SHEETS и legacy CharacterSheet/Cards/catalog dependencies
 остаются точными исключениями до 09b. 09b не начат и требует отдельного разрешения.
+
+
+## Системные renderer/catalog boundaries FSD-09b
+
+Актуальное продолжение исторического описания 09a выше: [структура и контракты](FSD_SYSTEM_BOUNDARIES.md#fsd-09b-connected-hosts-и-system-ui).
+CharacterSheet — connected host в widgets/character-sheet/ui; renderer family,
+Context и lazy DocEditor — systems/dnd5e/ui/legacy. Catalog UI — systems, connected
+root/list/row hosts — features. App передаёт stable UI slots; generic consumers
+больше не импортируют системы. SHEETS и legacy allowlist удалены. Один store,
+server-authoritative commands, JSON dnd5e/mob, keys, drafts, UI/CSS и SceneStage
+сохранены. SDK/multi-system loader не создаётся. Merge 09b отдельно согласуется.

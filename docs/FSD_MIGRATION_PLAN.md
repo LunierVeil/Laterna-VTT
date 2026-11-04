@@ -235,13 +235,13 @@ Full CI актуального test merge (Chromium 8/8/5/14 и CI required) и 
 | `equipment.ts` | [systems/dnd5e/model/equipment.ts](../web/src/systems/dnd5e/model/equipment.ts) |
 | `bonus.ts` | [systems/dnd5e/model/bonus.ts](../web/src/systems/dnd5e/model/bonus.ts) |
 | `tokenStats.ts` | [systems/dnd5e/model/tokenStats.ts](../web/src/systems/dnd5e/model/tokenStats.ts) |
-| `sheetOps.ts` | [widgets/character-sheet/legacy/sheetOps.ts](../web/src/widgets/character-sheet/legacy/sheetOps.ts) |
-| `richDoc.ts` | [widgets/character-sheet/legacy/richDoc.ts](../web/src/widgets/character-sheet/legacy/richDoc.ts) |
-| `RichText.tsx` | [widgets/character-sheet/legacy/RichText.tsx](../web/src/widgets/character-sheet/legacy/RichText.tsx) |
-| `DocEditor.tsx` | [widgets/character-sheet/legacy/DocEditor.tsx](../web/src/widgets/character-sheet/legacy/DocEditor.tsx) |
-| `Cards.tsx` | [widgets/character-sheet/legacy/Cards.tsx](../web/src/widgets/character-sheet/legacy/Cards.tsx) |
-| `SpellBook.tsx` | [widgets/character-sheet/legacy/SpellBook.tsx](../web/src/widgets/character-sheet/legacy/SpellBook.tsx) |
-| `CharacterSheet.tsx` | [widgets/character-sheet/legacy/CharacterSheet.tsx](../web/src/widgets/character-sheet/legacy/CharacterSheet.tsx) |
+| `sheetOps.ts` | [widgets/character-sheet/legacy/sheetOps.ts](../web/src/systems/dnd5e/ui/legacy/sheetOps.ts) |
+| `richDoc.ts` | [widgets/character-sheet/legacy/richDoc.ts](../web/src/systems/dnd5e/ui/legacy/richDoc.ts) |
+| `RichText.tsx` | [widgets/character-sheet/legacy/RichText.tsx](../web/src/systems/dnd5e/ui/legacy/RichText.tsx) |
+| `DocEditor.tsx` | [widgets/character-sheet/legacy/DocEditor.tsx](../web/src/systems/dnd5e/ui/legacy/DocEditor.tsx) |
+| `Cards.tsx` | [widgets/character-sheet/legacy/Cards.tsx](../web/src/systems/dnd5e/ui/legacy/Cards.tsx) |
+| `SpellBook.tsx` | [widgets/character-sheet/legacy/SpellBook.tsx](../web/src/systems/dnd5e/ui/legacy/SpellBook.tsx) |
+| `CharacterSheet.tsx` | [widgets/character-sheet/legacy/CharacterSheet.tsx](../web/src/widgets/character-sheet/ui/CharacterSheet.tsx) |
 
 Только физический перенос и static/dynamic module specifiers. Побайтное сравнение
 всех source/test bodies после маскирования module specifiers сохраняет JSX/keys,
@@ -286,6 +286,22 @@ Zustand, CSS, зависимости и строгий CI gate не измене
 ROADMAP не актуализируется в FSD-07: отдельный docs-only этап допускается после
 завершения Frontend FSD, модульного монолита FastAPI и Alembic с проверками БД,
 по полному тексту ROADMAP v5, который владелец предоставит отдельно.
+
+## FSD-09b: renderer family и catalog в текущем PR
+
+Реализация разрешена после merge/зелёного master 09a. Пять логических коммитов:
+connected host/view и baseline E2E → атомарный family move → catalog slots/hosts →
+app UI composition/удаление SHEETS → guards/tests/docs. [Текущая структура и
+ограничения](FSD_SYSTEM_BOUNDARIES.md#fsd-09b-connected-hosts-и-system-ui).
+Таблица FSD-07 выше показывает текущие live links после переноса 09b; исторический
+ownership 07 и ADR ниже не переписаны. CharacterSheet в widgets/ui теперь тонкий
+connected host, прежний renderer — systems/dnd5e/ui/legacy/CharacterSheetView.tsx.
+
+Legacy direct system allowlist пуст. Protocol/JSON/keys, subscriptions, Context,
+lazy DocEditor и drafts сохранены. Два согласованных E2E усиливают suite до
+Chromium 9/8/5/16 (38); strict gate не ослаблен. Full CI актуального test merge и
+отдельное разрешение владельца обязательны перед merge. Последующие FSD/Beta и
+ROADMAP не начинаются автоматически.
 
 ## FSD-09a: системные проекции в текущем PR
 

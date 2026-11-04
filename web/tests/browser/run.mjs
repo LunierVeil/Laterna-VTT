@@ -4,10 +4,10 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 export const groups = {
-  sheets: ['sheets'],
+  sheets: ['sheets', 'sheet-lifecycle'],
   tokens: ['tokens', 'network'],
   scenes: ['scenes', 'auth'],
-  interaction: ['chat-dice', 'ui', 'smoke', 'design-system', 'components-v03', 'initiative'],
+  interaction: ['chat-dice', 'ui', 'smoke', 'design-system', 'components-v03', 'initiative', 'catalog'],
 };
 export const suites = Object.values(groups).flat();
 const args = process.argv.slice(2);
