@@ -1,6 +1,6 @@
 import { diceFormula, DICE_SIDES, MAX_MENU_DICE } from "../lib/diceDisplay";
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectIsGm, selectHiddenRolls } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
@@ -33,8 +33,8 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
     .join("+");
   const formula = diceText ? diceText + modText : "";
 
-  const isGm = useUi((s) => s.isGm);
-  const hidden = useUi((s) => s.hiddenRolls);
+  const isGm = useUi(selectIsGm);
+  const hidden = useUi(selectHiddenRolls);
   const roll = (f: string) => {
     // Бросает сервер. Скрыто - только у ГМ: игроку уйдёт "бросил скрыто".
     socket.send("dice.roll", { formula: f, hidden: isGm && hidden });
@@ -106,7 +106,7 @@ export function DicePanel({ socket }: { socket: SceneSocket }) {
             className={hidden ? "btn grow btn-on" : "btn grow"}
             title="результат увидишь только ты; игроки - «бросил скрыто»"
             aria-pressed={hidden}
-            onClick={() => useUi.getState().setHiddenRolls(!hidden)}
+            onClick={() => uiActions.setHiddenRolls(!hidden)}
           >
             Скрытно ГМ
           </button>
@@ -145,8 +145,8 @@ export function DiceMenu({socket, onClose}: {socket: SceneSocket; onClose: () =>
     </label>
     <output className="dice-formula" aria-label="Формула броска">{formula}</output>
     <div className="dice-row"><button className="btn btn-accent grow" disabled={!connected} onClick={() => roll(formula)}>Бросить</button><button className="btn" disabled={!connected} onClick={() => roll("1d20")}>Быстрый d20</button></div>
-    {isGm && <label><input type="checkbox" checked={hiddenRolls} onChange={e => useUi.getState().setHiddenRolls(e.target.checked)} /> Скрытно ГМ</label>}
-    <label><input type="checkbox" checked={diceAnimation} onChange={e => useUi.getState().setDiceAnimation(e.target.checked)} /> Анимация кубиков</label>
+    {isGm && <label><input type="checkbox" checked={hiddenRolls} onChange={e => uiActions.setHiddenRolls(e.target.checked)} /> Скрытно ГМ</label>}
+    <label><input type="checkbox" checked={diceAnimation} onChange={e => uiActions.setDiceAnimation(e.target.checked)} /> Анимация кубиков</label>
     <small className="muted">До {MAX_MENU_DICE} кубиков. Результат сохраняется в чате. При уменьшении движения в системе анимация отключена.</small>
   </section>;
 }

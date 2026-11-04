@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectMe, selectIsGm } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { Character } from "../../../shared/api/protocol";
 import { Icon } from "../../../shared/ui/icons/icons";
@@ -51,11 +51,11 @@ export function SheetRow({
   /** Дополнительные действия (у моба - «На карту», «Копия»). */
   extra?: React.ReactNode;
 }) {
-  const me = useUi((s) => s.me);
-  const isGm = useUi((s) => s.isGm);
+  const me = useUi(selectMe);
+  const isGm = useUi(selectIsGm);
   const [confirm, setConfirm] = useState<{ tokens: number | null } | null>(null);
   const canDelete = isGm || (!!me && character.owner_id === me.id);
-  const open = () => useUi.getState().openCharacter(character.id);
+  const open = () => uiActions.openCharacter(character.id);
 
   const askDelete = async () => {
     setConfirm({ tokens: null });

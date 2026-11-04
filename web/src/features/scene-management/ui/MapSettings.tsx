@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectGridSize, selectBackground } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import { uploadImage } from "../../../shared/api/upload";
 
@@ -12,15 +12,15 @@ const MAX_BYTES = 25 * 1024 * 1024;
  * меняет только scene.update - как и всё остальное состояние.
  */
 export function MapSettings({ socket }: { socket: SceneSocket }) {
-  const gridSize = useUi((s) => s.gridSize);
-  const background = useUi((s) => s.background);
+  const gridSize = useUi(selectGridSize);
+  const background = useUi(selectBackground);
   const [busy, setBusy] = useState(false);
   const [grid, setGrid] = useState(String(gridSize));
   const file = useRef<HTMLInputElement>(null);
 
   useEffect(() => setGrid(String(gridSize)), [gridSize]);
 
-  const fail = (msg: string) => useUi.getState().flashError(msg);
+  const fail = (msg: string) => uiActions.flashError(msg);
 
   const upload = async (f: File) => {
     setBusy(true);

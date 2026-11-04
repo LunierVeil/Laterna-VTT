@@ -1,4 +1,4 @@
-import { useUi, type SideTab } from "../../../state/store";
+import { useUi, type SideTab, uiActions, selectSideTab, selectIsGm } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { TokenPlacementPort } from "../../../entities/scene/model/scene-port";
 import { Chat } from "../../../features/chat/ui/Chat";
@@ -28,8 +28,8 @@ export function Sidebar({
   onOpenScene: (id: string) => void;
   stageRef: React.MutableRefObject<TokenPlacementPort | null>;
 }) {
-  const tab = useUi((s) => s.sideTab);
-  const isGm = useUi((s) => s.isGm);
+  const tab = useUi(selectSideTab);
+  const isGm = useUi(selectIsGm);
 
   return (
     <aside id="table-sidebar" className="sidebar">
@@ -41,7 +41,7 @@ export function Sidebar({
             role="tab"
             aria-selected={tab === t.id}
             className={tab === t.id ? "side-tab side-tab-on" : "side-tab"}
-            onClick={() => useUi.getState().setSideTab(t.id)}
+            onClick={() => uiActions.setSideTab(t.id)}
           >
             {t.label}
           </button>

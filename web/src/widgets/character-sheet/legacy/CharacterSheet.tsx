@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HpControls } from "../../../sheets/HpControls";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectIsGm, selectAccounts } from "../../../state/public";
 import type { Character } from "../../../shared/api/protocol";
 import type { Block, Counter, Field, RollSpec, SheetSchema, Total } from "../../../entities/character/model/legacy-sheet-schema";
 import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
@@ -917,7 +917,7 @@ function Portrait({
   editing: boolean;
   onChange: (url: string | null) => void;
 }) {
-  const isGm = useUi((s) => s.isGm);
+  const isGm = useUi(selectIsGm);
   const file = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const pick = async (f: File) => {
@@ -927,7 +927,7 @@ function Portrait({
       const { url } = await uploadImage(f, { maxBytes: (isGm ? 25 : 5) * 1024 * 1024, maxSide: 2048, what: "портрет" });
       onChange(url);
     } catch (e) {
-      useUi.getState().flashError(e instanceof Error ? e.message : "загрузка не удалась");
+      uiActions.flashError(e instanceof Error ? e.message : "загрузка не удалась");
     } finally {
       setBusy(false);
     }
@@ -1009,15 +1009,15 @@ const TAB_KEY = "lanterna.sheetTab";
 
 /** Лист персонажа поверх сцены. Сам ничего не хранит: правки - командами. */
 export function CharacterSheet({ character, socket }: { character: Character; socket: SceneSocket }) {
-  const accounts = useUi((s) => s.accounts);
-  const isGm = useUi((s) => s.isGm);
+  const accounts = useUi(selectAccounts);
+  const isGm = useUi(selectIsGm);
   const schema = SHEETS[character.system];
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState(() => localStorage.getItem(TAB_KEY) || "main");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReimport, setConfirmReimport] = useState(false);
   const [query, setQuery] = useState("");
-  const close = () => useUi.getState().openCharacter(null);
+  const close = () => uiActions.openCharacter(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

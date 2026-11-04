@@ -64,7 +64,7 @@ export const useUi = Object.assign(usePublicUi, {
 });
 
 /** UI intents only; setters read the same canonical instance at call time. */
-export const uiActions: Pick<UiState, "setDiceOpen" | "setDiceAnimation" | "setTool" | "setError" | "flashError" | "flashNotice" | "setChaining" | "setSelected" | "openCharacter" | "setCombatOpen" | "setPlaceHidden" | "setFogMode" | "setWallKind" | "setHiddenRolls" | "setSideTab" | "setZoom" | "setSelectionCounts" | "dismissNotice"> & {endSession: () => void} = {
+export const uiActions: Pick<UiState, "setDiceOpen" | "setDiceAnimation" | "setTool" | "setError" | "flashError" | "flashNotice" | "setChaining" | "setSelected" | "openCharacter" | "setCombatOpen" | "setPlaceHidden" | "setFogMode" | "setWallKind" | "setHiddenRolls" | "setSideTab" | "setZoom" | "setSelectionCounts" | "dismissNotice"> & {endSession: () => void; clearLastInvite: () => void} = {
   setDiceOpen: (...args) => store.getState().setDiceOpen(...args),
   setDiceAnimation: (...args) => store.getState().setDiceAnimation(...args),
   setTool: (...args) => store.getState().setTool(...args),
@@ -85,4 +85,6 @@ export const uiActions: Pick<UiState, "setDiceOpen" | "setDiceAnimation" | "setT
   dismissNotice: (...args) => store.getState().dismissNotice(...args),
   // Existing logout transition; deliberately does not implement a full reset.
   endSession: () => store.getState().setMe(null),
+  // Existing pre-request cleanup; UI cannot write a new server invite code.
+  clearLastInvite: () => store.getState().setLastInvite(null),
 };

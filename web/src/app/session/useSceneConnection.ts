@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "
 import { SceneSocket } from "../../shared/api/scene-socket";
 import type { Message, Scene, UserInfo } from "../../shared/api/protocol";
 import type { SceneStage } from "../../widgets/scene-canvas/lib/stage";
-import { useUi } from "../../state/store";
+import { useUi } from "../../state/public";
+import { projectionActions } from "../../state/bridge";
 
 /** Refs, setters и openScene сохраняют стабильную идентичность из App/campaign. */
 export function useSceneConnection({
@@ -42,7 +43,7 @@ export function useSceneConnection({
 
   useEffect(() => {
     if (!socket) return;
-    const ui = useUi.getState();
+    const ui = projectionActions;
 
     // Сокет новый - значит, и сцена, скорее всего, другая: снапшот и
     // выделение от прошлой к ней не относятся.
@@ -166,7 +167,7 @@ export function useSceneConnection({
     return () => {
       off();
       socket.close();
-      useUi.getState().setConnected(false);
+      projectionActions.setConnected(false);
     };
   }, [socket, sceneId, openScene]);
 

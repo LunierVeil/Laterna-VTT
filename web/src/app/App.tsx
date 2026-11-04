@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TablePage } from "../pages/table/ui/TablePage";
 import type { SceneStage } from "../widgets/scene-canvas/lib/stage";
-import { useUi } from "../state/store";
+import { useUi, uiActions, selectMe, selectDiceOpen, selectDiceAnimation, selectError, selectNotice } from "../state/public";
 import { AccessPage } from "../pages/access/ui/AccessPage";
 import type { Message } from "../shared/api/protocol";
 
-import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin } from "./session/access";
+import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin, acceptSession } from "./session/access";
 
 import { useCampaignScene } from "./session/useCampaignScene";
 import { useSceneConnection } from "./session/useSceneConnection";
@@ -13,7 +13,7 @@ import { useSceneConnection } from "./session/useSceneConnection";
 export default function App() {
   const [hideSidebar, setHideSidebar] = useState(true);
   const [hideRail, setHideRail] = useState(false);
-  const me = useUi((s) => s.me);
+  const me = useUi(selectMe);
   // Экран до игры: проверяем сессию, затем вход или первый вход мастера.
   const [checking, setChecking] = useState(true);
   const [setupKey, setSetupKey] = useState<string | null>(null);
@@ -26,13 +26,12 @@ export default function App() {
     setAnimatedRoll(null);
     seenRolls.current.clear();
   }, []);
-  const diceOpen = useUi(s => s.diceOpen), diceAnimation = useUi(s => s.diceAnimation);
-  const closeDice = useCallback(() => useUi.getState().setDiceOpen(false), []);
+  const diceOpen = useUi(selectDiceOpen), diceAnimation = useUi(selectDiceAnimation);
+  const closeDice = useCallback(() => uiActions.setDiceOpen(false), []);
   useEffect(() => {if (!diceAnimation) setAnimatedRoll(null);}, [diceAnimation]);
   const loginWithKey = (key: string) => gmKeyLogin(key, setSetupKey);
 
   useEffect(() => {
-    const ui = useUi.getState();
     void (async () => {
       try {
         if (GM_KEY_FROM_URL) {
@@ -41,7 +40,7 @@ export default function App() {
           setLoginNotice(error);
         }
         const res = await fetch("/api/me");
-        if (res.ok) ui.setMe(await res.json()); // null, если сессии нет
+        if (res.ok) acceptSession(await res.json()); // null, если сессии нет
       } catch (e) {
         console.error("не проверил сессию", e);
       } finally {
@@ -56,8 +55,8 @@ export default function App() {
     sceneId, me, stageRef, seenRolls, setAnimatedRoll, setLoginNotice, setSceneId, openScene,
   });
 
-  const error = useUi((s) => s.error);
-  const notice = useUi((s) => s.notice);
+  const error = useUi(selectError);
+  const notice = useUi(selectNotice);
   const openCharacter = useUi((s) => (s.openCharacterId ? s.characters[s.openCharacterId] : null));
 
   // По ссылке-приглашению - её экран, даже если в браузере уже кто-то вошёл:
@@ -68,7 +67,7 @@ export default function App() {
         token={inviteToken}
         onDone={(u) => {
           setInviteToken(null);
-          useUi.getState().setMe(u);
+          acceptSession(u);
         }}
       />
     );
@@ -81,23 +80,23 @@ export default function App() {
           // Аккаунт создан - ключ больше не нужен. Иначе после выхода
           // снова открылся бы экран "придумай имя и пароль".
           setSetupKey(null);
-          useUi.getState().setMe(u);
+          acceptSession(u);
         }}
       />
     );
-  if (!me) return <AccessPage mode="login" notice={loginNotice} onDone={(u) => useUi.getState().setMe(u)} onGmKey={loginWithKey} />;
+  if (!me) return <AccessPage mode="login" notice={loginNotice} onDone={(u) => acceptSession(u)} onGmKey={loginWithKey} />;
   if (!socket) return <AccessPage mode="scene-loading" />;
 
   return (
     <TablePage
       hideSidebar={hideSidebar} hideRail={hideRail}
       onToggleSidebar={() => {
-        if (hideSidebar) useUi.getState().setSideTab("chat");
+        if (hideSidebar) uiActions.setSideTab("chat");
         setHideSidebar(!hideSidebar);
       }}
       onToggleRail={() => setHideRail(!hideRail)}
       onHideSidebar={() => setHideSidebar(true)}
-      onDismissNotice={() => useUi.setState({ notice: null })}
+      onDismissNotice={() => uiActions.dismissNotice()}
       socket={socket} sceneId={sceneId!} stageRef={stageRef} handleReady={handleReady}
       diceOpen={diceOpen} closeDice={closeDice} animatedRoll={animatedRoll} diceAnimation={diceAnimation}
       openScene={openScene} openCharacter={openCharacter} error={error} notice={notice}

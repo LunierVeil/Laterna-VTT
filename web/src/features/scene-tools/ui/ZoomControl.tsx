@@ -1,9 +1,9 @@
-import { useUi } from "../../../state/store";
+import { useUi, selectZoom } from "../../../state/public";
 import type { ZoomPort } from "../../../entities/scene/model/scene-port";
 
 /** Масштаб кнопками - колесо мыши есть не у всех (тачпад, планшет). */
 export function ZoomControl({ stageRef }: { stageRef: React.MutableRefObject<ZoomPort | null> }) {
-  const zoom = useUi((s) => s.zoom);
+  const zoom = useUi(selectZoom);
   return (
     <div className="zoom">
       <button className="zoom-btn" aria-label="отдалить" onClick={() => stageRef.current?.zoomBy(1 / 1.25)}>

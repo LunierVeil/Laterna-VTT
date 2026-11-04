@@ -1,8 +1,8 @@
-import { useUi } from "../../../state/store";
+import { useUi, selectSelectionCount, selectSelectionEditable } from "../../../state/public";
 import type { SelectionPort } from "../../../entities/scene/model/scene-port";
 
 export function SelectionBar({stageRef}: {stageRef: React.MutableRefObject<SelectionPort | null>}) {
-  const count = useUi(s => s.selectionCount), editable = useUi(s => s.selectionEditable);
+  const count = useUi(selectSelectionCount), editable = useUi(selectSelectionEditable);
   if (count < 2) return null;
   return <div className="selection-bar" role="group" aria-label="Выбранные токены">
     <span role="status">Выбрано: {count}</span>

@@ -1,4 +1,4 @@
-import { useUi } from "../../state/store";
+import { projectionActions } from "../../state/bridge";
 import type { UserInfo } from "../../shared/api/protocol";
 
 /**
@@ -37,7 +37,12 @@ export async function gmKeyLogin(
   });
   const data = await res.json().catch(() => ({}));
   if (res.ok && data.needs_setup) onSetup(key);
-  else if (res.ok) useUi.getState().setMe(data as UserInfo);
+  else if (res.ok) acceptSession(data as UserInfo);
   else return data.detail || "ключ ГМ не подошёл";
   return null;
+}
+
+/** Existing auth projection write, shared by App auth callbacks; no reset added. */
+export function acceptSession(user: UserInfo | null): void {
+  projectionActions.setMe(user);
 }

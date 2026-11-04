@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi, uiActions, selectAccounts, selectInvites, selectLastInvite } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 
 // Через туннель - его адрес: мастер сидит на localhost, а игрокам нужен
@@ -17,9 +17,9 @@ const inviteUrl = (token: string, base = useUi.getState().me?.public_url ?? loca
  * только по ссылке от мастера, но имя и пароль игрок придумывает сам.
  */
 export function PlayersPanel({ socket }: { socket: SceneSocket }) {
-  const accounts = useUi((s) => s.accounts);
-  const invites = useUi((s) => s.invites);
-  const lastInvite = useUi((s) => s.lastInvite);
+  const accounts = useUi(selectAccounts);
+  const invites = useUi(selectInvites);
+  const lastInvite = useUi(selectLastInvite);
   const publicUrl = useUi((s) => s.me?.public_url);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -33,7 +33,7 @@ export function PlayersPanel({ socket }: { socket: SceneSocket }) {
   const nameOf = (id: string | null) => accounts.find((a) => a.id === id)?.name ?? "?";
 
   const invite = (userId: string | null) => {
-    useUi.getState().setLastInvite(null);
+    uiActions.clearLastInvite();
     setCopied(false);
     socket.send("invite.create", userId ? { user_id: userId } : {});
   };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useUi } from "../../../state/store";
+import { useUi } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { Message } from "../../../shared/api/protocol";
 
