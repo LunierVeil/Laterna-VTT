@@ -1,23 +1,9 @@
+import { interactionDefaults } from "./defaults";
 import type { UiSlice, SliceCreator } from "./model";
 
 /** Existing ui defaults/actions; cross-domain partial updates retain their original order. */
 export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
-  openCharacterId: null,
-  combatOpen: false,
-  placeHidden: false,
-  fogMode: "cover",
-  wallKind: "wall",
-  hiddenRolls: false,
-  sideTab: "chat",
-  zoom: 1,
-  tool: "select",
-  error: null,
-  notice: null,
-  chaining: false,
-  selected: null,
-  selectionCount: 0,
-  selectionEditable: 0,
-  diceOpen: false,
+  ...interactionDefaults(),
   diceAnimation: localStorage.getItem("lanterna.diceAnimation") === "on" || (localStorage.getItem("lanterna.diceAnimation") !== "off" && !(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)),
   setDiceOpen: (diceOpen) => set({ diceOpen }),
   setDiceAnimation: (diceAnimation) => {localStorage.setItem("lanterna.diceAnimation", diceAnimation ? "on" : "off"); set({diceAnimation});},

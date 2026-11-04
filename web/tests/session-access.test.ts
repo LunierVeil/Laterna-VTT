@@ -48,3 +48,16 @@ test("gmKeyLogin preserves setup, session, error and request contracts",async t=
   assert.deepEqual(setup,["setup-key"]);
   assert.deepEqual(fetch.mock.calls[0].arguments,["/api/gm/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:"setup-key"})}]);
 });
+
+test("late GM login response cannot replace a newer identity or reopen setup", async t => {
+  const initial = useUi.getState(); t.after(() => useUi.setState(initial, true));
+  for (const reply of [{id: "old-gm", name: "Old GM", is_gm: true}, {needs_setup: true}]) {
+    let resolve!: (value: Response) => void;
+    const fetch = t.mock.method(globalThis, "fetch", () => new Promise<Response>(done => {resolve = done;}));
+    const setup: string[] = [], request = access.gmKeyLogin("old-key", key => setup.push(key));
+    const lease = access.captureSession();
+    access.acceptSession(null); access.acceptSession({id: "new", name: "New", is_gm: false});
+    assert.equal(lease(), false); resolve(Response.json(reply)); await request;
+    assert.equal(useUi.getState().me?.id, "new"); assert.deepEqual(setup, []); fetch.mock.restore();
+  }
+});

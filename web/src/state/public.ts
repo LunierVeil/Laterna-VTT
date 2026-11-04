@@ -14,6 +14,7 @@ function dataSnapshot(state: UiState): Readonly<UiData> {
       me: state.me,
       isGm: state.isGm,
       connected: state.connected,
+      sessionEpoch: state.sessionEpoch,
       accounts: state.accounts,
       invites: state.invites,
       lastInvite: state.lastInvite,
@@ -83,7 +84,7 @@ export const uiActions: Pick<UiState, "setDiceOpen" | "setDiceAnimation" | "setT
   setZoom: (...args) => store.getState().setZoom(...args),
   setSelectionCounts: (...args) => store.getState().setSelectionCounts(...args),
   dismissNotice: (...args) => store.getState().dismissNotice(...args),
-  // Existing logout transition; deliberately does not implement a full reset.
+  // Identity reset preserves device preferences but removes private projections.
   endSession: () => store.getState().setMe(null),
   // Existing pre-request cleanup; UI cannot write a new server invite code.
   clearLastInvite: () => store.getState().setLastInvite(null),

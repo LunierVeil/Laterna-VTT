@@ -2,7 +2,11 @@ import { useUi as store } from "./store";
 import type { UiState } from "./model";
 
 /** App/session-only projection writer. Preserve separate calls and their order. */
-export const projectionActions: Pick<UiState, "setMe" | "setConnected" | "setCampaign" | "setUsers" | "setLastInvite" | "setMessages" | "pushMessage" | "setScene" | "setCharacters" | "putCharacter" | "dropCharacter" | "setCombat" | "setSelected" | "setChaining" | "flashError" | "flashNotice" | "openCharacter"> = {
+export const projectionActions: Pick<UiState, "setMe" | "setConnected" | "setCampaign" | "setUsers" | "setLastInvite" | "setMessages" | "pushMessage" | "setScene" | "setCharacters" | "putCharacter" | "dropCharacter" | "setCombat" | "setSelected" | "setChaining" | "flashError" | "flashNotice" | "openCharacter"> & {captureSession: () => () => boolean} = {
+  captureSession: () => {
+    const epoch = store.getState().sessionEpoch;
+    return () => store.getState().sessionEpoch === epoch;
+  },
   setMe: (...args) => store.getState().setMe(...args),
   setConnected: (...args) => store.getState().setConnected(...args),
   setCampaign: (...args) => store.getState().setCampaign(...args),

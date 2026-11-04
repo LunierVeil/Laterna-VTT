@@ -11,7 +11,7 @@
 
 | Причина | Очистить | Сохранить |
 | --- | --- | --- |
-| Logout / другая identity | me/роль, campaign и scene проекции, приватные invites/lastInvite, characters, открытый лист, chat/combat, presence, временный UI | preference diceAnimation и device localStorage |
+| Logout / другая identity | me/роль, campaign и scene проекции, приватные invites/lastInvite, characters, открытый лист, chat/combat, presence, временный UI | preference diceAnimation, расположение панелей и device localStorage |
 | Та же identity в свежем snapshot | Обновить разрешённые серверные проекции | локальный контекст и настройки |
 | Смена сцены | selected, счётчики, chaining, combat старой сцены, scene metadata/presence, connected до snapshot | characters, открытый лист/черновики, campaign context, chat, настройки |
 | Disconnect / retry | connected=false; существующий renderer очищает drag previews | identity, кэши, листы/черновики, настройки; полный reset запрещён |
