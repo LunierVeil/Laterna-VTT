@@ -59,22 +59,23 @@ class RequiredGateTests(unittest.TestCase):
         with self.assertRaises(ValueError): gate.validate(self.needs, self.records, '123', '2', 'master')
         self.assertEqual(gate.validate(self.needs, self.records, '123', '2', SHA), SHA)
 
-    def test_interaction_requires_the_added_initiative_case(self):
-        self.assertEqual(gate.GROUP_COUNTS['interaction'], 15)
-        for count in (14, 16):
-            records = copy.deepcopy(self.records)
-            next(r for r in records if r['group'] == 'interaction')['passed'] = count
-            with self.subTest(count=count), self.assertRaises(ValueError):
-                gate.validate(self.needs, records, '123', '2')
+    def test_groups_require_the_added_catalog_and_sheet_lifecycle_cases(self):
+        for group, expected, invalid in [('sheets', 9, (8, 10)), ('interaction', 16, (14, 15, 17))]:
+            self.assertEqual(gate.GROUP_COUNTS[group], expected)
+            for count in invalid:
+                records = copy.deepcopy(self.records)
+                next(r for r in records if r['group'] == group)['passed'] = count
+                with self.subTest(group=group, count=count), self.assertRaises(ValueError):
+                    gate.validate(self.needs, records, '123', '2')
         self.assertEqual(self.check(), SHA)
 
     def test_junit_rejects_zero_missing_failed_skipped_or_disabled_tests(self):
-        valid = '<testsuites><testsuite>' + '<testcase name="test"/>'*8 + '</testsuite></testsuites>'
+        valid = '<testsuites><testsuite>' + '<testcase name="test"/>'*9 + '</testsuite></testsuites>'
         variants = [valid.replace('<testcase name="test"/>', '', 1), valid.replace('<testcase name="test"/>', '<testcase><skipped/></testcase>', 1), valid.replace('<testsuite>', '<testsuite disabled="1">'), valid.replace('<testcase name="test"/>', '<testcase><failure/></testcase>', 1), '<testsuites/>']
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'results.xml'
             path.write_text(valid)
-            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 8)
+            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 9)
             for invalid in variants:
                 path.write_text(invalid)
                 with self.subTest(invalid=invalid[:90]), self.assertRaises(ValueError): gate.browser_evidence('sheets', SHA, '123', '2', path)

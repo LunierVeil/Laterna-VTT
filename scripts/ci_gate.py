@@ -7,7 +7,7 @@ import re
 import urllib.request
 import xml.etree.ElementTree as ET
 
-GROUP_COUNTS = {'sheets': 8, 'tokens': 8, 'scenes': 5, 'interaction': 15}
+GROUP_COUNTS = {'sheets': 9, 'tokens': 8, 'scenes': 5, 'interaction': 16}
 SHA = re.compile(r'[0-9a-f]{40}')
 
 

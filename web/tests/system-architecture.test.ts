@@ -31,6 +31,7 @@ const legacy = [
   "features/character-management/ui/CharactersPanel.tsx",
   "widgets/character-sheet/legacy/Cards.tsx",
   "widgets/character-sheet/legacy/CharacterSheet.tsx",
+  "widgets/character-sheet/legacy/CharacterSheetView.tsx",
 ];
 test("only app composition and the exact 09b legacy allowlist import D&D modules", () => {
   const actual=new Set<string>();

@@ -1,0 +1,66 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { api, gm, command, pageFor, openSheet, closeSheet, until, scene } from './fixture.mjs';
+
+test('Sheet lifecycle: unsaved card/editor survive events, scene and reconnect; Context commands remain live', {timeout:120000}, async () => {
+  const sent=[];const observe=page=>page.on('websocket',ws=>ws.on('framesent',frame=>{try{const m=JSON.parse(String(frame.payload));if(m.type==='cmd')sent.push(m);}catch{}}));
+  gm.on('page',observe);const p=await pageFor(gm,{trackSockets:true}), original=(await scene(p)).name;
+  gm.off('page',observe);
+  const requests=[];p.on('request',r=>{if(r.url().includes('/DocEditor.tsx'))requests.push(r.url());});
+  const c=(await command('character.create',{name:'Draft lifecycle'})).payload.character;
+  await command('character.update',{id:c.id,set:{'vitals.hp.current':20,'vitals.hp.max':20,'slots.1.total':2,'slots.1.left':2}});
+  await until(()=>p.evaluate(async id=>!!(await import('/src/state/store.ts')).useUi.getState().characters[id],c.id),'sheet delivered');
+  await openSheet(p,c.id);assert.equal(requests.length,0,'viewing the sheet does not load DocEditor');
+  await p.getByRole('tab',{name:'Снаряжение',exact:true}).click();
+  await p.getByRole('button',{name:'+ Предмет',exact:true}).click();
+  const editor=p.locator('.card-editing'), title=editor.getByPlaceholder('Название',{exact:true});
+  await title.fill('Pending silver sword');await editor.getByLabel('Кол-во',{exact:true}).fill('2');
+  await editor.locator('.ProseMirror').fill('Uncommitted resource notes');
+  assert.ok(requests.length>0,'editing lazily loads DocEditor');
+  await p.evaluate(()=>{window.pendingSheet={sheet:document.querySelector('.sheet'),title:document.querySelector('.card-title-input'),doc:document.querySelector('.ProseMirror')};});
+  const assertDraft=async()=>{
+    assert.equal(await title.inputValue(),'Pending silver sword');
+    assert.equal(await editor.getByLabel('Кол-во',{exact:true}).inputValue(),'2');
+    assert.equal(await editor.locator('.ProseMirror').textContent(),'Uncommitted resource notes');
+    assert.equal(await p.evaluate(()=>window.pendingSheet.sheet===document.querySelector('.sheet')&&window.pendingSheet.title===document.querySelector('.card-title-input')&&window.pendingSheet.doc===document.querySelector('.ProseMirror')),true,'view/input/editor DOM identities preserved');
+    const record=(await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id);
+    assert.equal(record.data.equipment?.length??0,0,'draft not committed by rerender');
+  };
+  await command('character.update',{id:c.id,set:{'vitals.hp.current':19}});
+  await until(()=>p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id].data.vitals.hp.current===19,c.id),'ordinary event applied');await assertDraft();
+  const next=(await command('scene.create',{name:'Draft scene'})).payload.id;
+  await p.getByRole('tab',{name:'Сцены',exact:true}).click();
+  await p.locator('.scene-row').filter({hasText:'Draft scene'}).getByRole('button',{name:'Открыть',exact:true}).click();
+  await until(()=>p.evaluate(async()=>{const s=(await import('/src/state/store.ts')).useUi.getState();return s.sceneName==='Draft scene'&&s.connected;}),'new scene snapshot');await assertDraft();
+  const snapshots=p.received.filter(m=>m.type==='snapshot').length;
+  await p.evaluate(()=>window.sceneSockets.find(s=>s.readyState===1).close());
+  await until(()=>p.evaluate(async()=>!(await import('/src/state/store.ts')).useUi.getState().connected),'retry is disconnected');
+  await until(()=>p.received.filter(m=>m.type==='snapshot').length>snapshots,'fresh reconnect snapshot');
+  await until(()=>p.evaluate(async()=>(await import('/src/state/store.ts')).useUi.getState().connected),'reconnected');await assertDraft();
+  await editor.getByRole('button',{name:'Сохранить',exact:true}).click();
+  await until(()=>p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id].data.equipment?.[0]?.name==='Pending silver sword',c.id),'explicit save delivered');
+  const saved=(await(await gm.request.get(`${api}/api/characters`)).json()).find(x=>x.id===c.id).data.equipment[0];
+  assert.equal(saved.qty,2);assert.match(JSON.stringify(saved.doc),/Uncommitted resource notes/);assert.match(saved.id,/^c-[a-f0-9-]{12}$/);
+  await p.getByRole('tab',{name:'Заклинания',exact:true}).click();
+  const circle=p.getByRole('region',{name:'1 круг',exact:true});
+  await circle.getByRole('button',{name:'добавить заклинание 1 круга',exact:true}).click();
+  await circle.getByRole('textbox',{name:'Название заклинания',exact:true}).fill('Context spell');
+  const beforeListSnapshot=p.received.filter(m=>m.type==='snapshot').length;
+  await circle.getByRole('button',{name:'Добавить',exact:true}).click();
+  const spell=circle.locator('.spell-row').filter({hasText:'Context spell'});await spell.waitFor();
+  await until(()=>p.received.filter(m=>m.type==='snapshot').length>beforeListSnapshot,'list triggers a fresh token snapshot');
+  await until(()=>p.evaluate(async()=>(await import('/src/state/store.ts')).useUi.getState().connected),'list resync complete before next command');
+  await spell.getByRole('button',{name:'подробнее',exact:true}).click();
+  assert.equal(await p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id].data.slots['1'].left,c.id),2,'counter starts at seeded value');
+  const mark=sent.length;await spell.getByRole('button',{name:'Потратить ячейку',exact:true}).click();
+  const counter=await until(()=>sent.slice(mark).find(m=>m.name==='character.counter'),'actual Context counter frame');
+  assert.deepEqual(counter.payload,{id:c.id,path:'slots.1.left',delta:-1,max_path:'slots.1.total'});
+  const updated=await until(()=>p.received.find(m=>m.type==='character'&&m.character.id===c.id&&m.character.data.slots?.['1']?.left===1),'counter character projection');
+  assert.equal(updated.character.data.slots['1'].left,1,'server decremented the resource');
+  try {await until(()=>p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id].data.slots['1'].left===1,c.id),'Context list/counter survives migration');}
+  catch(error){console.error('Context diagnostics',p.received.filter(m=>['character','error'].includes(m.type)).slice(-5),await p.evaluate(async id=>(await import('/src/state/store.ts')).useUi.getState().characters[id],c.id));throw error;}
+  await closeSheet(p);await p.getByRole('tab',{name:'Сцены',exact:true}).click();
+  await p.locator('.scene-row').filter({has:p.locator(`[title="${original}"]`)}).getByRole('button',{name:'Открыть',exact:true}).click();
+  await until(()=>p.evaluate(async name=>(await import('/src/state/store.ts')).useUi.getState().sceneName===name,original),'return to original scene');
+  await command('scene.delete',{id:next});await p.close();
+});
