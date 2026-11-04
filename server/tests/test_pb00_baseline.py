@@ -4,6 +4,8 @@ import os
 import base64
 import subprocess
 import sys
+import sqlite3
+from contextlib import closing
 from uuid import uuid4
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +14,7 @@ import pytest
 
 from app.geometry import path_blocked
 from .fixtures.los_baseline import scenes, seed_database
+from .fixtures import los_baseline
 # Reuse established single-event-loop TestClient/auth helpers; no second server.
 from .test_handlers import client, gm, scene_id, session_headers, recv_until, run  # noqa: F401
 
@@ -116,8 +119,92 @@ def test_seeder_refuses_arbitrary_paths_and_overwrite(tmp_path, client, gm, play
     assert outside.read_bytes() == b"not a user database"
     sid, _ = seeded("straight")
     database = Path(os.environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
+    before = database_dump(database)
     with pytest.raises(ValueError, match="overwrites"):
         seed_database(database, sid, client.get("/api/me", headers=gm).json()["id"], player["id"], "empty")
+    assert database_dump(database) == before
+
+
+@pytest.fixture
+def seed_target(client, gm, player, seeded):
+    sid, _ = seeded("empty")
+    return {
+        "database": Path(os.environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///")),
+        "scene_id": sid,
+        "gm_id": client.get("/api/me", headers=gm).json()["id"],
+        "player_id": player["id"],
+    }
+
+
+def database_dump(database):
+    # Compare all committed tables, not only the target scene. Read-only and
+    # confined to the existing pytest fixture database; never log its contents.
+    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as db:
+        return tuple(db.iterdump())
+
+
+@pytest.mark.parametrize("invalid", ["gm-role", "player-role", "gm-campaign", "player-campaign"])
+def test_seeder_rejects_invalid_participants_without_damage(seed_target, invalid):
+    args = dict(seed_target)
+    database = args["database"]
+    foreign_campaign, foreign_actor = str(uuid4()), str(uuid4())
+    try:
+        if invalid.endswith("role"):
+            args["gm_id" if invalid == "gm-role" else "player_id"] = args["player_id" if invalid == "gm-role" else "gm_id"]
+        else:
+            is_gm = invalid == "gm-campaign"
+            with closing(sqlite3.connect(database)) as db, db:
+                db.execute("PRAGMA foreign_keys=ON")
+                db.execute("INSERT INTO campaigns (id,name,created_at) SELECT ?,?,created_at FROM campaigns WHERE id=(SELECT campaign_id FROM scenes WHERE id=?)",
+                           (foreign_campaign, "PB00 synthetic foreign campaign", args["scene_id"]))
+                # Copy only an existing synthetic test hash, not real user data.
+                db.execute("INSERT INTO users (id,campaign_id,name,password_hash,is_gm,created_at) SELECT ?,?,?,password_hash,?,created_at FROM users WHERE id=?",
+                           (foreign_actor, foreign_campaign, "PB00 foreign actor", is_gm, args["gm_id"]))
+            args["gm_id" if is_gm else "player_id"] = foreign_actor
+        before = database_dump(database)
+        with pytest.raises(ValueError, match="actors must belong"):
+            seed_database(**args, scenario="complex")
+        assert database_dump(database) == before, "rejection must preserve all fixture data"
+    finally:
+        if invalid.endswith("campaign"):
+            with closing(sqlite3.connect(database)) as db, db:
+                db.execute("PRAGMA foreign_keys=ON")
+                db.execute("DELETE FROM users WHERE id=?", (foreign_actor,))
+                db.execute("DELETE FROM campaigns WHERE id=?", (foreign_campaign,))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("seq", 1),
+    ("fog_json", json.dumps(scenes()["manual-fog"]["fog"])),
+], ids=["nonzero-seq", "nonempty-fog"])
+def test_seeder_rejects_existing_scene_state_without_damage(seed_target, field, value):
+    with closing(sqlite3.connect(seed_target["database"])) as db, db:
+        # field comes only from the two explicit parameter cases above.
+        db.execute(f"UPDATE scenes SET {field}=? WHERE id=?", (value, seed_target["scene_id"]))
+    before = database_dump(seed_target["database"])
+    with pytest.raises(ValueError, match="new, empty scene"):
+        seed_database(**seed_target, scenario="complex")
+    assert database_dump(seed_target["database"]) == before
+
+
+def test_seeder_rolls_back_partial_fill_and_can_retry(seed_target, monkeypatch):
+    catalogue = scenes()
+    # Real NOT NULL failure on the SECOND wall, after scene metadata, all 30
+    # tokens and the first wall were written inside the adapter transaction.
+    catalogue["complex"]["walls"][1]["y1"] = None
+    before = database_dump(seed_target["database"])
+    with monkeypatch.context() as patch:
+        patch.setattr(los_baseline, "scenes", lambda: catalogue)
+        with pytest.raises(sqlite3.IntegrityError, match=r"NOT NULL constraint failed: walls\.y1"):
+            seed_database(**seed_target, scenario="complex")
+    assert database_dump(seed_target["database"]) == before, "partial fill must roll back without damaging any table"
+    # A fresh connection must see an empty, unchanged target; a valid retry
+    # proves no partial object IDs or transaction locks survived the failure.
+    result = seed_database(**seed_target, scenario="complex")
+    with closing(sqlite3.connect(seed_target["database"])) as db:
+        for table, count in (("tokens", 30), ("walls", 200)):
+            assert db.execute(f"SELECT count(*) FROM {table} WHERE scene_id=?", (seed_target["scene_id"],)).fetchone()[0] == count
+        assert db.execute("SELECT name,seq FROM scenes WHERE id=?", (seed_target["scene_id"],)).fetchone() == (result["data"]["name"], 0)
 
 
 def test_two_clients_snapshot_noop_sequence_and_reconnect(client, gm, player, scene_id, seeded):
