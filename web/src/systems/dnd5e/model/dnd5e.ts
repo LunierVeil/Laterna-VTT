@@ -1,6 +1,5 @@
 import { equipmentBlock } from "./equipment.ts";
 import type { CheckBonus, SheetSchema } from "../../../entities/character/model/legacy-sheet-schema";
-import { mob } from "./mob.ts";
 
 const D20 = { normal: "1d20", advantage: "2d20kh1", disadvantage: "2d20kl1" };
 
@@ -369,5 +368,3 @@ export const dnd5e: SheetSchema = {
     },
   ],
 };
-
-export const SHEETS: Record<string, SheetSchema> = { dnd5e, mob };

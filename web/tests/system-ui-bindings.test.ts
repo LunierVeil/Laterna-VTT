@@ -16,6 +16,7 @@ registerHooks({
     }
   },
   load(url, context, next) {
+    if (url.endsWith(".css")) return {format:"module",shortCircuit:true,source:"export {};"};
     if (url.endsWith(".tsx")) return {format:"module",shortCircuit:true,source:ts.transpileModule(readFileSync(fileURLToPath(url),"utf8"), {compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText};
     return next(url, context);
   },
@@ -61,4 +62,25 @@ test("catalog slots stay stable; unknown records remain in the PC catalog and mo
   }));
   assert.equal(rows[0].character, mob); assert.equal(rows[0].deletionImpact, " и потеряют свои хиты");
   assert.equal(systemBindings.catalog.Root, Root);
+});
+
+test("sheet composition keeps stable known renderer identities and legacy unsupported UI without a schema", () => {
+  const resolve = systemBindings.sheet.resolve;
+  assert.ok(resolve("dnd5e")); assert.ok(resolve("mob"));
+  assert.notEqual(resolve("dnd5e"), resolve("mob"));
+  assert.equal(resolve("dnd5e"), resolve("dnd5e"));
+  for (const key of ["unknown", "constructor", "__proto__", ""]) assert.equal(resolve(key), undefined);
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {configurable:true,value:{getItem:()=>null}});
+  try {
+    const character = {id:"unknown",name:"Unchanged",system:"other",data:{privateNote:"original"},owner_id:null,source_format:null};
+    const before = JSON.stringify(character);
+    const noop = () => {};
+    const actions = {set:noop,setMany:noop,rename:noop,remove:noop,reimport:noop,say:noop,roll:noop,list:noop,counter:noop,close:noop,error:noop,uploadPortrait:async()=>""};
+    const html = renderToStaticMarkup(createElement(systemBindings.sheet.unsupported, {character,isGm:false,actions}));
+    assert.match(html, /Неизвестная система листа: other/); assert.match(html, /Редактировать/); assert.match(html, /Закрыть/);
+    assert.doesNotMatch(html, /sheet-tiles|sheet-tabs|hp-controls/); assert.equal(JSON.stringify(character),before);
+  } finally {
+    if (previous) Object.defineProperty(globalThis,"localStorage",previous); else delete (globalThis as any).localStorage;
+  }
 });

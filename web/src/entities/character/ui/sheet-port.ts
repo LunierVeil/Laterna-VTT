@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { Character } from "../../../shared/api/protocol";
 
 /** Command callbacks only; no transport or client state in system renderers. */
@@ -23,4 +24,10 @@ export interface CharacterSheetProps {
   isGm: boolean;
   owner?: string;
   actions: SheetActions;
+}
+
+export interface SheetBindings {
+  resolve: (key: string) => ComponentType<CharacterSheetProps> | undefined;
+  /** Existing unsupported-system chrome, without a default schema. */
+  unsupported: ComponentType<CharacterSheetProps>;
 }

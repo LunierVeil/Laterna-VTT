@@ -1,3 +1,4 @@
+import type { SheetBindings } from "./sheet-port";
 import type { CatalogBindings } from "./catalog-slot";
 import type { ComponentType } from "react";
 import type { CharacterPresentation } from "../model/definition";
@@ -11,5 +12,6 @@ export type HealthControlResolver = (key: string) => ComponentType<HealthControl
 export interface SystemBindings {
   presentation: CharacterPresentation;
   catalog: CatalogBindings;
+  sheet: SheetBindings;
   healthControl: HealthControlResolver;
 }

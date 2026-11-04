@@ -7,15 +7,16 @@ registerHooks({resolve(specifier, context, next) {
     throw error;
   }
 }});
+const { resolveDefinition } = await import("../src/app/systems/registry.ts");
 const { at } = await import("../src/systems/dnd5e/model/tokenStats.ts");
 const { systemPresentation: {tokenStats: characterStats} } = await import("../src/app/systems/registry.ts");
 const { projectStats } = await import("../src/entities/token/lib/project-stats.ts");
 const { hpChanges } = await import("../src/systems/dnd5e/model/bonus.ts");
-const { dnd5e, SHEETS } = await import("../src/systems/dnd5e/model/dnd5e.ts");
+const { dnd5e } = await import("../src/systems/dnd5e/model/dnd5e.ts");
 const character = (system: string, data: any = {}) => ({id: system, name: system, owner_id: null, system, data, source_format: null});
 
 test("legacy registry keys and unknown projection remain exact", () => {
-  assert.deepEqual(Object.keys(SHEETS).sort(), ["dnd5e", "mob"]);
+  assert.ok(resolveDefinition("dnd5e")); assert.ok(resolveDefinition("mob"));
   assert.equal(characterStats(character("unknown")), null);
   assert.deepEqual(characterStats(character("dnd5e")), {hp: undefined, max: undefined, badge: undefined, speed: undefined});
 });

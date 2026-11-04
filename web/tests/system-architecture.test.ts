@@ -27,10 +27,8 @@ for (const {file,name,ast} of sources) {
   }
   visit(ast);
 }
-const legacy = [
-  "widgets/character-sheet/legacy/CharacterSheet.tsx",
-];
-test("only app composition and the exact 09b legacy allowlist import D&D modules", () => {
+const legacy: string[] = [];
+test("only app composition imports system modules; the legacy allowlist is empty", () => {
   const actual=new Set<string>();
   for (const e of edges.filter(e=>e.to.startsWith("systems/")&&!e.from.startsWith("systems/"))) {
     if (e.from.startsWith("app/systems/")) continue;
@@ -61,7 +59,7 @@ test("system code cannot reach app/store/widgets or the scene transport; model s
   }
 });
 test("universal consumers cannot resolve app registries or inspect legacy sheet rules", () => {
-  const widgets=["widgets/scene-canvas/ui/SceneView.tsx","widgets/token-inspector/ui/TokenCard.tsx","widgets/combat-tracker/ui/InitiativePanel.tsx"];
+  const widgets=["widgets/scene-canvas/ui/SceneView.tsx","widgets/token-inspector/ui/TokenCard.tsx","widgets/combat-tracker/ui/InitiativePanel.tsx","widgets/character-sheet/ui/CharacterSheet.tsx","features/character-management/ui/CharactersPanel.tsx","features/character-management/ui/SheetRow.tsx"];
   for (const e of edges.filter(e=>widgets.includes(e.from))) {
     assert.ok(!/^(app|systems)\//.test(e.to)&&!e.to.endsWith("legacy-sheet-schema.ts"),JSON.stringify(e));
   }
@@ -72,7 +70,7 @@ test("universal consumers cannot resolve app registries or inspect legacy sheet 
     }
     visit(ast);
   }
-  assert.deepEqual(edges.filter(e=>e.names.includes("SHEETS")).map(e=>e.from),["widgets/character-sheet/legacy/CharacterSheet.tsx"]);
+  assert.deepEqual(edges.filter(e=>e.names.includes("SHEETS")).map(e=>e.from),[]);
   assert.equal(existsSync(path.join(root,"sheets/HpControls.tsx")),false);
 });
 test("renderer CharacterStats keeps one canonical optional hp/max/badge/speed contract", () => {
