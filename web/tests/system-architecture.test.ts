@@ -81,3 +81,26 @@ test("renderer CharacterStats keeps one canonical optional hp/max/badge/speed co
     {key:"hp",optional:true,type:"number"},{key:"max",optional:true,type:"number"},{key:"badge",optional:true,type:"string"},{key:"speed",optional:true,type:"number"},
   ]);
 });
+
+test("system sheet family has one Context, two lazy editor entries and the unchanged card ID factory", () => {
+  const contexts: string[] = [], lazyEditors: string[] = [], uuids: string[] = [];
+  for (const {name,ast} of sources) {
+    function visit(n: ts.Node) {
+      if (ts.isVariableDeclaration(n) && n.name.getText(ast) === "SheetOpsContext") contexts.push(name);
+      if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword && n.arguments[0]?.getText(ast) === '"./DocEditor"') lazyEditors.push(name);
+      if (name.startsWith("systems/") && ts.isCallExpression(n) && n.expression.getText(ast) === "crypto.randomUUID") uuids.push(name);
+      if (ts.isIdentifier(n)) assert.notEqual(n.text,"SHEETS",`${name}: obsolete second registry`);
+      ts.forEachChild(n,visit);
+    }
+    visit(ast);
+  }
+  assert.deepEqual(contexts,["systems/dnd5e/ui/legacy/sheetOps.ts"]);
+  assert.deepEqual(lazyEditors.sort(),["systems/dnd5e/ui/legacy/Cards.tsx","systems/dnd5e/ui/legacy/SpellBook.tsx"]);
+  assert.deepEqual(uuids,["systems/dnd5e/ui/legacy/Cards.tsx"]);
+  const cards = sources.find(s=>s.name === uuids[0])!;
+  const factory = cards.ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==="newId")!;
+  assert.match(factory.getText(cards.ast), /return `c-\$\{crypto\.randomUUID\(\)\.slice\(0, 12\)\}`;/);
+  assert.equal(existsSync(path.join(root,"widgets/character-sheet/legacy")),false);
+  const table = readFileSync(path.join(root,"pages/table/ui/TablePage.tsx"),"utf8");
+  assert.match(table, /<CharacterSheet sheet=\{systemBindings\.sheet\} key=\{openCharacter\.id\}/);
+});
