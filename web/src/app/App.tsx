@@ -7,6 +7,8 @@ import type { Message } from "../shared/api/protocol";
 
 import { GM_KEY_FROM_URL, INVITE_FROM_URL, gmKeyLogin, acceptSession, captureSession } from "./session/access";
 
+import { systemBindings } from "./systems/ui-bindings";
+
 import { useCampaignScene } from "./session/useCampaignScene";
 import { useSceneConnection } from "./session/useSceneConnection";
 
@@ -99,6 +101,7 @@ export default function App() {
 
   return (
     <TablePage
+      systemBindings={systemBindings}
       hideSidebar={hideSidebar} hideRail={hideRail}
       onToggleSidebar={() => {
         if (hideSidebar) uiActions.setSideTab("chat");

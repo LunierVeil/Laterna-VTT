@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
 import { SceneStage } from "../lib/stage";
-import { statsOf } from "../../../systems/dnd5e/model/tokenStats";
+import { projectStats } from "../../../entities/token/lib/project-stats";
+import type { CharacterPresentation } from "../../../entities/character/model/definition";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import { useUi, uiActions, selectTool, selectIsGm, selectCharacters, selectFogMode } from "../../../state/public";
 
 export function SceneView({
+  getCharacterStats,
   socket,
   stageRef,
   onReady,
 }: {
+  getCharacterStats: CharacterPresentation["tokenStats"];
   socket: SceneSocket;
   stageRef: React.MutableRefObject<SceneStage | null>;
   onReady: (stage: SceneStage) => void;
@@ -96,7 +99,7 @@ export function SceneView({
         stage.setTool(useUi.getState().tool);
         stage.setGm(useUi.getState().isGm);
         stage.setFogMode(useUi.getState().fogMode);
-        stage.setCharacterStats(statsOf(useUi.getState().characters));
+        stage.setCharacterStats(projectStats(useUi.getState().characters, getCharacterStats));
         uiActions.setZoom(1);
         onReady(stage);
       })
@@ -108,7 +111,7 @@ export function SceneView({
       if (stageRef.current === stage) {stageRef.current = null; uiActions.setSelectionCounts(0, 0);}
       void mounted.finally(() => stage.destroy());
     };
-  }, [socket, stageRef, onReady]);
+  }, [socket, stageRef, onReady, getCharacterStats]);
 
   useEffect(() => {
     stageRef.current?.setTool(tool);
@@ -125,8 +128,8 @@ export function SceneView({
 
   // Лист поменялся (урон, правка КД) - полоска на токене за ним.
   useEffect(() => {
-    stageRef.current?.setCharacterStats(statsOf(characters));
-  }, [characters, stageRef]);
+    stageRef.current?.setCharacterStats(projectStats(characters, getCharacterStats));
+  }, [characters, stageRef, getCharacterStats]);
 
   return <div className="scene" ref={host} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
     e.preventDefault();

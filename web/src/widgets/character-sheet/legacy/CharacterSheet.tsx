@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { HpControls } from "../../../sheets/HpControls";
+import { HpControls } from "../../../systems/dnd5e/ui/HpControls";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import { useUi, uiActions, selectIsGm, selectAccounts } from "../../../state/public";
 import type { Character } from "../../../shared/api/protocol";

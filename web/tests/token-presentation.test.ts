@@ -7,7 +7,9 @@ registerHooks({resolve(specifier, context, next) {
     throw error;
   }
 }});
-const { characterStats, statsOf, at } = await import("../src/systems/dnd5e/model/tokenStats.ts");
+const { at } = await import("../src/systems/dnd5e/model/tokenStats.ts");
+const { systemPresentation: {tokenStats: characterStats} } = await import("../src/app/systems/registry.ts");
+const { projectStats } = await import("../src/entities/token/lib/project-stats.ts");
 const { hpChanges } = await import("../src/systems/dnd5e/model/bonus.ts");
 const { dnd5e, SHEETS } = await import("../src/systems/dnd5e/model/dnd5e.ts");
 const character = (system: string, data: any = {}) => ({id: system, name: system, owner_id: null, system, data, source_format: null});
@@ -29,7 +31,7 @@ test("PC/mob token projections preserve optional numbers, badge and leading-inte
 });
 test("stats map contains only supplied visible characters with known definitions", () => {
   const pc = character("dnd5e"), unknown = character("unknown"), mob = character("mob");
-  const result = statsOf({pc, unknown, mob});
+  const result = projectStats({pc, unknown, mob}, characterStats);
   assert.deepEqual([...result.keys()], ["dnd5e", "mob"]); assert.equal(result.has("not-visible"), false);
   assert.equal(at(null, "hp.current"), undefined); assert.equal(at({hp: 1}, "hp.current"), undefined);
 });

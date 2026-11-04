@@ -2,16 +2,13 @@ import { useEffect, useState } from "react";
 import { useUi, uiActions, selectCombat, selectCombatOpen, selectIsGm, selectMe, selectSelected } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { CombatEntry } from "../../../shared/api/protocol";
-import { SHEETS } from "../../../systems/dnd5e/model/dnd5e";
+import type { CharacterPresentation } from "../../../entities/character/model/definition";
+type InitiativePresentation = Pick<CharacterPresentation, "initiativeBonus" | "initiativeTitle" | "initiativeResult">;
 
 /** Бонус инициативы из привязанного листа (путь - в схеме, token.initiative). */
-function initiativeBonus(entry: CombatEntry): number {
+function initiativeBonus(entry: CombatEntry, presentation: InitiativePresentation): number {
   const c = entry.character_id ? useUi.getState().characters[entry.character_id] : undefined;
-  const path = c ? SHEETS[c.system]?.token?.initiative : undefined;
-  if (!c || !path) return 0;
-  let node: any = c.data;
-  for (const part of path.split(".")) node = node?.[part];
-  return typeof node === "number" ? node : 0;
+  return presentation.initiativeBonus(c);
 }
 
 /** Поле инициативы: сохраняет по Enter и уходу с поля. */
@@ -43,7 +40,7 @@ function InitInput({ entry, onCommit }: { entry: CombatEntry; onCommit: (v: numb
  * порядок и чей ход считает сервер. Игрок правит и бросает только свою
  * строку и заканчивает только свой ход.
  */
-export function InitiativePanel({ socket }: { socket: SceneSocket }) {
+export function InitiativePanel({ socket, presentation }: { socket: SceneSocket; presentation: InitiativePresentation }) {
   const combat = useUi(selectCombat);
   const open = useUi(selectCombatOpen);
   const isGm = useUi(selectIsGm);
@@ -90,15 +87,15 @@ export function InitiativePanel({ socket }: { socket: SceneSocket }) {
             {mine(e) && (
               <button
                 className="tool"
-                title={`бросить 1d20${initiativeBonus(e) ? `${initiativeBonus(e) > 0 ? "+" : ""}${initiativeBonus(e)}` : ""} (бонус из листа)`}
-                onClick={() => socket.send("combat.roll", { entry_id: e.id, bonus: initiativeBonus(e) })}
+                title={presentation.initiativeTitle(initiativeBonus(e, presentation))}
+                onClick={() => socket.send("combat.roll", { entry_id: e.id, bonus: initiativeBonus(e, presentation) })}
               >
                 🎲
               </button>
             )}
             {e.roll && (
               <span className="muted init-roll" title={e.roll.formula}>
-                d20: {e.roll.die}
+                {presentation.initiativeResult(e.roll)}
               </span>
             )}
             {mine(e) && (

@@ -14,7 +14,10 @@ import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { SceneStage } from "../../../widgets/scene-canvas/lib/stage";
 import type { Character, Message } from "../../../shared/api/protocol";
 
+import type { SystemBindings } from "../../../entities/character/ui/health-slot";
+
 interface TablePageProps {
+  systemBindings: SystemBindings;
   hideSidebar: boolean;
   hideRail: boolean;
   onToggleSidebar: () => void;
@@ -36,7 +39,7 @@ interface TablePageProps {
 }
 
 export function TablePage({
-  hideSidebar, hideRail, onToggleSidebar, onToggleRail, onHideSidebar, onDismissNotice,
+  systemBindings, hideSidebar, hideRail, onToggleSidebar, onToggleRail, onHideSidebar, onDismissNotice,
   socket, sceneId, stageRef, handleReady, diceOpen, closeDice, animatedRoll, diceAnimation,
   openScene, openCharacter, error, notice,
 }: TablePageProps) {
@@ -50,9 +53,9 @@ export function TablePage({
       <main>
         <ToolRail socket={socket} stageRef={stageRef} />
         <div className="scene-area">
-          <SceneView socket={socket} stageRef={stageRef} onReady={handleReady} />
-          <TokenCard socket={socket} stageRef={stageRef} />
-          <InitiativePanel socket={socket} />
+          <SceneView getCharacterStats={systemBindings.presentation.tokenStats} socket={socket} stageRef={stageRef} onReady={handleReady} />
+          <TokenCard presentation={systemBindings.presentation} healthControl={systemBindings.healthControl} socket={socket} stageRef={stageRef} />
+          <InitiativePanel presentation={systemBindings.presentation} socket={socket} />
           <ToolHint />
           <SelectionBar stageRef={stageRef} />
           {diceOpen && <DiceMenu socket={socket} onClose={closeDice} />}
