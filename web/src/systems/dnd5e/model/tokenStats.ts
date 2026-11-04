@@ -1,6 +1,7 @@
 import type { CharacterStats } from "../../../entities/token/model/presentation";
 import { SHEETS } from "./dnd5e";
 import type { Character } from "../../../shared/api/protocol";
+import type { SheetSchema } from "../../../entities/character/model/legacy-sheet-schema";
 
 export function at(data: unknown, path: string): unknown {
   let node = data as any;
@@ -26,7 +27,12 @@ export function statsOf(characters: Record<string, Character>): Map<string, Char
 
 /** То же для одного листа: карточка токена показывает те же числа, что токен. */
 export function characterStats(c: Character): CharacterStats | null {
-  const view = SHEETS[c.system]?.token;
+  return characterStatsFor(c, SHEETS[c.system]);
+}
+
+/** Canonical pure projector; legacy callers keep their wrapper until migration. */
+export function characterStatsFor(c: Character, schema: SheetSchema | undefined): CharacterStats | null {
+  const view = schema?.token;
   if (!view) return null;
   const num = (p: string) => (typeof at(c.data, p) === "number" ? (at(c.data, p) as number) : undefined);
   const badge = at(c.data, view.badge.key);
