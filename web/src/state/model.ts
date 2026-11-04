@@ -100,6 +100,10 @@ export interface UiSlice {
   setHiddenRolls: (v: boolean) => void;
   setSideTab: (t: SideTab) => void;
   setZoom: (z: number) => void;
+  /** Same partial update formerly performed by the SceneView callbacks. */
+  setSelectionCounts: (selectionCount: number, selectionEditable: number) => void;
+  /** Same partial update formerly performed by App's dismiss callback. */
+  dismissNotice: () => void;
 }
 
 export type UiState = SessionSlice & CampaignSlice & GameplaySlice & UiSlice;

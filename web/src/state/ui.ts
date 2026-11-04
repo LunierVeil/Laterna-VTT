@@ -45,5 +45,7 @@ export const createUiSlice: SliceCreator<UiSlice> = (set, get) => ({
   setWallKind: (wallKind) => set({ wallKind }),
   setHiddenRolls: (hiddenRolls) => set({ hiddenRolls }),
   setSideTab: (sideTab) => set({ sideTab }),
-  setZoom: (zoom) => set({ zoom })
+  setZoom: (zoom) => set({ zoom }),
+  setSelectionCounts: (selectionCount, selectionEditable) => set({ selectionCount, selectionEditable }),
+  dismissNotice: () => set({ notice: null }),
 });
