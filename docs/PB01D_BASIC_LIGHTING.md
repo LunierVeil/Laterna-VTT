@@ -3,8 +3,8 @@
 База: master `d79994d0e2ff1f8fd3b9e252adae23fc2a40873d`, обычный
 [merge PR #35](https://github.com/LunierVeil/Laterna-VTT/pull/35).
 [Full CI базы](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42047573393)
-успешен, включая 38 Chromium tests и CI required. Эта новая реализация остаётся
-Draft до независимого review; собственная проверка Codex не является одобрением.
+успешен, включая 38 Chromium tests и CI required. Этот этап прошёл независимое
+review PASS WITH RISKS и объединён в PR #36; его ограничения сохраняются.
 
 ## Согласованные решения и scope
 
@@ -197,8 +197,9 @@ phase allocation peaks для 8 sources, ambient none, **KiB** (1024 bytes):
   импорта lighting → line_of_sight, обратного ребра/нового цикла нет. Approximate
   visibility_area не импортируется production-модулем света.
 
-Fast CI выполняется для каждого из трёх логических SHA. Новый PR остаётся Draft;
-Full CI с Chromium актуального test merge — после независимого review и Ready.
+Fast CI выполняется для каждого из трёх логических SHA. PR #36 завершён: [Full CI master после merge](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42102118552)
+успешен. Это не разрешает runtime-интеграцию. Проверяемый следующий шаг D10/D11 —
+в [прототипе контекста](PB01D_COMPUTATION_CONTEXT.md), его review отдельное.
 Результат CI master базы не выдаётся за Full CI новой реализации. Manifest,
 expected counts, strict gate и таймауты не изменялись.
 
