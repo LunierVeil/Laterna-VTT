@@ -230,3 +230,36 @@ def test_cancellation_of_current_awaiter_invalidates_and_drains_worker(monkeypat
         closed = await runner.run(capture(), QUERIES, budget=BUDGET)
         assert closed.state is ComputationState.UNAVAILABLE and closed.reason == 'closed'
     run(scenario())
+
+
+def test_same_producer_revision_does_not_hide_changed_geometry_or_light():
+    from app.computation_context import SourceInput
+    async def scenario():
+        async with ComputationRunner(workers=1) as runner:
+            old = await runner.run(capture(state_revision='unchanged-seq'), QUERIES, budget=BUDGET)
+            new = await runner.run(capture(state_revision='unchanged-seq', segments=(),
+                sources=(SourceInput((75., 50.), 10.),)), QUERIES, budget=BUDGET)
+            assert old.state is new.state is ComputationState.COMPLETE
+            assert old.version.state_revision == new.version.state_revision
+            assert old.version.content_digest != new.version.content_digest
+            assert new.generation > old.generation and runner.latest is new
+            assert old.answers[1].light.state is LightState.UNLIT
+            assert new.answers[1].light.state is LightState.LIT
+    run(scenario())
+
+
+def test_unexpected_kernel_error_does_not_publish_or_leak_capacity(monkeypatch):
+    original = module.build_context
+    def broken(*args, **kwargs):
+        raise ArithmeticError('synthetic kernel invariant failure')
+    async def scenario():
+        async with ComputationRunner(workers=1) as runner:
+            assert (await runner.run(capture(), QUERIES, budget=BUDGET)).state is ComputationState.COMPLETE
+            monkeypatch.setattr(module, 'build_context', broken)
+            with pytest.raises(ArithmeticError):
+                await runner.run(capture(), QUERIES, budget=BUDGET)
+            assert runner.latest is None
+            monkeypatch.setattr(module, 'build_context', original)
+            recovered = await runner.run(capture(), QUERIES, budget=BUDGET)
+            assert recovered.state is ComputationState.COMPLETE and runner.latest is recovered
+    run(scenario())
