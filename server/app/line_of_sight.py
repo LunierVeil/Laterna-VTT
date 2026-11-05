@@ -12,7 +12,7 @@ all LOS decisions still use exact Fraction geometry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from fractions import Fraction
 from math import inf, isfinite, nextafter
@@ -237,3 +237,80 @@ def point_sight(
         if _blocked_by(a_exact, b_exact, _exact_point(c), _exact_point(d), epsilon_squared):
             return SightResult(SightState.BLOCKED, ignored)
     return SightResult(SightState.CLEAR, ignored)
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedSegment:
+    a: Point
+    b: Point
+    bounds: _Bounds
+    exact_a: _ExactPoint
+    exact_b: _ExactPoint
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class PreparedGeometry:
+    """Immutable, point-in-time opaque geometry for repeated pure queries.
+
+    Copies and validates the entire input once. No reference to caller-owned
+    mutable data, no cache, database identity, freshness or authorization claim.
+    Use the scene service for a fresh committed snapshot, not an old instance.
+    """
+
+    width: float
+    height: float
+    epsilon: float
+    ignored_zero_length: int
+    _segments: tuple[_PreparedSegment, ...] = field(repr=False)
+    _epsilon_squared: Fraction
+
+    def __init__(self, opaque_segments: Iterable[Segment], *, width: float,
+                 height: float, epsilon: float = INITIAL_EPSILON_PX) -> None:
+        width, height = _number(width, "width"), _number(height, "height")
+        epsilon = _number(epsilon, "epsilon")
+        if width <= 0 or height <= 0 or epsilon <= 0:
+            raise ValueError("scene dimensions and epsilon must be positive")
+        try:
+            iterator = iter(opaque_segments)
+        except TypeError as exc:
+            raise ValueError("opaque_segments must be iterable") from exc
+        segments = []
+        ignored = 0
+        for index, raw in enumerate(iterator):
+            raw_a, raw_b = _pair(raw, f"segment[{index}]")
+            a = _point(raw_a, f"segment[{index}].a", width, height)
+            b = _point(raw_b, f"segment[{index}].b", width, height)
+            if a == b:
+                ignored += 1
+            else:
+                segments.append(_PreparedSegment(a, b, _bounds(a, b),
+                                                 _exact_point(a), _exact_point(b)))
+        for name, value in (("width", width), ("height", height), ("epsilon", epsilon),
+                            ("ignored_zero_length", ignored),
+                            ("_segments", tuple(segments)),
+                            ("_epsilon_squared", Fraction(epsilon) ** 2)):
+            object.__setattr__(self, name, value)
+
+    def point_sight(self, observer: Point, target: Point) -> SightResult:
+        """Validate the two points only; reuse exact wall coordinates and boxes."""
+        a = _point(observer, "observer", self.width, self.height)
+        b = _point(target, "target", self.width, self.height)
+        observer_box = _expanded_bounds(a, a, self.epsilon)
+        a_exact = _exact_point(a)
+        for segment in self._segments:
+            if _overlaps(observer_box, segment.bounds):
+                if _distance_squared(a_exact, segment.exact_a, segment.exact_b) <= self._epsilon_squared:
+                    return SightResult(SightState.OBSERVER_ON_OBSTACLE, self.ignored_zero_length)
+        if a == b:
+            return SightResult(SightState.CLEAR, self.ignored_zero_length)
+        ray_box = _expanded_bounds(a, b, self.epsilon)
+        b_exact = _exact_point(b)
+        dx, dy, radius = _ray_radius_upper(a, b, self.epsilon)
+        for segment in self._segments:
+            if not _overlaps(ray_box, segment.bounds):
+                continue
+            if _provably_off_ray(a, dx, dy, segment.a, segment.b, radius):
+                continue
+            if _blocked_by(a_exact, b_exact, segment.exact_a, segment.exact_b, self._epsilon_squared):
+                return SightResult(SightState.BLOCKED, self.ignored_zero_length)
+        return SightResult(SightState.CLEAR, self.ignored_zero_length)
