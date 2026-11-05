@@ -5,12 +5,13 @@ persistence/token binding, D&D vision, ambient default, FoW or network consumer.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from fractions import Fraction
 from math import isfinite
 
-from .line_of_sight import Point, PreparedGeometry, SightState
+from .line_of_sight import Point, PreparedGeometry, SightResult, SightState
 
 
 class SourceState(str, Enum):
@@ -104,3 +105,61 @@ class LightSource:
         if sight.state is SightState.BLOCKED:
             return LightResult(LightState.UNLIT, ignored)
         return LightResult(LightState.UNAVAILABLE, ignored)
+
+
+class Ambient(str, Enum):
+    NONE = "none"
+    FULL = "full"
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class LightingField:
+    """Binary union in one snapshot, not a union of approximate polygons.
+
+    All sources are checked before any positive result, including ambient FULL.
+    Different geometry instances are rejected even if their walls happen to
+    compare equal: this is a local binding invariant, NOT a freshness guarantee.
+    """
+    ambient: Ambient
+    sources: tuple[LightSource, ...]
+    unavailable_source_indices: tuple[int, ...]
+    _geometry: PreparedGeometry = field(repr=False)
+
+    def __init__(self, geometry: PreparedGeometry, sources: Iterable[LightSource], *, ambient: Ambient):
+        if not isinstance(geometry, PreparedGeometry):
+            raise TypeError("expected exact PreparedGeometry")
+        try:
+            ambient = Ambient(ambient)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("ambient must explicitly be none or full") from exc
+        sources = tuple(sources)  # eager: iterator failure cannot leave a partial field
+        unavailable = []
+        for index, source in enumerate(sources):
+            if not isinstance(source, LightSource):
+                raise TypeError("every source must be a LightSource")
+            if source._geometry is not geometry:
+                raise ValueError("all sources must use the same exact geometry instance")
+            if source.state is not SourceState.READY:
+                unavailable.append(index)
+        for name, value in (("ambient", ambient), ("sources", sources),
+                            ("unavailable_source_indices", tuple(unavailable)),
+                            ("_geometry", geometry)):
+            object.__setattr__(self, name, value)
+
+    def point_light(self, target: Point) -> LightResult:
+        """L only. Invalid sources take precedence over ambient or another lamp."""
+        target = _position(target, self._geometry)
+        ignored = self._geometry.ignored_zero_length
+        if self.unavailable_source_indices:
+            return LightResult(LightState.UNAVAILABLE, ignored)
+        if self.ambient is Ambient.FULL:
+            return LightResult(LightState.LIT, ignored)
+        for source in self.sources:
+            result = source._point_light(target)
+            if result.state is not LightState.UNLIT:
+                return result
+        return LightResult(LightState.UNLIT, ignored)
+
+    def point_sight(self, observer: Point, target: Point) -> SightResult:
+        """G only: intentionally independent of light, game rules and permissions."""
+        return self._geometry.point_sight(observer, target)
