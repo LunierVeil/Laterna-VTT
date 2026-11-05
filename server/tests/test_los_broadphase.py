@@ -158,3 +158,90 @@ def test_many_random_walls_have_identical_result_to_independent_oracle():
         expected = _reference_sight(a, b, walls)
         assert check(a, b, walls).state is expected
         assert check(a, b, [w[::-1] for w in reversed(walls)]).state is expected
+
+
+def test_outward_intervals_enclose_exact_arithmetic_not_rounded_answers():
+    """Check the filter's certificates independently of the final LOS oracle."""
+    from fractions import Fraction as F
+    from math import inf
+    import sys
+
+    tiny = nextafter(0., 1.)
+    values = [-sys.float_info.max, -8192., -1e-7, -tiny, -0., 0., tiny,
+              1e-300, 1e-7, nextafter(8192., 0.), 8192., sys.float_info.max]
+    rng = Random(320032)
+    pairs = [(x, y) for x in values for y in values]
+    pairs += [(rng.uniform(-8192, 8192), rng.uniform(-8192, 8192))
+              for _ in range(1200)]
+    for index, (x, y) in enumerate(pairs):
+        difference = F(x) - F(y)
+        lo, hi = los._interval_sub_numbers(x, y)
+        assert lo <= difference <= hi
+        u, v = pairs[-index - 1]
+        left, right = (min(x, y), max(x, y)), (min(u, v), max(u, v))
+        products = [F(a) * F(b) for a in left for b in right]
+        lo, hi = los._interval_mul(left, right)
+        assert lo <= min(products) <= max(products) <= hi
+        lo, hi = los._interval_sub(left, right)
+        assert lo <= F(left[0]) - F(right[1])
+        assert hi >= F(left[1]) - F(right[0])
+    assert los._interval_mul((0., inf), (0., 1.)) == (-inf, inf)
+
+
+def test_expanded_boxes_and_radius_enclose_exact_values_at_float_edges():
+    from fractions import Fraction as F
+    from math import isfinite
+    import sys
+
+    tiny = nextafter(0., 1.)
+    values = [0., tiny, 1e-300, 1e-7, 100., nextafter(8192., 0.),
+              8192., sys.float_info.max]
+    for i, x in enumerate(values):
+        a, b = (x, values[-i - 1]), (values[-i - 1], x)
+        for epsilon in (tiny, 1e-300, 1e-7, 10000., sys.float_info.max):
+            lo_x, hi_x, lo_y, hi_y = los._expanded_bounds(a, b, epsilon)
+            for lo, hi, p, q in ((lo_x, hi_x, a[0], b[0]),
+                                  (lo_y, hi_y, a[1], b[1])):
+                assert lo <= min(F(p), F(q)) - F(epsilon)
+                assert hi >= max(F(p), F(q)) + F(epsilon)
+            _, _, radius = los._ray_radius_upper(a, b, epsilon)
+            if isfinite(radius):
+                length_squared = (F(b[0]) - F(a[0])) ** 2 + (F(b[1]) - F(a[1])) ** 2
+                assert F(radius) ** 2 >= F(epsilon) ** 2 * length_squared
+
+
+@pytest.mark.parametrize("delta", [1e-7 / 2, 1e-7, 1e-7 * 2, 1e-12])
+@pytest.mark.parametrize("y", [1., 100., 8191.])
+def test_tiny_angle_crossing_cannot_be_filtered_as_clear(delta, y):
+    a, b = (0., y), (8192., y)
+    walls = [((2048., y + delta), (6144., y - delta))]
+    assert _reference_sight(a, b, walls) is SightState.BLOCKED
+    for variant in (walls, [walls[0][::-1]], walls * 2):
+        assert check(a, b, variant).state is SightState.BLOCKED
+        assert check(b, a, variant).state is SightState.BLOCKED
+
+
+def test_every_off_line_certificate_agrees_with_independent_exact_oracle():
+    rng = Random(320033)
+    certified = 0
+    for _ in range(1200):
+        a, b, c, d = [tuple(rng.uniform(0, 8192) for _ in range(2)) for _ in range(4)]
+        dx, dy, radius = los._ray_radius_upper(a, b, INITIAL_EPSILON_PX)
+        if los._provably_off_ray(a, dx, dy, c, d, radius):
+            certified += 1
+            assert _reference_sight(a, b, [(c, d)]) is SightState.CLEAR
+    assert certified > 0
+
+
+@pytest.mark.parametrize("count", [200, 2000, 10000])
+def test_large_free_and_blocked_scenes_keep_all_zero_diagnostics(count):
+    a, b = (0., 100.), (8192., 100.)
+    walls = [((float(i % 8192), 500.), (float(i % 8192), 600.)) for i in range(count)]
+    zero = ((10., 10.), (10., 10.))
+    block = ((4096., 100.), (4096., 200.))
+    clear = check(a, b, iter(walls + [zero, zero]))
+    assert clear.state is SightState.CLEAR and clear.ignored_zero_length == 2
+    for variant in ([block] + walls + [zero, zero],
+                    [zero, zero] + list(reversed(walls)) + [block[::-1]]):
+        blocked = check(a, b, iter(variant))
+        assert blocked.state is SightState.BLOCKED and blocked.ignored_zero_length == 2
