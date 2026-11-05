@@ -230,3 +230,100 @@ def test_zero_length_diagnostic_is_not_multiplied_by_sources_or_ambient():
         field = LightingField(g, sources, ambient=ambient)
         for target in ((20., 20.), (90., 90.)):
             assert field.point_light(target).ignored_zero_length == 2
+
+
+def reference_lit(sources, target, walls):
+    from .test_los_geometry import _reference_sight
+    return any(sum((Fraction(t) - Fraction(p)) ** 2 for t, p in zip(target, source.position))
+               <= Fraction(source.radius) ** 2
+               and _reference_sight(source.position, target, walls) is SightState.CLEAR
+               for source in sources)
+
+
+def test_random_fields_agree_with_independent_fraction_distance_and_los():
+    from random import Random
+    rng = Random(1012026)
+    for _ in range(8):
+        walls = [((rng.uniform(0, 256), rng.uniform(0, 256)),
+                  (rng.uniform(0, 256), rng.uniform(0, 256))) for _ in range(20)]
+        g = geometry(walls, (256., 256.))
+        sources = [LightSource(g, position, radius) for position, radius in
+                   [((10., 20.), 80.), ((100., 120.), 150.), ((230., 230.), 200.)]]
+        assert all(s.state is SourceState.READY for s in sources)
+        for ambient in Ambient:
+            field = LightingField(g, sources, ambient=ambient)
+            for _ in range(40):
+                target = rng.uniform(0, 256), rng.uniform(0, 256)
+                lit = ambient is Ambient.FULL or reference_lit(sources, target, walls)
+                assert field.point_light(target).state is (LightState.LIT if lit else LightState.UNLIT)
+
+
+@pytest.mark.parametrize("name", ["empty", "straight", "corner", "door-closed", "door-open", "door-locked",
+                                  "window-opening", "gm-layer", "manual-fog", "complex"])
+def test_all_pb00_scenes_against_fraction_oracle_without_choosing_window_optics(name):
+    from .fixtures.los_baseline import scenes
+    data = scenes()[name]
+    for opaque_window in (False, True):
+        # Hypothetical test-only opaque input, not a window adapter. W3 OPEN.
+        walls = [((w['x1'], w['y1']), (w['x2'], w['y2'])) for w in data['walls']
+                 if w['kind'] == 'wall' or (w['kind'] == 'door' and w['door_state'] != 'open')
+                 or (w['kind'] == 'window' and opaque_window)]
+        g = geometry(walls, (data['width'], data['height']))
+        sources = [LightSource(g, (105., 105.), 700.), LightSource(g, (805., 175.), 700.)]
+        assert all(s.state is SourceState.READY for s in sources)
+        field = LightingField(g, sources, ambient=Ambient.NONE)
+        for target in [(805., 105.), (105., 105.), (350., 105.), (2000., 1300.)]:
+            lit = reference_lit(sources, target, walls)
+            assert field.point_light(target).state is (LightState.LIT if lit else LightState.UNLIT)
+
+
+def test_exact_endpoint_contact_blocks_light_but_real_gap_passes():
+    source = LightSource(geometry([((50., 20.), (50., 80.))]), (25., 50.), 100.)
+    assert source.point_light((62.5, 5.)).state is LightState.UNLIT
+    assert source.point_light((62.5, 4.999)).state is LightState.LIT
+
+
+def test_new_geometry_and_moved_source_need_new_bindings_not_mutation():
+    closed, opened = geometry([((50., 0.), (50., 100.))]), geometry()
+    old = LightingField(closed, [LightSource(closed, (25., 50.), 100.)], ambient=Ambient.NONE)
+    new = LightingField(opened, [LightSource(opened, (25., 50.), 100.)], ambient=Ambient.NONE)
+    assert new.point_light((75., 50.)).state is LightState.LIT
+    assert old.point_light((75., 50.)).state is LightState.UNLIT
+    with pytest.raises(ValueError):
+        LightingField(opened, old.sources, ambient=Ambient.NONE)
+    moved = LightingField(opened, [LightSource(opened, (75., 50.), 5.)], ambient=Ambient.NONE)
+    assert moved.point_light((25., 50.)).state is LightState.UNLIT
+    assert new.point_light((25., 50.)).state is LightState.LIT
+
+
+def test_late_malformed_source_is_not_ignored_after_a_lit_source():
+    g = geometry()
+    with pytest.raises(TypeError):
+        LightingField(g, [LightSource(g, (20., 20.), 100.), None], ambient=Ambient.FULL)
+
+
+def test_query_position_contract_matches_existing_exact_geometry_for_bad_inputs():
+    from decimal import Decimal
+    g = geometry()
+    source = LightSource(g, (20., 20.), 1.)
+    field = LightingField(g, [source], ambient=Ambient.FULL)
+    for target in [[], [1], (0, inf), (nan, 0), (-1, 0), (101, 0), (False, 0),
+                   (Decimal('1'), 0), (10 ** 400, 0), {'x': 1, 'y': 2}]:
+        with pytest.raises(ValueError):
+            g.point_sight((20., 20.), target)
+        with pytest.raises(ValueError):
+            field.point_light(target)
+        with pytest.raises(ValueError):
+            source.point_light(target)
+
+
+def test_approximate_contour_cannot_create_a_lit_point_near_wall_endpoint():
+    from app.visibility_area import PreparedVisibilityGeometry
+    g = geometry([((50., 50.), (50., 80.))])
+    position = (25., 50. - 0.5e-7)
+    area = PreparedVisibilityGeometry(g).visibility_area(position)
+    source = LightSource(g, position, 100.)
+    target = (75., 50. - 0.5e-7)
+    assert area.quality == 'approximate_zero_width'
+    assert area.point_sight(target).state is SightState.BLOCKED
+    assert source.point_light(target).state is LightState.UNLIT
