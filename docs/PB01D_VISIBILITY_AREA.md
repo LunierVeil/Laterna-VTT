@@ -3,13 +3,16 @@
 База: `007e1254d84ed71635d9b206daa8e875e40eee3d` после
 [PR #34](https://github.com/LunierVeil/Laterna-VTT/pull/34);
 [Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42038049472)
-успешен. Эта реализация требует отдельного независимого review.
+успешен. Эта реализация прошла независимое review PASS WITH RISKS и объединена
+в [PR #35](https://github.com/LunierVeil/Laterna-VTT/pull/35); ограничения ниже сохранены.
 
 ## Разрешённая граница
 
 Владелец согласовал D01/D02 из [проекта PB-01d](PB01D_VISIBILITY_LIGHTING_DESIGN.md):
 точный point LOS сохраняется; начальный контур — событийный, явно приближённый.
-**D03–D11 и окна W3 остаются OPEN.** Нет света, игровой модели зрения, нового
+**На этапе PB-01d-1 D03–D11 оставались OPEN.** Затем D03–D09 согласованы
+для отдельного [ядра Basic Lighting](PB01D_BASIC_LIGHTING.md); D10/D11 и W3
+остаются OPEN. В самом модуле области нет света, игровой модели зрения, нового
 FoW, авторизации, клиентского renderer или выдачи объектов. `CLEAR` не разрешает
 передавать секреты. ROADMAP и LTR-DEC/G1–G6 не изменены.
 
@@ -211,4 +214,6 @@ PreparedGeometry уже живёт при замере подготовки; о�
 
 Fast CI проверяется для каждого опубликованного логического SHA. Full CI нового
 PR, включая Chromium, не считается выполненным по результатам старого master:
-он обязателен после независимого review и Ready. Реализация остаётся Draft.
+он обязателен после независимого review и Ready. Этот этап завершён в PR #35;
+[Full CI master после merge](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42047573393)
+успешен. Это не утверждает готовность контура к runtime-интеграции.
