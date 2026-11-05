@@ -178,3 +178,135 @@ def test_neither_zero_wall_nor_endpoint_order_changes_result():
     r1 = sight((105, 105), (805, 105), [zero, seg])
     r2 = sight((105, 105), (805, 105), [tuple(reversed(seg)), zero])
     assert r1 == r2 == sight((105, 105), (805, 105), [seg, zero])
+
+
+def _reference_sight(a, b, walls, epsilon=INITIAL_EPSILON_PX):
+    """Exact test oracle: parametric intersection + cross-product distance.
+
+    Production uses side signs and dot-product projection; this reference does
+    not import its helpers. Fractions represent the supplied floats, not rounded
+    decimal intentions. Analytic cases below also check the boundary contract.
+    """
+    from fractions import Fraction
+
+    def point(p):
+        return tuple(Fraction(v) for v in p)
+
+    def sub(p, q):
+        return p[0] - q[0], p[1] - q[1]
+
+    def dot(u, v):
+        return u[0] * v[0] + u[1] * v[1]
+
+    def cross(u, v):
+        return u[0] * v[1] - u[1] * v[0]
+
+    def close(p, c, d):
+        v, w = sub(d, c), sub(p, c)
+        length, along = dot(v, v), dot(w, v)
+        if along <= 0:
+            distance = dot(w, w)
+        elif along >= length:
+            distance = dot(sub(p, d), sub(p, d))
+        else:
+            distance = cross(v, w) ** 2 / length
+        return distance <= Fraction(epsilon) ** 2
+
+    a, b = point(a), point(b)
+    walls = [(point(c), point(d)) for c, d in walls if c != d]
+    if any(close(a, c, d) for c, d in walls):
+        return SightState.OBSERVER_ON_OBSTACLE
+    if a == b:
+        return SightState.CLEAR
+    for c, d in walls:
+        ray, wall, offset = sub(b, a), sub(d, c), sub(c, a)
+        determinant = cross(ray, wall)
+        if determinant:
+            t = cross(offset, wall) / determinant
+            u = cross(offset, ray) / determinant
+            if 0 <= t <= 1 and 0 <= u <= 1:
+                return SightState.BLOCKED
+        if any((close(a, c, d), close(b, c, d), close(c, a, b), close(d, a, b))):
+            return SightState.BLOCKED
+    return SightState.CLEAR
+
+
+@pytest.mark.parametrize("a,b,wall,expected", [
+    # Old normalized projection lost the diagnostic when wall ends were reversed.
+    ((2.69999992, 3.60000006), (1., 100.), ((0., 0.), (3., 4.)),
+     SightState.OBSERVER_ON_OBSTACLE),
+    # Old projection returned CLEAR even though exact distance was <= epsilon.
+    ((6296.770485783843, 4107.197161628372),
+     (2735.8377903889377, 69.77382087266687),
+     ((6348.52441975517, 4144.710791430352),
+      (5347.184211375355, 3418.89339211657)), SightState.OBSERVER_ON_OBSTACLE),
+    # Old projection diagnosed a point actually outside the epsilon band.
+    ((0.74999992, 1.00000006), (1., 100.), ((0., 0.), (3., 4.)), SightState.CLEAR),
+])
+def test_rounding_regressions_against_exact_input_values(a, b, wall, expected):
+    assert _reference_sight(a, b, [wall]) is expected
+    for segment in (wall, tuple(reversed(wall))):
+        assert sight(a, b, [segment], size=(8192, 8192)).state is expected
+
+
+@pytest.mark.parametrize("factor,near,far", [
+    (0.5, SightState.OBSERVER_ON_OBSTACLE, SightState.BLOCKED),
+    (1, SightState.OBSERVER_ON_OBSTACLE, SightState.BLOCKED),
+    (2, SightState.CLEAR, SightState.CLEAR),
+])
+def test_exact_epsilon_boundary_without_translated_decimal_rounding(factor, near, far):
+    delta = factor * INITIAL_EPSILON_PX
+    wall = ((0., 0.), (0., 8.))
+    assert sight((delta, 4.), (8., 4.), [wall]).state is near
+    # Observer is far from the finite wall, but the ray passes it at delta.
+    wall = ((3., 0.), (7., 0.))
+    assert sight((1., delta), (9., delta), [wall]).state is far
+
+
+def test_tiny_nonzero_wall_is_not_lost_to_squared_float_underflow():
+    from math import nextafter
+    wall = ((4., 0.), (4., nextafter(0., 1.)))
+    assert wall[0] != wall[1]
+    result = sight((1., 0.), (8., 0.), [wall])
+    assert result.state is SightState.BLOCKED
+    assert result.ignored_zero_length == 0
+
+
+def test_shared_corner_and_many_walls_have_analytic_answer():
+    clear = [((float(x), 500.), (float(x), 600.)) for x in range(1, 2001)]
+    a, b = (0., 100.), (2100., 100.)
+    assert sight(a, b, clear).state is SightState.CLEAR
+    corner = [((1000., 100.), (1000., 300.)), ((1000., 100.), (1300., 100.))]
+    walls = clear + corner + [tuple(reversed(corner[0]))]
+    assert sight(a, b, walls).state is SightState.BLOCKED
+    assert sight(b, a, reversed(walls)).state is SightState.BLOCKED
+
+
+def test_deterministic_fraction_oracle_and_endpoint_order():
+    from math import hypot, nextafter
+    from random import Random
+
+    rng = Random(3101)
+    for index in range(1600):
+        a, b, c, d = [tuple(rng.uniform(0, 8192) for _ in range(2)) for _ in range(4)]
+        if index % 2 == 0:
+            # Tilted walls and near-parallel rays at epsilon/2, epsilon, 2epsilon.
+            dx, dy = d[0] - c[0], d[1] - c[1]
+            length = hypot(dx, dy)
+            delta = INITIAL_EPSILON_PX * rng.choice((0.5, 1., 2.))
+            a = (c[0] + dx * 0.25 - dy / length * delta,
+                 c[1] + dy * 0.25 + dx / length * delta)
+            b = (c[0] + dx * 0.75 - dy / length * delta,
+                 c[1] + dy * 0.75 + dx / length * delta)
+        if index % 10 == 0:
+            # Translate representable boundary-neighbor coordinates near 8192.
+            a = (nextafter(8192., 0.), rng.uniform(0, 8192))
+        if index % 25 == 0:
+            b = a
+        walls = [(c, d), ((0., 8192.), (0., 8192.))]
+        for observer, target in ((a, b), (b, a)):
+            expected = _reference_sight(observer, target, walls)
+            for segments in (walls, [(d, c), walls[1]], list(reversed(walls))):
+                result = sight(observer, target, iter(segments), size=(8192, 8192))
+                assert result.state is expected, (index, observer, target, segments)
+                assert result.ignored_zero_length == 1

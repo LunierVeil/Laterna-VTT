@@ -12,11 +12,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from math import hypot, isfinite
+from fractions import Fraction
+from math import isfinite
 from typing import Iterable, TypeAlias
 
 Point: TypeAlias = tuple[float, float]
 Segment: TypeAlias = tuple[Point, Point]
+_ExactPoint: TypeAlias = tuple[Fraction, Fraction]
 INITIAL_EPSILON_PX = 1e-7
 
 
@@ -58,37 +60,33 @@ def _point(value: object, name: str, width: float, height: float) -> Point:
     return x, y
 
 
-def _distance_to_segment(p: Point, a: Point, b: Point) -> float:
+def _distance_squared(p: _ExactPoint, a: _ExactPoint, b: _ExactPoint) -> Fraction:
     dx, dy = b[0] - a[0], b[1] - a[1]
-    length = hypot(dx, dy)
-    # Exactly zero segments are removed before this call.
-    ux, uy = dx / length, dy / length
-    t = max(0.0, min(length, (p[0] - a[0]) * ux + (p[1] - a[1]) * uy))
-    return hypot(p[0] - (a[0] + t * ux), p[1] - (a[1] + t * uy))
+    px, py = p[0] - a[0], p[1] - a[1]
+    length_squared = dx * dx + dy * dy
+    projection = px * dx + py * dy
+    if projection <= 0:
+        return px * px + py * py
+    if projection >= length_squared:
+        return (p[0] - b[0]) ** 2 + (p[1] - b[1]) ** 2
+    return px * px + py * py - projection * projection / length_squared
 
 
-def _signed_side(p: Point, a: Point, b: Point) -> float:
-    dx, dy = b[0] - a[0], b[1] - a[1]
-    length = hypot(dx, dy)
-    # Linear units (px), not the squared-pixel units of a raw determinant.
-    return (dx / length) * (p[1] - a[1]) - (dy / length) * (p[0] - a[0])
+def _side(p: _ExactPoint, a: _ExactPoint, b: _ExactPoint) -> Fraction:
+    return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
 
 
-def _strict_interior_cross(a: Point, b: Point, c: Point, d: Point) -> bool:
-    c_side, d_side = _signed_side(c, a, b), _signed_side(d, a, b)
-    a_side, b_side = _signed_side(a, c, d), _signed_side(b, c, d)
-    return ((c_side > 0 > d_side or c_side < 0 < d_side)
-            and (a_side > 0 > b_side or a_side < 0 < b_side))
-
-
-def _blocked_by(a: Point, b: Point, c: Point, d: Point, epsilon: float) -> bool:
-    # Endpoint contact, collinear overlap, and near-misses within the
-    # candidate linear tolerance; interior crossings need a separate check.
-    return (_strict_interior_cross(a, b, c, d)
-            or _distance_to_segment(a, c, d) <= epsilon
-            or _distance_to_segment(b, c, d) <= epsilon
-            or _distance_to_segment(c, a, b) <= epsilon
-            or _distance_to_segment(d, a, b) <= epsilon)
+def _blocked_by(a: _ExactPoint, b: _ExactPoint, c: _ExactPoint, d: _ExactPoint,
+                epsilon_squared: Fraction) -> bool:
+    c_side, d_side = _side(c, a, b), _side(d, a, b)
+    a_side, b_side = _side(a, c, d), _side(b, c, d)
+    crosses = ((c_side > 0 > d_side or c_side < 0 < d_side)
+               and (a_side > 0 > b_side or a_side < 0 < b_side))
+    return (crosses
+            or _distance_squared(a, c, d) <= epsilon_squared
+            or _distance_squared(b, c, d) <= epsilon_squared
+            or _distance_squared(c, a, b) <= epsilon_squared
+            or _distance_squared(d, a, b) <= epsilon_squared)
 
 
 def point_sight(
@@ -116,7 +114,14 @@ def point_sight(
     a = _point(observer, "observer", width, height)
     b = _point(target, "target", width, height)
 
-    usable: list[Segment] = []
+    # Preserve the supplied binary64 values exactly. Normalized float projection
+    # can move a distance across epsilon when endpoints are reversed. Squared
+    # rational comparisons avoid that extra rounding, sqrt and tiny-length division.
+    # This does not recover precision already lost by the caller or choose epsilon.
+    a = (Fraction(a[0]), Fraction(a[1]))
+    b = (Fraction(b[0]), Fraction(b[1]))
+    epsilon_squared = Fraction(epsilon) ** 2
+    usable: list[tuple[_ExactPoint, _ExactPoint]] = []
     ignored = 0
     try:
         iterator = iter(opaque_segments)
@@ -129,14 +134,15 @@ def point_sight(
         if c == d:
             ignored += 1
         else:
-            usable.append((c, d))
+            usable.append(((Fraction(c[0]), Fraction(c[1])),
+                           (Fraction(d[0]), Fraction(d[1]))))
 
     for c, d in usable:
-        if _distance_to_segment(a, c, d) <= epsilon:
+        if _distance_squared(a, c, d) <= epsilon_squared:
             return SightResult(SightState.OBSERVER_ON_OBSTACLE, ignored)
     if a == b:
         return SightResult(SightState.CLEAR, ignored)
     for c, d in usable:
-        if _blocked_by(a, b, c, d, epsilon):
+        if _blocked_by(a, b, c, d, epsilon_squared):
             return SightResult(SightState.BLOCKED, ignored)
     return SightResult(SightState.CLEAR, ignored)
