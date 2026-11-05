@@ -100,3 +100,26 @@ def test_prepared_query_still_validates_both_points():
     for a, b in [((float('nan'), 0.), (0., 0.)), ((0., 0.), (9000., 0.))]:
         with pytest.raises(ValueError):
             prepared.point_sight(a, b)
+
+
+@pytest.mark.parametrize("factor", [0.5, 1., 2.])
+def test_prepared_epsilon_band_near_origin_and_map_edge(factor):
+    from math import inf
+    for y in (0., 8191.):
+        level = y + los.INITIAL_EPSILON_PX * factor
+        walls = [((3., y), (7., y))]
+        prepared = prepare(walls)
+        for yy in (nextafter(level, -inf), level, nextafter(level, inf)):
+            if yy < 0:
+                continue
+            a, b = (1., yy), (8., yy)
+            assert prepared.point_sight(a, b) == los.point_sight(a, b, walls, width=8192, height=8192)
+            assert prepared.point_sight(a, b).state is _reference_sight(a, b, walls)
+
+
+def test_prepared_common_corner_and_short_nonzero_wall_stay_opaque():
+    for walls in ([((350., 0.), (350., 350.)), ((350., 350.), (700., 350.))],
+                  [((350., 100.), (350., 100. + 5e-8))]):
+        a, b = ((105., 105.), (595., 595.)) if len(walls) == 2 else ((100., 100.), (600., 100.))
+        assert prepare(walls).point_sight(a, b).state is los.SightState.BLOCKED
+        assert prepare([w[::-1] for w in reversed(walls)]).point_sight(a, b).state is los.SightState.BLOCKED

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from sqlalchemy import select
+from sqlalchemy.orm import Load
 
 from .db import SessionLocal
 from .line_of_sight import INITIAL_EPSILON_PX, Point, PreparedGeometry, SightResult
@@ -58,7 +59,12 @@ async def scene_sights(scene_id: str, rays: Iterable[tuple[Point, Point]], *,
     """
     async with SessionLocal() as db:
         rows = (await db.execute(
-            select(Scene, Wall).outerjoin(Wall, Wall.scene_id == Scene.id)
+            select(Scene, Wall).options(
+                Load(Scene).load_only(Scene.id, Scene.width, Scene.height),
+                Load(Wall).load_only(Wall.id, Wall.scene_id, Wall.x1, Wall.y1,
+                                     Wall.x2, Wall.y2, Wall.kind, Wall.door_state,
+                                     Wall.blocks_sight),
+            ).outerjoin(Wall, Wall.scene_id == Scene.id)
             .where(Scene.id == scene_id)
         )).all()
         if not rows:

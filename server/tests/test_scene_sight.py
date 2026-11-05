@@ -108,6 +108,7 @@ def test_batch_one_select_and_isolated_scene_switches(client, gm, test_scene):
         event.remove(engine.sync_engine, "before_cursor_execute", record)
     assert len(results) == 100 and all(r.state is SightState.BLOCKED for r in results)
     assert len(statements) == 1 and "LEFT OUTER JOIN walls" in statements[0]
+    assert "fog_json" not in statements[0] and "background_url" not in statements[0]
     assert query(client, test_scene).state is SightState.BLOCKED
 
 
@@ -232,3 +233,19 @@ def test_resize_past_old_wall_fails_without_rewriting_saved_data(client, gm, tes
         assert client.portal.call(persisted) == 350.
         run(ws, "expand", "scene.update", {"width": 700})
         assert query(client, test_scene).state is SightState.BLOCKED
+
+
+def test_adapter_copies_orm_values_and_rejects_cross_scene_or_ambiguous_flags():
+    scene = Scene(id="synthetic-scene", width=2100, height=1400)
+    door = Wall(scene_id=scene.id, x1=350, y1=0, x2=350, y2=350,
+                kind="door", door_state="open", blocks_sight=True)
+    old = prepare_scene_geometry(scene, [door])
+    door.door_state = "closed"
+    assert old.point_sight(A, B).state is SightState.CLEAR
+    assert prepare_scene_geometry(scene, [door]).point_sight(A, B).state is SightState.BLOCKED
+    door.scene_id = "another-scene"
+    with pytest.raises(SceneGeometryUnavailable):
+        prepare_scene_geometry(scene, [door])
+    door.scene_id, door.kind, door.blocks_sight = scene.id, "wall", None
+    with pytest.raises(SceneGeometryUnavailable):
+        prepare_scene_geometry(scene, [door])
