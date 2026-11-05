@@ -138,6 +138,7 @@ def inside(point, polygon):
 
 def test_independent_random_interior_probes_and_segment_order_invariance():
     import random
+    from .test_los_geometry import _reference_sight
     rng = random.Random(714030)
     for _ in range(15):
         walls = [((rng.uniform(0, 100), rng.uniform(0, 100)),
@@ -151,6 +152,7 @@ def test_independent_random_interior_probes_and_segment_order_invariance():
             target = rng.uniform(0, 100), rng.uniform(0, 100)
             exact = prepared.point_sight(observer, target)
             assert result.point_sight(target) == exact
+            assert exact.state is _reference_sight(observer, target, walls)
             # Continuous random probes are far from the epsilon boundary;
             # dedicated tests below explicitly demonstrate that exception.
             assert inside(tuple(map(F, target)), result.contour) == (exact.state is SightState.CLEAR)
@@ -236,3 +238,58 @@ def test_existing_scene_door_adapter_needs_no_new_optics_or_data(state, flag):
     result = prepared.visibility_area((25., 50.))
     assert area_size(result.contour) == (10000 if state == 'open' else 5000)
     assert result.point_sight((75., 50.)).state is (SightState.CLEAR if state == 'open' else SightState.BLOCKED)
+
+
+def test_fractional_nearly_parallel_intersections_near_8192_are_order_invariant():
+    walls = [((0.125, 0.125), (8191.875, 8191.875 - 1e-7)),
+             ((0.125, 0.125 + 1e-7), (8191.875, 8191.875 - 2e-7))]
+    prepared = prepare(walls, (8192., 8192.))
+    assert prepared.intersection_point_count == 1
+    result = prepared.visibility_area((0., 8192.))
+    other = prepare([w[::-1] for w in walls[::-1]], (8192., 8192.)).visibility_area((0., 8192.))
+    assert result.contour == other.contour
+    for point, state in [((8192., 0.), SightState.BLOCKED), ((0., 0.), SightState.CLEAR),
+                         ((8192., 8192.), SightState.CLEAR)]:
+        assert result.point_sight(point).state is state
+
+
+def test_exact_contour_scales_without_a_new_grid_or_angle_tolerance():
+    walls = [((30., 20.), (70., 80.)), ((30., 80.), (70., 20.)),
+             ((75., 0.), (75., 30.)), ((75., 31.), (75., 100.))]
+    small = prepare(walls).visibility_area((10., 50.))
+    factor = 64
+    large_walls = [tuple(tuple(v * factor for v in p) for p in w) for w in walls]
+    large = prepare(large_walls, (6400., 6400.)).visibility_area((640., 3200.))
+    assert large.direction_count == small.direction_count
+    assert large.contour == tuple((x * factor, y * factor) for x, y in small.contour)
+
+
+def test_observer_two_epsilon_from_wall_is_usable_and_keeps_zero_diagnostics():
+    from app.visibility_area import AreaState
+    result = prepare([((0., 0.), (100., 0.)), ((20., 20.), (20., 20.))]).visibility_area((50., 2e-7))
+    assert result.state is AreaState.READY
+    assert result.contour is not None
+    assert result.ignored_zero_length == result.point_sight((50., 50.)).ignored_zero_length == 1
+
+
+def test_one_prepared_snapshot_can_serve_both_sides_without_state_leakage():
+    prepared = prepare([((50., 0.), (50., 100.))])
+    events = prepared.event_points
+    left = prepared.visibility_area((25., 50.))
+    right = prepared.visibility_area((75., 50.))
+    assert area_size(left.contour) == area_size(right.contour) == 5000
+    assert max(x for x, _ in left.contour) == min(x for x, _ in right.contour) == 50
+    assert prepared.event_points is events
+    assert prepared.visibility_area((25., 50.)) == left
+    assert left.point_sight((25., 50.)).state is SightState.CLEAR
+    assert right.point_sight((25., 50.)).state is SightState.BLOCKED
+
+
+def test_many_shared_vertex_segments_do_not_drop_pair_or_corner_events():
+    walls = [((10., float(i)), (90., float(100 - i))) for i in range(30, 70)]
+    prepared = prepare(walls)
+    assert prepared.candidate_pair_count == 40 * 39 // 2
+    assert prepared.intersection_point_count == 1
+    assert (F(50), F(50)) in prepared.event_points
+    result = prepared.visibility_area((5., 50.))
+    assert result.point_sight((95., 50.)).state is SightState.BLOCKED

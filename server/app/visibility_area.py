@@ -1,4 +1,4 @@
-"""PB-01d-1: immutable events for an experimental, zero-width visibility contour.
+"""PB-01d-1: event-driven experimental zero-width visibility contour.
 
 Exact point visibility remains PreparedGeometry.point_sight, including epsilon.
 No lighting, FoW, database, access policy, networking or renderer integration.
