@@ -87,9 +87,17 @@ test('Alpha token settings: linked controls removed without data loss; legacy an
  await p.getByRole('button',{name:'Большой',exact:true}).click();
  await until(async()=> (await scene(p)).tokens.find(t=>t.id===linked.id)?.size===2,'size update');
  const nameInput=p.locator('.token-card-settings form input');await nameInput.fill('Legacy renamed');await nameInput.press('Enter');
- await p.getByRole('checkbox',{name:'Скрыт от игроков',exact:true}).check();
- await until(async()=>{const t=(await scene(p)).tokens.find(t=>t.id===linked.id);return t.name==='Legacy renamed'&&t.layer==='gm';},'name/layer update');
+ const renamed=await until(async()=>{const t=(await scene(p)).tokens.find(t=>t.id===linked.id);return t?.name==='Legacy renamed'?t:null;},'renamed token saved');
+ await until(async()=>await p.locator('.token-card-name').textContent()==='Legacy renamed','renamed token applied to React');
+ const hidden=p.getByRole('checkbox',{name:'Скрыт от игроков',exact:true});
+ assert.equal(await hidden.isChecked(),false);
+ // The controlled checkbox reflects token.updated, not an optimistic local toggle.
+ // check() can verify before the asynchronous WS acknowledgement arrives.
+ await hidden.click();
+ await until(async()=> (await scene(p)).tokens.find(t=>t.id===linked.id)?.layer==='gm','hidden layer saved');
+ await until(()=>hidden.isChecked(),'hidden checkbox acknowledged in React');
  let token=(await scene(p)).tokens.find(t=>t.id===linked.id);assert.equal(token.image_url,url);assert.equal(token.character_id,c.id);
+ assert.deepEqual(token,{...renamed,layer:'gm'},'hiding preserves the renamed token and all other data');
  await p.getByRole('button',{name:'Открыть лист',exact:true}).click();await p.locator('.sheet').waitFor();await closeSheet(p);
  // Double click still uses the actual Pixi pointer handler.
  const pos=await atToken(p,linked.id);await p.mouse.dblclick(pos.x,pos.y);await p.locator('.sheet').waitFor();await closeSheet(p);
