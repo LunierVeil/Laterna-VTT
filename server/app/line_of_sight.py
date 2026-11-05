@@ -291,6 +291,11 @@ class PreparedGeometry:
                             ("_epsilon_squared", Fraction(epsilon) ** 2)):
             object.__setattr__(self, name, value)
 
+    @property
+    def opaque_segments(self) -> tuple[Segment, ...]:
+        """Readonly coordinate projection for pure derived geometry, not a wire DTO."""
+        return tuple((segment.a, segment.b) for segment in self._segments)
+
     def point_sight(self, observer: Point, target: Point) -> SightResult:
         """Validate the two points only; reuse exact wall coordinates and boxes."""
         a = _point(observer, "observer", self.width, self.height)
