@@ -400,8 +400,8 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
                 data = await _scene_snapshot(snapshot_db, scene_id, actor)
             if frame is None or data is None:
                 return None
-            data['visuals'] = visual_lighting.projection(frame, actor)
             if actor.is_gm:
+                data['visuals'] = visual_lighting.projection(frame, actor)
                 return Witnessed(data, frame.stamp)
             # No read transaction held over CPU; a late result is not a grant.
             visibility = await calculate_bounded(frame, actor)
@@ -416,6 +416,9 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
                 continue
             data['tokens'] = [token for token in data['tokens'] if token['id'] in visibility.ids]
             data['walls'] = [wall for wall in data['walls'] if wall['kind'] in ('wall', 'door')]
+            # Missing protected geometry is not permission to draw through it.
+            data['visuals'] = visual_lighting.projection(frame, actor, observer_available=(
+                visibility.status == 'complete' and len(data['walls']) == len(frame.walls)))
             if data['combat'] is not None:
                 combat = data['combat']
                 entries = [e for e in combat['entries'] if e.get('token_id') in visibility.ids]
@@ -1126,7 +1129,7 @@ async def publish_scene_event(scene_id, name, seq, payload, hidden, cmd_id):
             message = protocol.event(name, seq, data, cmd_id)
         if not await hub.send(ws, Witnessed(message, snap.los_stamp)):
             continue
-        if visible != previous:
+        if visible != previous or snap.get('visuals') != hub.published_visuals.get(ws):
             # Existing authoritative resync envelope, same committed seq. The
             # ack event precedes it; no fabricated event/seq or fog semantics.
             you = {'id': actor.id, 'name': actor.name, 'is_gm': False}

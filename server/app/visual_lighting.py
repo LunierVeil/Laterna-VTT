@@ -41,11 +41,11 @@ def configure(scene, settings):
     _settings[scene.id] = dict(ambient=settings['ambient'],sources=normalized)
 
 
-def projection(frame, actor):
+def projection(frame, actor, *, observer_available=True):
     settings = deepcopy(_settings.get(frame.id))
     observers = [t for t in frame.tokens if t.owner_id == actor.id and t.layer != 'gm'
                  and t.system == 'dnd5e' and t.character_owner == actor.id]
-    observer = observers[0].id if len(observers) == 1 and not frame.over_budget else None
+    observer = observers[0].id if observer_available and len(observers) == 1 and not frame.over_budget else None
     return dict(settings=settings,observer_id=observer)
 
 

@@ -47,3 +47,55 @@ def test_flag_off_keeps_legacy_snapshot_and_rejects_adapter(client,gm,world,monk
     with client.websocket_connect(f'/ws/scene/{world.scene}',headers=gm) as master:
         recv_until(master,lambda m:m['type']=='snapshot')
         assert run(master,'off','scene.visuals',{'settings':{'ambient':'full','sources':[]}})['type']=='error'
+
+
+def test_unsupported_geometry_never_implicitly_selects_window_optics(client,gm,world):
+    from app.models import Wall
+    from app.db import SessionLocal
+    async def seed():
+        async with SessionLocal() as db:
+            wall=Wall(scene_id=world.scene,x1=200,y1=0,x2=200,y2=500,kind='window')
+            db.add(wall);await db.commit();return wall.id
+    wid=client.portal.call(seed)
+    try:
+        with client.websocket_connect(f'/ws/scene/{world.scene}',headers=gm) as master:
+            recv_until(master,lambda m:m['type']=='snapshot')
+            assert run(master,'full','scene.visuals',{'settings':{'ambient':'full','sources':[]}})['type']=='reply'
+        projection=client.get(f'/api/scenes/{world.scene}',headers=world.headers[0]).json()
+        assert projection['visuals']['observer_id'] is None
+        assert [t['id'] for t in projection['tokens']]==[world.own]
+    finally:
+        async def cleanup():
+            async with SessionLocal() as db:
+                await db.delete(await db.get(Wall,wid));await db.commit()
+        client.portal.call(cleanup)
+
+
+def test_manual_fog_revokes_visual_observer_even_when_token_ids_do_not_change(client,gm,world):
+    from app.models import Scene, Wall
+    from app.db import SessionLocal
+    async def original_fog():
+        async with SessionLocal() as db:
+            return (await db.get(Scene,world.scene)).fog_json
+    before=client.portal.call(original_fog)
+    wid=None
+    try:
+        with client.websocket_connect(f'/ws/scene/{world.scene}',headers=gm) as master, client.websocket_connect(f'/ws/scene/{world.scene}',headers=world.headers[0]) as player:
+            recv_until(master,lambda m:m['type']=='snapshot');recv_until(player,lambda m:m['type']=='snapshot')
+            wall=run(master,'visual-wall','wall.add',{'x1':50,'y1':50,'x2':150,'y2':50})
+            wid=wall['payload']['wall']['id']
+            assert run(master,'enable','scene.visuals',{'settings':{'ambient':'full','sources':[]}})['type']=='reply'
+            initial=recv_until(player,lambda m:m['type']=='snapshot')['scene']
+            assert initial['visuals']['observer_id']==world.own
+            covered=run(master,'cover-wall','fog.cover',{'x':40,'y':40,'w':120,'h':20})
+            current=recv_until(player,lambda m:m['type']=='snapshot' and m['seq']==covered['seq'])['scene']
+            assert {t['id'] for t in current['tokens']}=={t['id'] for t in initial['tokens']}
+            assert current['visuals']['observer_id'] is None
+            assert wid not in {w['id'] for w in current['walls']}
+    finally:
+        async def restore():
+            async with SessionLocal() as db:
+                (await db.get(Scene,world.scene)).fog_json=before
+                if wid: await db.delete(await db.get(Wall,wid))
+                await db.commit()
+        client.portal.call(restore)

@@ -16,7 +16,7 @@ export function VisualLightingSettings({socket,sceneId}:{socket:SceneSocket;scen
    if(!dirty.current){setAmbient(scene.visuals?.settings?.ambient??'full');setSources(scene.visuals?.settings?.sources??[]);}
   };
   const controller=new AbortController();
-  void fetch(`/api/scenes/${sceneId}`,{credentials:'include',signal:controller.signal}).then(async r=>{if(r.ok&&!controller.signal.aborted)apply(await r.json());}).catch(()=>{});
+  void fetch(`/api/scenes/${sceneId}`,{credentials:'include',signal:controller.signal}).then(async r=>{if(!r.ok)return;const scene=await r.json();if(!controller.signal.aborted)apply(scene);}).catch(()=>{});
   const off=socket.on(m=>{if(m.type==='snapshot')apply(m.scene);});
   return()=>{controller.abort();off();};
  },[socket,sceneId]);

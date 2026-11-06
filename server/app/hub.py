@@ -27,6 +27,7 @@ class Hub:
         # Optional application-owned freshness check; hub has no DB/policy imports.
         self.recipient_guard = None
         self.published_tokens: dict[WebSocket, frozenset[str]] = {}
+        self.published_visuals: dict[WebSocket, dict | None] = {}
 
     def lock(self, scene_id: str) -> asyncio.Lock:
         return self._locks[scene_id]
@@ -36,6 +37,7 @@ class Hub:
 
     def leave(self, scene_id: str, ws: WebSocket) -> None:
         self.published_tokens.pop(ws, None)
+        self.published_visuals.pop(ws, None)
         self._rooms[scene_id].pop(ws, None)
         if not self._rooms[scene_id]:
             self._rooms.pop(scene_id, None)
@@ -79,6 +81,7 @@ class Hub:
                 await ws.send_json(message)
                 if message.get('type') == 'snapshot':
                     self.published_tokens[ws] = frozenset(t['id'] for t in message['scene']['tokens'])
+                    self.published_visuals[ws] = message['scene'].get('visuals')
                 return True
         except Exception:
             for sid, candidate, _ in self.connections():
