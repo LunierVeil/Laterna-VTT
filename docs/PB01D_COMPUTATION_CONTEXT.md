@@ -1,7 +1,14 @@
 # PB-01d-3 — проверяемый прототип контекста вычисления
 
-**PROPOSED, для независимого review. D10/D11 не объявляются APPROVED для runtime.**
-База: `c48f0ccd7cc24d529b2d1a70bf25ac5ebe59068e` после обычного
+**Изолированный экспериментальный этап завершён: PR #37, review PASS WITH RISKS.**
+Одобрен HEAD `0b5ee4f3f763d593100a8698a565fa38884dd8b6`; merge-коммит master
+`baa7695ff4654c3317cd5143b05fd7bf8cba83d0`,
+[Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42112696994) успешен.
+**D10/D11 остаются OPEN для runtime**, гарантии/ограничения ниже сохранены.
+Актуальный [план интеграции](PB01D_INTEGRATION_PLAN.md) учитывает Owner Decision:
+Linux-first, функциональный PB-02 без обязательных I-01a/I-01b и Windows benchmark.
+Это не утверждение всех runtime gates и не разрешение нового scope этим документом.
+Исходная база реализации: `c48f0ccd7cc24d529b2d1a70bf25ac5ebe59068e` после обычного
 [merge PR #36](https://github.com/LunierVeil/Laterna-VTT/pull/36).
 [Full CI master](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42102118552)
 успешен: backend/frontend, все 38 Chromium tests и CI required.
@@ -206,20 +213,23 @@ GIL scheduling delays, готовность игрового FPS или совм
 Уже возвращённый COMPLETE не является lease и не должен использоваться для отправки
 секретных объектов. ContextVersion не является криптографическим разрешением доступа.
 
-Перед подключением в игру нужно отдельно утвердить:
+Для полного runtime остаются решения по фактическому scope:
 
-- D10: N/S/Q/bytes/CPU/memory budgets и admission всей системы на целевом Windows;
-  scheduler/cancellation/retry policy, большие атомарные операции и вариант hard isolation.
-- D11: trusted read transaction/version полного набора; уведомление и окончательный
-  revalidation/commit в coordinator, включая внешние записи, rollback, scene/identity lifecycle.
+- D10: N/S/Q/bytes/CPU/memory budgets и admission всей системы; основная платформа
+  владельца — CachyOS/Arch Linux. Для ограниченного PB-02 разрешены временные
+  fail-closed лимиты, не production SLA. Отдельный global scheduler, hard isolation
+  и Windows benchmark не prerequisite; Windows acceptance остаётся релизным gate.
+- D11: trusted read transaction/version полного набора и revalidation до выдачи,
+  rollback, scene/identity lifecycle — минимально внутри функциональных PR.
+  Защита произвольных внешних writers не доказана и не объявляется готовой.
 - D05/D06: реальный source schema/mapping, позиция/радиус/состояние и сохранения,
   при необходимости migration gate. В этой работе DB adapter не создан.
 - W3, правила зрения и личного/общего обзора; FoW и PB-02 AccessPolicy/projection
   требуют самостоятельного scope. Старые поля света не переинтерпретировать.
 
-Новые модули не вызываются из приложения. Старые math, DB, REST/WS и game code
-не изменены. Full CI новой реализации обязателен после независимого review/Ready;
-успешный CI базы не является её проверкой. PR остаётся Draft, релиз не запускается.
+Модули не вызываются из приложения. Старые math, DB, REST/WS и game code
+не изменены. Review и Full CI test merge/master PR #37 завершены; это не разрешает
+runtime-интеграцию. План следующего шага отдельный, релиз не запускался.
 
 ## Фактическая валидация перед публикацией
 
@@ -235,6 +245,7 @@ GIL scheduling delays, готовность игрового FPS или совм
   отсутствуют, зависимости направлены runner → context → lighting/LOS, без нового
   цикла/DB adapter. Manifest/counts/strict gate/timeouts/dependencies не менялись.
 
-Fast CI выполняется для каждого из трёх логических SHA до следующего этапа.
-Full CI этой реализации пока не подтверждён: Draft предназначен для независимого
-review. Никаких разрешений Ready/merge или игрового подключения эти тесты не дают.
+Fast CI трёх логических SHA прошёл до следующих этапов. После независимого review
+успешен [Full CI test merge](https://github.com/LunierVeil/Laterna-VTT/actions/runs/42110054593),
+затем Full CI master на merge-коммите выше. Завершён только изолированный scope;
+подключение в игру и решения D10/D11 требуют нового согласования.
