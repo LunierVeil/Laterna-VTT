@@ -3,8 +3,13 @@
 **Исторический архитектурный проект; D01/D02 согласованы владельцем после review
 PR #34 (PASS WITH RISKS). D03–D09 затем согласованы только для изолированного
 point-lighting ядра PB-01d-2. D10/D11 остаются OPEN.**
-Их [проверяемый прототип](PB01D_COMPUTATION_CONTEXT.md) подготовлен отдельно, без
-DB adapter источников или разрешения runtime-интеграции.
+Изолированные PB-01d-1/2/3 завершены, их вычислительные ограничения сохранены.
+Их [проверяемый прототип](PB01D_COMPUTATION_CONTEXT.md) не реализует DB adapter
+источников или runtime. [Завершение и план интеграции](PB01D_INTEGRATION_PLAN.md) —
+docs-only уточнение Owner Decision: CachyOS/Linux-first, функциональные срезы PB-02
+без обязательных I-01a/I-01b или Windows benchmark. PR #39 — первый экспериментальный
+permission/projection slice, не готовый игровой LOS. Минимальные safety-механизмы
+входят в функциональные PR; D10/D11/W3, vision и source mapping остаются OPEN.
 
 D01: точный `PreparedGeometry.point_sight()` — источник геометрической истины;
 приближённый контур разрешён только для вычислений и экспериментов, не для
