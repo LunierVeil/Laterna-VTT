@@ -216,3 +216,106 @@ def test_preview_origin_destination_and_door_revocation(client, gm, room):
         client.portal.call(main.previews.last.clear)
         preview(400, 400, opened['seq'])  # visible origin, destination behind the lower wall
         assert not any(m['type'] == 'token_preview' and not m['end'] for m in barrier('blocked-destination'))
+
+
+def test_observer_and_target_movement_refresh_visible_set(client, gm, room):
+    with client.websocket_connect(f'/ws/scene/{room.scene}', headers=gm) as master, \
+         client.websocket_connect(f'/ws/scene/{room.scene}', headers=room.headers[0]) as player:
+        recv_until(master, lambda m: m['type'] == 'snapshot')
+        recv_until(player, lambda m: m['type'] == 'snapshot')
+        opened = run(master, 'move-open', 'wall.door', {'id': room.door, 'state': 'open'})
+        recv_until(player, lambda m: m['type'] == 'snapshot' and m['seq'] == opened['seq'])
+        for y, expected in [(500, False), (200, True)]:
+            ack = run(player, f'own-{y}', 'token.move', {'id': room.own, 'x': 100, 'y': y})
+            assert ack['type'] == 'event'
+            snapshot = recv_until(player, lambda m: m['type'] == 'snapshot' and m['seq'] == ack['seq'])
+            assert (room.obscured in ids(snapshot['scene'])) is expected
+            own = next(t for t in snapshot['scene']['tokens'] if t['id'] == room.own)
+            assert own['y'] == y
+        for y, expected in [(500, False), (200, True)]:
+            ack = run(master, f'npc-{y}', 'token.move', {'id': room.obscured, 'x': 400, 'y': y})
+            snapshot = recv_until(player, lambda m: m['type'] == 'snapshot' and m['seq'] == ack['seq'])
+            assert (room.obscured in ids(snapshot['scene'])) is expected
+
+
+def test_projection_failure_closes_recipient_instead_of_publishing_payload(client, gm, room, monkeypatch):
+    from starlette.websockets import WebSocketDisconnect
+    with client.websocket_connect(f'/ws/scene/{room.scene}', headers=gm) as master, \
+         client.websocket_connect(f'/ws/scene/{room.scene}', headers=room.headers[0]) as player:
+        recv_until(master, lambda m: m['type'] == 'snapshot')
+        recv_until(player, lambda m: m['type'] == 'snapshot')
+        original = main.scene_snapshot
+        async def failed(db, sid, actor):
+            if actor.id == room.users[0]:
+                raise RuntimeError('synthetic projection failure')
+            return await original(db, sid, actor)
+        monkeypatch.setattr(main, 'scene_snapshot', failed)
+        ack = run(master, 'failed-open', 'wall.door', {'id': room.door, 'state': 'open'})
+        assert ack['type'] == 'event'
+        denied = recv_until(player, lambda m: m['type'] == 'auth_required')
+        assert room.obscured not in json.dumps(denied)
+        with pytest.raises(WebSocketDisconnect):
+            player.receive_json()
+
+
+@pytest.mark.parametrize('change', ['session', 'scene', 'role'])
+def test_command_waiting_for_scene_lock_revalidates_access(client, room, monkeypatch, change):
+    from app import auth
+    from app.models import AuthSession, Campaign, User
+    from starlette.websockets import WebSocketDisconnect
+    async def check():
+        key = auth.session_id(room.sessions[0])
+        async with SessionLocal() as db:
+            subject = await main.recipient(db, key, scene_id=room.scene)
+            session = await db.get(AuthSession, key)
+            saved_session = dict(token_hash=key,user_id=session.user_id,created_at=session.created_at)
+            before = (await db.get(Scene, room.scene)).seq
+            old_name = (await db.get(Token, room.own)).name
+        entered, original = anyio.Event(), main.recipient_current
+        calls = 0
+        async def checked(*args, **kwargs):
+            nonlocal calls
+            result = await original(*args, **kwargs)
+            calls += 1
+            if calls == 1:
+                assert result
+                entered.set()
+            return result
+        monkeypatch.setattr(main, 'recipient_current', checked)
+        class Socket:
+            codes = []
+            async def close(self, code):
+                self.codes.append(code)
+        ws = Socket()
+        async def command():
+            with pytest.raises(WebSocketDisconnect):
+                await main.handle_raw(ws, room.scene, subject[0], json.dumps({
+                    'id':'waiting','name':'token.update','payload':{'id':room.own,'name':'MUST NOT APPLY'}}))
+        try:
+            async with anyio.create_task_group() as tasks:
+                async with main.hub.lock(room.scene):
+                    tasks.start_soon(command)
+                    with anyio.fail_after(5):
+                        await entered.wait()
+                    async with SessionLocal() as db:
+                        if change == 'session':
+                            await db.delete(await db.get(AuthSession, key))
+                        elif change == 'scene':
+                            (await db.get(Campaign, room.campaign)).active_scene_id = room.inactive
+                        else:
+                            (await db.get(User, room.users[0])).is_gm = True
+                        await db.commit()
+            assert calls == 2 and ws.codes == [4401]
+            async with SessionLocal() as db:
+                assert (await db.get(Scene, room.scene)).seq == before
+                assert (await db.get(Token, room.own)).name == old_name
+        finally:
+            async with SessionLocal() as db:
+                if change == 'session':
+                    db.add(AuthSession(**saved_session))
+                elif change == 'scene':
+                    (await db.get(Campaign, room.campaign)).active_scene_id = room.scene
+                else:
+                    (await db.get(User, room.users[0])).is_gm = False
+                await db.commit()
+    client.portal.call(check)

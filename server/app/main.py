@@ -961,6 +961,9 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         if command.name == "token.preview" and not previews.allowed(websocket):
             return
         async with hub.lock(scene_id):
+            if config.EXPERIMENTAL_VISIBILITY and not await recipient_current(scene_id, actor, {}):
+                await websocket.close(code=4401)
+                raise WebSocketDisconnect(code=4401)
             async with SessionLocal() as db:
                 scene = await db.get(Scene, scene_id)
                 campaign = await get_campaign(db)
@@ -998,6 +1001,10 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
 
     # Все команды одной сцены применяются строго по очереди.
     async with hub.lock(scene_id):
+        # The LOS workload can delay admission: the pre-lock check is no lease.
+        if config.EXPERIMENTAL_VISIBILITY and not await recipient_current(scene_id, actor, {}):
+            await websocket.close(code=4401)
+            raise WebSocketDisconnect(code=4401)
         async with SessionLocal() as db:
             scene = await db.get(Scene, scene_id)
             if scene is None:
