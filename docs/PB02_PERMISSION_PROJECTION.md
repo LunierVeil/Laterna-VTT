@@ -111,6 +111,25 @@ Range/HEAD/ETag, session revoke/expiry, чужую кампанию, бюдже�
 перепривязки приватного/видимого портрета и атомарного rollback.
 Существующие тесты и строгий browser manifest не ослабляются.
 
+### Исправления review: initial WS publication и REST denial
+
+Initial snapshot и следующий campaign проверяются отдельно до `hub.join()`:
+отзыв сессии или смена роли не позволяют отправить уже подготовленный приватный
+DTO. Если сессия действительна, но сцена сменилась, старые frames отбрасываются,
+а свежий campaign redirect сохраняет SPA navigation. Snapshot → campaign → join
+остаются под scene lock; SQLite read sessions закрываются до network send.
+
+`GET /api/scenes/{scene_id}` возвращает единый HTTP 404 с `scene not found`
+для отсутствующей/недоступной сцены, включая отказ `scene_snapshot()` после
+успешного precheck. Возврат HTTP 200 с error-object удалён. Существующая
+PB-00 проверка удаления сцены обновлена на этот более строгий HTTP-контракт.
+
+Детерминированные regression tests используют synchronization barriers без
+случайных sleep: revoke/role/scene между capture и каждой initial publication,
+защита initial redirect, revoke между REST precheck и snapshot, а также отдельная
+DB-запись непосредственно на transport boundary. Это проверка точек актуальности,
+не новый универсальный atomic fence для произвольных внешних writers.
+
 Read-транзакция даёт согласованный снимок на время чтения, а не бесконечную
 актуальность уже выданного ответа. Этот PR не заявляет атомарного publication
 fence относительно произвольного внешнего writer, не отменяет уже скачанные

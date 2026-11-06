@@ -135,17 +135,44 @@ async def require_actor(request: Request, db: AsyncSession) -> Actor:
     return actor
 
 
-async def recipient_current(scene_id: str, actor: Actor, message: dict) -> bool:
+async def recipient_current(scene_id: str, actor: Actor, message: dict, *, require_scene: bool = False) -> bool:
     if not config.EXPERIMENTAL_VISIBILITY:
         return True
     # Campaign controls must reach players leaving an inactive/deleted scene.
-    controls = message.get("type") in ("campaign", "presence", "auth_required")
+    controls = not require_scene and message.get("type") in ("campaign", "presence", "auth_required")
     async with projection_session() as db:
         subject = await recipient(db, actor.session, scene_id=None if controls else scene_id)
     return subject is not None and (subject[0].id, subject[0].is_gm) == (actor.id, actor.is_gm)
 
 
 hub.recipient_guard = recipient_current
+
+
+async def send_initial(websocket: WebSocket, scene_id: str, actor: Actor, message: dict, *, scene_bound: bool = True) -> bool:
+    """Unjoined sockets need the same fresh check as registered hub recipients.
+
+    Initial campaign follows its scene snapshot, so it cannot use the normal
+    campaign-control exception for inactive scenes. All DB sessions close before
+    network sends; scene lock still covers snapshot → campaign → join ordering.
+    """
+    if not await recipient_current(scene_id, actor, message, require_scene=scene_bound):
+        redirect = None
+        if scene_bound:
+            async with projection_session() as db:
+                subject = await recipient(db, actor.session)
+                if subject and (subject[0].id, subject[0].is_gm) == (actor.id, actor.is_gm):
+                    redirect = await campaign_view(db, await get_campaign(db), actor)
+        if redirect is not None:
+            # Session still valid, but scene changed: preserve SPA navigation,
+            # discard captured frames and publish only a freshly checked control.
+            if await send_initial(websocket, scene_id, actor, redirect, scene_bound=False):
+                await websocket.close(code=4000)
+        else:
+            await websocket.send_json({"type": "auth_required"})
+            await websocket.close(code=4401)
+        return False
+    await hub.send(websocket, message)
+    return True
 
 
 async def campaign_users(db: AsyncSession, campaign: Campaign) -> list[dict]:
@@ -764,10 +791,14 @@ async def get_scene(scene_id: str, request: Request, response: Response, db: Asy
     if config.EXPERIMENTAL_VISIBILITY:
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie"
-    if not can_see(await require_actor(request, db), await get_campaign(db), scene_id):
-        raise HTTPException(404, "scene not found")
-    data = await scene_snapshot(db, scene_id, await require_actor(request, db))
-    return data or {"error": "scene not found"}
+    actor = await require_actor(request, db)
+    missing = HTTPException(404, "scene not found", headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
+    if not can_see(actor, await get_campaign(db), scene_id):
+        raise missing
+    data = await scene_snapshot(db, scene_id, actor)
+    if data is None:
+        raise missing
+    return data
 
 
 def origin_allowed(websocket: WebSocket) -> bool:
@@ -818,21 +849,21 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
         return
     await websocket.accept()
 
-    async with SessionLocal() as db:
+    async with projection_session() as db:
         actor = await session_actor(db, websocket.cookies)
-        if actor is None:
-            await websocket.send_json({"type": "auth_required"})
-            await websocket.close(code=4401)
-            return
-        campaign = await get_campaign(db)
-        snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
-        if snap is None:
-            # Скрытая или удалённая сцена - говорим, какая активна, и закрываем.
-            # Отличать "нет такой" от "скрыта" не будем: это тоже утечка.
-            await websocket.send_json(await campaign_view(db, campaign, actor))
+        if actor is not None:
+            campaign = await get_campaign(db)
+            snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
+            view = await campaign_view(db, campaign, actor)
+    if actor is None:
+        await websocket.send_json({"type": "auth_required"})
+        await websocket.close(code=4401)
+        return
+    if snap is None:
+        # Hidden/missing scenes share one redirect path, after closing DB reads.
+        if await send_initial(websocket, scene_id, actor, view, scene_bound=False):
             await websocket.close(code=4000)
-            return
-        view = await campaign_view(db, campaign, actor)
+        return
 
     # Повторный снимок, отправка и подписка под одним локом сцены:
     # событие не может обогнать снимок или попасть между ним и join.
@@ -845,16 +876,18 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             # приходит при каждом подключении, в отличие от ответа на вход.
             you["public_url"] = PUBLIC_URL
         async with hub.lock(scene_id):
-            async with SessionLocal() as db:
+            async with projection_session() as db:
                 campaign = await get_campaign(db)
                 view = await campaign_view(db, campaign, actor)
                 snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
             if snap is None:
-                await hub.send(websocket, view)
-                await websocket.close(code=4000)
+                if await send_initial(websocket, scene_id, actor, view, scene_bound=False):
+                    await websocket.close(code=4000)
                 return
-            await hub.send(websocket, protocol.snapshot(snap["seq"], snap, you))
-            await hub.send(websocket, view)
+            if not await send_initial(websocket, scene_id, actor, protocol.snapshot(snap["seq"], snap, you)):
+                return
+            if not await send_initial(websocket, scene_id, actor, view):
+                return
             await hub.join(scene_id, websocket, actor)
         await hub.broadcast_all(protocol.presence(hub.users()))
         while True:

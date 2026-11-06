@@ -7,12 +7,14 @@ from __future__ import annotations
 import json
 import uuid
 import anyio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.exc import OperationalError
+from starlette.websockets import WebSocketDisconnect
 
 from app import auth, config, main, media_access
 from app.db import SessionLocal
@@ -442,3 +444,184 @@ def test_websocket_disconnect_during_snapshot_releases_read_transaction(client, 
             scene.name = 'PB02 after disconnect inside snapshot'
             await db.commit()
     client.portal.call(write)
+
+
+@pytest.fixture
+def publication_identity(client, world):
+    """Fresh synthetic identities; revocation/demotion cannot affect other tests."""
+    identities = []
+
+    def create(is_gm):
+        async def seed():
+            async with SessionLocal() as db:
+                campaign = await db.get(Campaign, world.campaign)
+                user = await auth.create_user(db, campaign, 'publication-' + uuid.uuid4().hex,
+                                              'synthetic-password', is_gm=is_gm)
+                raw = await auth.create_session(db, user)
+                await db.commit()
+                return SimpleNamespace(id=user.id, raw=raw, headers={'cookie': f'{auth.SESSION_COOKIE}={raw}'})
+        identity = client.portal.call(seed)
+        identities.append(identity)
+        return identity
+
+    yield create
+    async def cleanup():
+        async with SessionLocal() as db:
+            campaign = await db.get(Campaign, world.campaign)
+            campaign.active_scene_id = world.scene
+            for identity in identities:
+                await db.execute(delete(AuthSession).where(AuthSession.user_id == identity.id))
+                await db.execute(delete(User).where(User.id == identity.id))
+            await db.commit()
+    client.portal.call(cleanup)
+
+
+async def publication_change(world, identity, change):
+    async with SessionLocal() as db:
+        if change == 'revoke':
+            await db.execute(delete(AuthSession).where(AuthSession.token_hash == auth.session_id(identity.raw)))
+        elif change == 'role':
+            user = await db.get(User, identity.id)
+            user.is_gm = False
+        else:
+            campaign = await db.get(Campaign, world.campaign)
+            campaign.active_scene_id = world.inactive
+        await db.commit()
+
+
+async def wait_publication_barrier(event):
+    with anyio.fail_after(10):
+        await event.wait()
+
+
+@pytest.mark.parametrize('phase', ['snapshot', 'campaign'])
+@pytest.mark.parametrize('change', ['revoke', 'role', 'scene'])
+def test_initial_ws_revalidates_unjoined_recipient_before_each_publication(
+        client, world, publication_identity, monkeypatch, phase, change):
+    identity = publication_identity(is_gm=change != 'scene')
+    entered, release = client.portal.call(anyio.Event), client.portal.call(anyio.Event)
+    original = main.send_initial
+    captures = []
+
+    async def held(ws, sid, actor, message, **kwargs):
+        if actor.id == identity.id and message['type'] == phase and not captures:
+            captures.append((ws, message))
+            entered.set()
+            await release.wait()
+        return await original(ws, sid, actor, message, **kwargs)
+
+    monkeypatch.setattr(main, 'send_initial', held)
+    with client.websocket_connect(f'/ws/scene/{world.scene}', headers=identity.headers) as ws:
+        try:
+            client.portal.call(wait_publication_barrier, entered)
+            assert not client.portal.call(lambda: any(peer is captures[0][0] for _, peer, _ in main.hub.connections()))
+            if phase == 'snapshot' and change != 'scene':
+                assert world.hidden in json.dumps(captures[0][1]), 'a private GM snapshot was actually prepared'
+            if phase == 'campaign':
+                first = ws.receive_json()
+                assert first['type'] == 'snapshot'  # delivered BEFORE the access change
+            # Commit completes while publication is held: no SQLite read lock is
+            # held over the network boundary. No sleeps or probabilistic timing.
+            client.portal.call(publication_change, world, identity, change)
+        finally:
+            client.portal.call(release.set)
+        denied = ws.receive_json()
+        if change == 'scene':
+            assert denied['type'] == 'campaign'
+            assert denied['active_scene_id'] == world.inactive
+            assert world.hidden not in json.dumps(denied)
+            expected_close = 4000
+        else:
+            assert denied == {'type': 'auth_required'}
+            expected_close = 4401
+        with pytest.raises(WebSocketDisconnect) as closed:
+            ws.receive_json()
+        assert closed.value.code == expected_close
+
+
+@pytest.mark.parametrize('change', ['revoke', 'role'])
+def test_initial_missing_scene_redirect_does_not_send_stale_private_campaign(
+        client, world, publication_identity, monkeypatch, change):
+    identity = publication_identity(is_gm=True)
+    entered, release = client.portal.call(anyio.Event), client.portal.call(anyio.Event)
+    original = main.send_initial
+    captures = []
+
+    async def held(ws, sid, actor, message, **kwargs):
+        if actor.id == identity.id and not captures:
+            captures.append(message)
+            entered.set()
+            await release.wait()
+        return await original(ws, sid, actor, message, **kwargs)
+
+    monkeypatch.setattr(main, 'send_initial', held)
+    with client.websocket_connect(f'/ws/scene/{uuid.uuid4()}', headers=identity.headers) as ws:
+        try:
+            client.portal.call(wait_publication_barrier, entered)
+            assert captures[0]['type'] == 'campaign'
+            assert captures[0]['scenes'], 'a private GM campaign view was actually captured'
+            client.portal.call(publication_change, world, identity, change)
+        finally:
+            client.portal.call(release.set)
+        assert ws.receive_json() == {'type': 'auth_required'}
+        with pytest.raises(WebSocketDisconnect) as closed:
+            ws.receive_json()
+        assert closed.value.code == 4401
+
+
+@pytest.mark.parametrize('change', ['revoke', 'role', 'scene'])
+def test_rest_snapshot_denial_after_precheck_is_uniform_404(
+        client, world, publication_identity, monkeypatch, change):
+    identity = publication_identity(is_gm=change != 'scene')
+    entered, release = client.portal.call(anyio.Event), client.portal.call(anyio.Event)
+    original = main.scene_snapshot
+
+    async def held(db, sid, actor):
+        if actor.id == identity.id:
+            entered.set()
+            await release.wait()
+        return await original(db, sid, actor)
+
+    monkeypatch.setattr(main, 'scene_snapshot', held)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = executor.submit(client.get, f'/api/scenes/{world.scene}', headers=identity.headers)
+        try:
+            client.portal.call(wait_publication_barrier, entered)
+            client.portal.call(publication_change, world, identity, change)
+        finally:
+            client.portal.call(release.set)
+        response = pending.result(timeout=15)
+    assert response.status_code == 404
+    assert response.json() == {'detail': 'scene not found'}
+    assert response.headers['cache-control'] == 'private, no-store'
+
+
+@pytest.mark.parametrize('flag', [False, True])
+def test_missing_and_inaccessible_scene_have_same_rest_404(client, gm, world, monkeypatch, flag):
+    monkeypatch.setattr(config, 'EXPERIMENTAL_VISIBILITY', flag)
+    missing = client.get(f'/api/scenes/{uuid.uuid4()}', headers=gm)
+    hidden = client.get(f'/api/scenes/{world.inactive}', headers=world.headers[0])
+    assert missing.status_code == hidden.status_code == 404
+    assert missing.json() == hidden.json() == {'detail': 'scene not found'}
+
+
+def test_initial_success_keeps_order_and_releases_reads_before_transport(client, world, monkeypatch):
+    original = main.hub.send
+    sent = []
+
+    async def transport(ws, message):
+        if message['type'] in ('snapshot', 'campaign'):
+            # A separate writer can commit at the actual send boundary.
+            async with SessionLocal() as db:
+                scene = await db.get(Scene, world.scene)
+                scene.name = 'PB02 writable at ' + message['type']
+                await db.commit()
+            sent.append(message['type'])
+        await original(ws, message)
+
+    monkeypatch.setattr(main.hub, 'send', transport)
+    with client.websocket_connect(f'/ws/scene/{world.scene}', headers=world.headers[0]) as ws:
+        assert ws.receive_json()['type'] == 'snapshot'
+        assert ws.receive_json()['type'] == 'campaign'
+        recv_until(ws, lambda message: message['type'] == 'presence')
+        assert sent == ['snapshot', 'campaign']
