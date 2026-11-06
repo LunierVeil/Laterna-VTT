@@ -1,3 +1,4 @@
+import { VisualLightingSettings } from "./VisualLightingSettings";
 import { useEffect, useRef, useState } from "react";
 import { useUi, uiActions, selectGridSize, selectBackground } from "../../../state/public";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
@@ -11,7 +12,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
  * Карта-подложка и размер клетки. Файл уходит на /api/uploads, а сцену
  * меняет только scene.update - как и всё остальное состояние.
  */
-export function MapSettings({ socket }: { socket: SceneSocket }) {
+export function MapSettings({ socket, sceneId }: { socket: SceneSocket; sceneId: string }) {
   const gridSize = useUi(selectGridSize);
   const background = useUi(selectBackground);
   const [busy, setBusy] = useState(false);
@@ -89,6 +90,7 @@ export function MapSettings({ socket }: { socket: SceneSocket }) {
         />
       </form>
       <p className="muted side-note">Подгони под сетку, нарисованную на карте.</p>
+      <VisualLightingSettings socket={socket} sceneId={sceneId} />
     </div>
   );
 }
