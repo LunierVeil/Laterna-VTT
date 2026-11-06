@@ -24,6 +24,8 @@ class Hub:
     def __init__(self) -> None:
         self._rooms: dict[str, dict[WebSocket, Actor]] = defaultdict(dict)
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # Optional application-owned freshness check; hub has no DB/policy imports.
+        self.recipient_guard = None
 
     def lock(self, scene_id: str) -> asyncio.Lock:
         return self._locks[scene_id]
@@ -63,6 +65,15 @@ class Hub:
     async def send(self, ws: WebSocket, message: dict) -> None:
         try:
             async with asyncio.timeout(5):
+                if self.recipient_guard:
+                    connection = next(((sid, actor) for sid, peer, actor in self.connections() if peer is ws), None)
+                    if connection and not await self.recipient_guard(*connection, message):
+                        for sid, peer, _ in self.connections():
+                            if peer is ws:
+                                self.leave(sid, ws)
+                        await ws.send_json({"type": "auth_required"})
+                        await ws.close(code=4401)
+                        return
                 await ws.send_json(message)
         except Exception:
             for sid, candidate, _ in self.connections():

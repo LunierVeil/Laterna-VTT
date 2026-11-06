@@ -54,3 +54,10 @@ LOGIN_NAME_WINDOW = 3600
 # подделывает кто угодно; верить ему можно, лишь когда перед сервером
 # свой прокси (туннель), и только для запросов с этой же машины.
 TRUST_PROXY = os.getenv("LANTERNA_TRUST_PROXY", "").lower() in ("1", "true", "yes")
+
+
+# PB-02: explicit experimental opt-in, Linux-first. No DB/schema or light mapping.
+_experimental_visibility = os.getenv("LANTERNA_EXPERIMENTAL_VISIBILITY", "0").lower()
+if _experimental_visibility not in ("0", "false", "no", "", "1", "true", "yes"):
+    raise ValueError("LANTERNA_EXPERIMENTAL_VISIBILITY must explicitly be 0/1 or false/true")
+EXPERIMENTAL_VISIBILITY = _experimental_visibility in ("1", "true", "yes")
