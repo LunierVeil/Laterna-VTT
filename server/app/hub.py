@@ -26,6 +26,7 @@ class Hub:
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         # Optional application-owned freshness check; hub has no DB/policy imports.
         self.recipient_guard = None
+        self.published_tokens: dict[WebSocket, frozenset[str]] = {}
 
     def lock(self, scene_id: str) -> asyncio.Lock:
         return self._locks[scene_id]
@@ -34,6 +35,7 @@ class Hub:
         self._rooms[scene_id][ws] = actor
 
     def leave(self, scene_id: str, ws: WebSocket) -> None:
+        self.published_tokens.pop(ws, None)
         self._rooms[scene_id].pop(ws, None)
         if not self._rooms[scene_id]:
             self._rooms.pop(scene_id, None)
@@ -62,7 +64,7 @@ class Hub:
         for ws, actor in list(self._rooms.get(scene_id, {}).items()):
             await self.send(ws, make(actor))
 
-    async def send(self, ws: WebSocket, message: dict) -> None:
+    async def send(self, ws: WebSocket, message: dict) -> bool:
         try:
             async with asyncio.timeout(5):
                 if self.recipient_guard:
@@ -73,8 +75,11 @@ class Hub:
                                 self.leave(sid, ws)
                         await ws.send_json({"type": "auth_required"})
                         await ws.close(code=4401)
-                        return
+                        return False
                 await ws.send_json(message)
+                if message.get('type') == 'snapshot':
+                    self.published_tokens[ws] = frozenset(t['id'] for t in message['scene']['tokens'])
+                return True
         except Exception:
             for sid, candidate, _ in self.connections():
                 if candidate is ws:
@@ -84,6 +89,7 @@ class Hub:
                     await ws.close(code=1011)
             except Exception:
                 pass
+            return False
 
 
 hub = Hub()

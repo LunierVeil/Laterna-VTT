@@ -28,6 +28,13 @@ _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='laterna-los')
 _capacity = threading.BoundedSemaphore(1)
 
 
+class Witnessed(dict):
+    """Internal provenance, NOT a DTO field; json serializes dictionary keys only."""
+    def __init__(self, data, stamp):
+        super().__init__(data)
+        self.los_stamp = stamp
+
+
 @dataclass(frozen=True, slots=True)
 class Target:
     id: str

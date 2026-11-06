@@ -1,7 +1,6 @@
-"""PB-02: shared recipient rules for the existing GM layer/manual FoW.
+"""Recipient rules: actor/scope, GM layer/manual FoW and opt-in exact LOS.
 
-No LOS policy yet. Dynamic sight plugs into the next functional slice; CLEAR
-alone will never replace actor/campaign/ownership checks.
+CLEAR alone never replaces actor/campaign/ownership checks.
 """
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ from . import auth, fog
 from .models import AuthSession, Campaign, Scene, Token, User, Wall
 from .roles import Actor
 from .db import SessionLocal
+from .gameplay_visibility import capture_scene, calculate_bounded
 
 
 @asynccontextmanager
@@ -118,7 +118,29 @@ async def _command_target_visible(db, scene, actor, name, payload):
     else:
         return True
     token = await db.get(Token, token_id) if isinstance(token_id, str) else None
-    return token is not None and token.scene_id == scene.id and token_visible(actor, token, regions)
+    return token is not None and token.scene_id == scene.id and await scene_token_visible(db, actor, token, regions)
+
+
+async def scene_token_visible(db, actor, token, regions, *, destination=None, cache=None):
+    """Same exact predicate for mutation, preview and media in a captured read.
+
+    Cache is local to this read/request, never a global visibility lease.
+    Callers own the read transaction or existing scene command lock.
+    """
+    from . import config
+    if not token_visible(actor, token, regions, destination=destination):
+        return False
+    if not config.EXPERIMENTAL_VISIBILITY or actor.is_gm or token.owner_id == actor.id:
+        return True
+    key = (token.scene_id, (token.id, *destination) if destination else None)
+    if cache is not None and key in cache:
+        result = cache[key]
+    else:
+        frame = await capture_scene(db, token.scene_id, actor.id)
+        result = await calculate_bounded(frame, actor, (token.id, *destination) if destination else None) if frame else None
+        if cache is not None:
+            cache[key] = result
+    return result is not None and token.id in result.ids and (not destination or result.destination)
 
 
 async def read_snapshot(db: AsyncSession) -> None:
