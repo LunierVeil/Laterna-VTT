@@ -617,7 +617,7 @@ def test_initial_success_keeps_order_and_releases_reads_before_transport(client,
                 scene.name = 'PB02 writable at ' + message['type']
                 await db.commit()
             sent.append(message['type'])
-        await original(ws, message)
+        return await original(ws, message)
 
     monkeypatch.setattr(main.hub, 'send', transport)
     with client.websocket_connect(f'/ws/scene/{world.scene}', headers=world.headers[0]) as ws:

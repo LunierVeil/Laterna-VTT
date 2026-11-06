@@ -22,7 +22,7 @@ from starlette.staticfiles import StaticFiles
 
 from . import auth, config
 from .models import Character, Scene, Token
-from .recipient_projection import projection_session, read_snapshot, recipient, token_visible
+from .recipient_projection import projection_session, read_snapshot, recipient, scene_token_visible
 
 # Conservative experimental limits; NOT production performance/SLA or asset limits.
 MAX_MATCHES = 256
@@ -155,6 +155,7 @@ async def _allowed_upload(db, name: str, session_hash: str) -> bool:
     actor, campaign_id, active_id = subject
     url = '/uploads/' + name
     referenced, allowed = False, False
+    visibility = {}
     # All references are checked before returning a positive answer. Unknown or
     # over-budget scans fail closed; do not return on the first matching grant.
     scenes = (await db.scalars(select(Scene).where(Scene.background_url == url).limit(MAX_MATCHES + 1))).all()
@@ -170,7 +171,7 @@ async def _allowed_upload(db, name: str, session_hash: str) -> bool:
     for token, scene in tokens:
         referenced = True
         if scene.campaign_id == campaign_id and (actor.is_gm or scene.id == active_id):
-            allowed |= token_visible(actor, token, json.loads(scene.fog_json or '[]'))
+            allowed |= await scene_token_visible(db, actor, token, json.loads(scene.fog_json or '[]'), cache=visibility)
     # Canonical uploaded filename contains no SQL wildcard; allow escaped JSON
     # path slashes by querying its filename then checking parsed string equality.
     characters = (await db.scalars(select(Character).where(Character.data_json.contains(name)).limit(MAX_MATCHES + 1))).all()
@@ -191,7 +192,8 @@ async def _allowed_upload(db, name: str, session_hash: str) -> bool:
                              Scene.id == active_id).limit(MAX_MATCHES + 1))).all()
             if len(linked) > MAX_MATCHES:
                 return False
-            allowed |= any(token_visible(actor, token, json.loads(scene.fog_json or '[]')) for token, scene in linked)
+            for token, scene in linked:
+                allowed |= await scene_token_visible(db, actor, token, json.loads(scene.fog_json or '[]'), cache=visibility)
     return bool(allowed) if referenced else pending_allowed(name, actor, campaign_id)
 
 

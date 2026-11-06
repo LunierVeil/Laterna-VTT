@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from .handlers import CommandError
 from .models import Token
-from .recipient_projection import token_visible
+from .recipient_projection import scene_token_visible
 
 
 @dataclass
@@ -129,7 +129,7 @@ class DragPreviews:
         if token is None or token.scene_id != scene.id:
             raise CommandError("токен не найден")
         regions = json.loads(scene.fog_json or '[]')
-        if not token_visible(actor, token, regions):
+        if not await scene_token_visible(db, actor, token, regions):
             raise CommandError("токен не найден")
         if not actor.is_gm and token.owner_id not in (None, actor.id):
             raise CommandError("нельзя двигать чужой токен")
@@ -160,7 +160,7 @@ class DragPreviews:
                 return
             if sid != scene.id or peer is ws:
                 continue
-            visible = token_visible(viewer, token, regions, destination=(stream.x, stream.y))
+            visible = await scene_token_visible(db, viewer, token, regions, destination=(stream.x, stream.y))
             if visible:
                 readers.add(peer)
                 stream.readers.add(peer)

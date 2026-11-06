@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 from . import auth, config, fog, protocol
 from .recipient_projection import command_target_visible, projection_session, read_snapshot, recipient, token_visible, visible_state
 from .media_access import RecipientUploads, attachment_allowed, remember_upload
+from .gameplay_visibility import Witnessed, capture_scene, calculate_bounded
 from .config import (
     FRONTEND_URL,
     FRONTEND_URLS,
@@ -141,7 +142,15 @@ async def recipient_current(scene_id: str, actor: Actor, message: dict, *, requi
     # Campaign controls must reach players leaving an inactive/deleted scene.
     controls = not require_scene and message.get("type") in ("campaign", "presence", "auth_required")
     async with projection_session() as db:
-        subject = await recipient(db, actor.session, scene_id=None if controls else scene_id)
+        witness = getattr(message, 'los_stamp', None) or getattr(message.get('scene'), 'los_stamp', None)
+        with anyio.CancelScope(shield=True):
+            if witness:
+                await read_snapshot(db)
+            subject = await recipient(db, actor.session, scene_id=None if controls else scene_id)
+            if subject is not None and witness:
+                frame = await capture_scene(db, scene_id, actor.id)
+                if frame is None or frame.stamp != witness:
+                    return False
     return subject is not None and (subject[0].id, subject[0].is_gm) == (actor.id, actor.is_gm)
 
 
@@ -171,8 +180,7 @@ async def send_initial(websocket: WebSocket, scene_id: str, actor: Actor, messag
             await websocket.send_json({"type": "auth_required"})
             await websocket.close(code=4401)
         return False
-    await hub.send(websocket, message)
-    return True
+    return await hub.send(websocket, message)
 
 
 async def campaign_users(db: AsyncSession, campaign: Campaign) -> list[dict]:
@@ -380,15 +388,39 @@ async def prepare_token_views(db: AsyncSession, payload: dict, scene_id: str | N
 async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
     if config.EXPERIMENTAL_VISIBILITY:
         # Separate owned transaction: don't inherit caller ORM cache/transaction.
-        async with projection_session() as snapshot_db:
-            # Don't invalidate an in-flight aiosqlite read on ASGI disconnect:
-            # finish the read before releasing its transaction/connection.
-            with anyio.CancelScope(shield=True):
-                await read_snapshot(snapshot_db)
-                subject = await recipient(snapshot_db, actor.session, scene_id=scene_id)
+        for _ in range(2):
+            async with projection_session() as snapshot_db:
+                with anyio.CancelScope(shield=True):
+                    await read_snapshot(snapshot_db)
+                    subject = await recipient(snapshot_db, actor.session, scene_id=scene_id)
+                    if subject is None or (subject[0].id, subject[0].is_gm) != (actor.id, actor.is_gm):
+                        return None
+                    frame = await capture_scene(snapshot_db, scene_id, actor.id)
+                data = await _scene_snapshot(snapshot_db, scene_id, actor)
+            if frame is None or data is None:
+                return None
+            if actor.is_gm:
+                return Witnessed(data, frame.stamp)
+            # No read transaction held over CPU; a late result is not a grant.
+            visibility = await calculate_bounded(frame, actor)
+            async with projection_session() as fresh:
+                with anyio.CancelScope(shield=True):
+                    await read_snapshot(fresh)
+                    subject = await recipient(fresh, actor.session, scene_id=scene_id)
+                    current = await capture_scene(fresh, scene_id, actor.id)
             if subject is None or (subject[0].id, subject[0].is_gm) != (actor.id, actor.is_gm):
                 return None
-            return await _scene_snapshot(snapshot_db, scene_id, actor)
+            if current is None or current.stamp != frame.stamp:
+                continue
+            data['tokens'] = [token for token in data['tokens'] if token['id'] in visibility.ids]
+            data['walls'] = [wall for wall in data['walls'] if wall['kind'] in ('wall', 'door')]
+            if data['combat'] is not None:
+                combat = data['combat']
+                entries = [e for e in combat['entries'] if e.get('token_id') in visibility.ids]
+                data['combat'] = {**combat, 'entries': entries, 'current': combat.get('current')
+                    if any(e['id'] == combat.get('current') for e in entries) else None}
+            return Witnessed(data, frame.stamp)
+        return None
     return await _scene_snapshot(db, scene_id, actor)
 
 
@@ -795,7 +827,11 @@ async def get_scene(scene_id: str, request: Request, response: Response, db: Asy
     missing = HTTPException(404, "scene not found", headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
     if not can_see(actor, await get_campaign(db), scene_id):
         raise missing
-    data = await scene_snapshot(db, scene_id, actor)
+    if config.EXPERIMENTAL_VISIBILITY:
+        async with hub.lock(scene_id):
+            data = await scene_snapshot(db, scene_id, actor)
+    else:
+        data = await scene_snapshot(db, scene_id, actor)
     if data is None:
         raise missing
     return data
@@ -925,6 +961,9 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         if command.name == "token.preview" and not previews.allowed(websocket):
             return
         async with hub.lock(scene_id):
+            if config.EXPERIMENTAL_VISIBILITY and not await recipient_current(scene_id, actor, {}):
+                await websocket.close(code=4401)
+                raise WebSocketDisconnect(code=4401)
             async with SessionLocal() as db:
                 scene = await db.get(Scene, scene_id)
                 campaign = await get_campaign(db)
@@ -962,6 +1001,10 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
 
     # Все команды одной сцены применяются строго по очереди.
     async with hub.lock(scene_id):
+        # The LOS workload can delay admission: the pre-lock check is no lease.
+        if config.EXPERIMENTAL_VISIBILITY and not await recipient_current(scene_id, actor, {}):
+            await websocket.close(code=4401)
+            raise WebSocketDisconnect(code=4401)
         async with SessionLocal() as db:
             scene = await db.get(Scene, scene_id)
             if scene is None:
@@ -999,12 +1042,63 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         hidden = payload.pop(HIDDEN, None)
         if name in ("token.moved", "token.updated", "token.removed"):
             await previews.clear_token(scene_id, payload.get("id") or payload.get("token", {}).get("id"))
-        elif name in ("fog.updated", "scene.updated"):
+        elif name in ("fog.updated", "scene.updated") or (config.EXPERIMENTAL_VISIBILITY and name.startswith('wall.')):
             await previews.clear_scene(scene_id)
-        await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, command.id))
+        await publish_scene_event(scene_id, name, seq, payload, hidden, command.id)
         if name == "scene.updated" and ("name" in command.payload or "background_url" in command.payload):
             async with SessionLocal() as db:
                 await publish_campaign(db, await get_campaign(db))
+
+
+async def publish_scene_event(scene_id, name, seq, payload, hidden, cmd_id):
+    if not config.EXPERIMENTAL_VISIBILITY:
+        await hub.broadcast_each(scene_id, lambda actor: event_for(actor, name, seq, payload, hidden, cmd_id))
+        return
+    for sid, ws, actor in hub.connections():
+        if sid != scene_id:
+            continue
+        if actor.is_gm:
+            await hub.send(ws, event_for(actor, name, seq, payload, hidden, cmd_id))
+            continue
+        try:
+            async with projection_session() as db:
+                snap = await scene_snapshot(db, scene_id, actor)
+        except Exception:
+            log.exception('не удалось подготовить LOS-проекцию')
+            snap = None
+        if snap is None:
+            # No trusted projection: close, never leave a stale positive view.
+            await hub.send(ws, {'type': 'auth_required'})
+            hub.leave(scene_id, ws)
+            await ws.close(code=4401)
+            continue
+        visible = frozenset(t['id'] for t in snap['tokens'])
+        previous = hub.published_tokens.get(ws, frozenset())
+        message = event_for(actor, name, seq, payload, hidden, cmd_id)
+        target = payload.get('id') or payload.get('token', {}).get('id')
+        if name.startswith('token.'):
+            if target not in visible:
+                message = protocol.event('token.removed', seq, {'id': target}, cmd_id) if target in previous else protocol.event('noop', seq, {}, None)
+            elif target not in previous:
+                token = next(t for t in snap['tokens'] if t['id'] == target)
+                message = protocol.event('token.added', seq, {'token': token}, cmd_id)
+            elif name in ('token.added', 'token.updated'):
+                token = next(t for t in snap['tokens'] if t['id'] == target)
+                message = protocol.event(name, seq, {'token': token}, cmd_id)
+        elif name == 'combat.updated':
+            message = protocol.event(name, seq, {'combat': snap['combat']}, cmd_id)
+        elif name == 'fog.updated':
+            data = dict(message['payload'])
+            data['add_tokens'] = [t for t in data.get('add_tokens', []) if t['id'] in visible]
+            data['remove_tokens'] = [tid for tid in data.get('remove_tokens', []) if tid in previous]
+            message = protocol.event(name, seq, data, cmd_id)
+        if not await hub.send(ws, Witnessed(message, snap.los_stamp)):
+            continue
+        if visible != previous:
+            # Existing authoritative resync envelope, same committed seq. The
+            # ack event precedes it; no fabricated event/seq or fog semantics.
+            you = {'id': actor.id, 'name': actor.name, 'is_gm': False}
+            await hub.send(ws, protocol.snapshot(seq, snap, you))
 
 
 async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.Command) -> None:
