@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from contextlib import asynccontextmanager
 
 import uuid
+import anyio
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from . import auth, fog, protocol
+from . import auth, config, fog, protocol
+from .recipient_projection import command_target_visible, projection_session, read_snapshot, recipient, token_visible, visible_state
+from .media_access import RecipientUploads, attachment_allowed, remember_upload
 from .config import (
     FRONTEND_URL,
     FRONTEND_URLS,
@@ -104,7 +107,10 @@ async def ensure_demo_scene() -> None:
 async def get_campaign(db: AsyncSession) -> Campaign:
     # Кампания пока одна. Когда их станет несколько, она будет приходить
     # из адреса, а хаб разделится по кампаниям.
-    return (await db.execute(select(Campaign).limit(1))).scalar_one()
+    query = select(Campaign)
+    if config.EXPERIMENTAL_VISIBILITY:
+        query = query.order_by(Campaign.created_at, Campaign.id)
+    return (await db.execute(query.limit(1))).scalar_one()
 
 
 def can_see(actor: Actor, campaign: Campaign, scene_id: str) -> bool:
@@ -115,6 +121,9 @@ def can_see(actor: Actor, campaign: Campaign, scene_id: str) -> bool:
 async def session_actor(db: AsyncSession, cookies) -> Actor | None:
     """Кто это - только по сессии. Ничему, что клиент пишет о себе, не верим."""
     token = cookies.get(auth.SESSION_COOKIE)
+    if config.EXPERIMENTAL_VISIBILITY:
+        subject = await recipient(db, auth.session_id(token)) if token else None
+        return subject[0] if subject else None
     user = await auth.session_user(db, token)
     return auth.actor_of(user, token) if user else None
 
@@ -124,6 +133,46 @@ async def require_actor(request: Request, db: AsyncSession) -> Actor:
     if actor is None:
         raise HTTPException(401, "нужно войти")
     return actor
+
+
+async def recipient_current(scene_id: str, actor: Actor, message: dict, *, require_scene: bool = False) -> bool:
+    if not config.EXPERIMENTAL_VISIBILITY:
+        return True
+    # Campaign controls must reach players leaving an inactive/deleted scene.
+    controls = not require_scene and message.get("type") in ("campaign", "presence", "auth_required")
+    async with projection_session() as db:
+        subject = await recipient(db, actor.session, scene_id=None if controls else scene_id)
+    return subject is not None and (subject[0].id, subject[0].is_gm) == (actor.id, actor.is_gm)
+
+
+hub.recipient_guard = recipient_current
+
+
+async def send_initial(websocket: WebSocket, scene_id: str, actor: Actor, message: dict, *, scene_bound: bool = True) -> bool:
+    """Unjoined sockets need the same fresh check as registered hub recipients.
+
+    Initial campaign follows its scene snapshot, so it cannot use the normal
+    campaign-control exception for inactive scenes. All DB sessions close before
+    network sends; scene lock still covers snapshot → campaign → join ordering.
+    """
+    if not await recipient_current(scene_id, actor, message, require_scene=scene_bound):
+        redirect = None
+        if scene_bound:
+            async with projection_session() as db:
+                subject = await recipient(db, actor.session)
+                if subject and (subject[0].id, subject[0].is_gm) == (actor.id, actor.is_gm):
+                    redirect = await campaign_view(db, await get_campaign(db), actor)
+        if redirect is not None:
+            # Session still valid, but scene changed: preserve SPA navigation,
+            # discard captured frames and publish only a freshly checked control.
+            if await send_initial(websocket, scene_id, actor, redirect, scene_bound=False):
+                await websocket.close(code=4000)
+        else:
+            await websocket.send_json({"type": "auth_required"})
+            await websocket.close(code=4401)
+        return False
+    await hub.send(websocket, message)
+    return True
 
 
 async def campaign_users(db: AsyncSession, campaign: Campaign) -> list[dict]:
@@ -210,9 +259,25 @@ def message_for(message: dict, actor: Actor) -> dict:
 
 def combat_for(combat: dict | None, actor: Actor) -> dict | None:
     """Бой глазами получателя: игроку - без скрытых участников (засада)."""
-    if combat is None or actor.is_gm:
+    if combat is None:
+        return combat
+    marks = combat.get("__visibility")
+    if marks is not None:
+        clean = {key: value for key, value in combat.items() if key != "__visibility"}
+        if actor.is_gm:
+            return clean
+        entries = [entry for entry in combat["entries"]
+                   if entry.get("token_id") in marks and visible_state(actor, **marks[entry["token_id"]])]
+        return {**clean, "entries": entries,
+                "current": clean.get("current") if any(e["id"] == clean.get("current") for e in entries) else None}
+    if actor.is_gm:
         return combat
     return {**combat, "entries": [e for e in combat["entries"] if not e.get("hidden")]}
+
+
+def token_visibility_mark(token: Token, regions: list[dict]) -> dict:
+    return {"gm_layer": token.layer == "gm", "owner_id": token.owner_id,
+            "obscured": fog.contains_point(regions, token.x, token.y)}
 
 
 def token_for(token: dict, actor: Actor) -> dict:
@@ -271,11 +336,8 @@ def _visible(mark: dict, actor: Actor, index: int) -> bool:
     """Видит ли игрок объект до (0) или после (1) команды. Слой ГМ прячет от
     всех игроков; туман - от всех, кроме владельца токена (свой персонаж в
     закрытой комнате не пропадает)."""
-    if (mark.get("layer") or (False, False))[index]:
-        return False
-    if (mark.get("fog") or (False, False))[index] and (mark.get("owner") is None or mark.get("owner") != actor.id):
-        return False
-    return True
+    return visible_state(actor, gm_layer=(mark.get("layer") or (False, False))[index],
+                         owner_id=mark.get("owner"), obscured=(mark.get("fog") or (False, False))[index])
 
 
 async def token_view(db: AsyncSession, token: Token | dict) -> dict:
@@ -290,12 +352,20 @@ async def token_view(db: AsyncSession, token: Token | dict) -> dict:
     return data
 
 
-async def prepare_token_views(db: AsyncSession, payload: dict) -> None:
+async def prepare_token_views(db: AsyncSession, payload: dict, scene_id: str | None = None) -> None:
     """Enrich internal token captures before recipient visibility filtering.
 
     No hidden data is sent here: event_for still decides which objects, IDs
     or noops each actor receives. Walls and visibility marks are unchanged.
     """
+    if config.EXPERIMENTAL_VISIBILITY and isinstance(payload.get("combat"), dict):
+        ids = [entry.get("token_id") for entry in payload["combat"]["entries"]]
+        scene = await db.get(Scene, scene_id) if scene_id else None
+        tokens = (await db.scalars(select(Token).where(Token.scene_id == scene_id, Token.id.in_(ids)))).all() if scene else []
+        regions = json.loads(scene.fog_json or '[]') if scene else []
+        # Transient projection metadata, added after commit, removed by combat_for.
+        # Never persisted and never included in a wire DTO, even for the GM.
+        payload["combat"] = {**payload["combat"], "__visibility": {t.id: token_visibility_mark(t, regions) for t in tokens}}
     if isinstance(payload.get("token"), dict):
         payload["token"] = await token_view(db, payload["token"])
     hidden = payload.get(HIDDEN)
@@ -308,6 +378,28 @@ async def prepare_token_views(db: AsyncSession, payload: dict) -> None:
 
 
 async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
+    if config.EXPERIMENTAL_VISIBILITY:
+        # Separate owned transaction: don't inherit caller ORM cache/transaction.
+        async with projection_session() as snapshot_db:
+            # Don't invalidate an in-flight aiosqlite read on ASGI disconnect:
+            # finish the read before releasing its transaction/connection.
+            with anyio.CancelScope(shield=True):
+                await read_snapshot(snapshot_db)
+                subject = await recipient(snapshot_db, actor.session, scene_id=scene_id)
+            if subject is None or (subject[0].id, subject[0].is_gm) != (actor.id, actor.is_gm):
+                return None
+            return await _scene_snapshot(snapshot_db, scene_id, actor)
+    return await _scene_snapshot(db, scene_id, actor)
+
+
+async def _scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
+    if config.EXPERIMENTAL_VISIBILITY:
+        with anyio.CancelScope(shield=True):
+            return await _materialize_snapshot(db, scene_id, actor)
+    return await _materialize_snapshot(db, scene_id, actor)
+
+
+async def _materialize_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict | None:
     scene = (
         await db.execute(
             select(Scene)
@@ -332,6 +424,9 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
     )
 
     fog_rects = json.loads(scene.fog_json) if scene.fog_json else []
+    combat = json.loads(scene.combat_json) if scene.combat_json else None
+    if config.EXPERIMENTAL_VISIBILITY and combat is not None:
+        combat = {**combat, "__visibility": {t.id: token_visibility_mark(t, fog_rects) for t in scene.tokens}}
     return {
         "id": scene.id,
         "seq": scene.seq,
@@ -341,14 +436,13 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
         "grid_size": scene.grid_size,
         "grid_type": scene.grid_type,
         "background_url": scene.background_url,
-        "combat": combat_for(json.loads(scene.combat_json) if scene.combat_json else None, actor),
+        "combat": combat_for(combat, actor),
         # Токены слоя ГМ и то, что под туманом, игроку не отдаём вовсе:
         # прятать на клиенте бесполезно, всё пришедшее видно в DevTools.
         "tokens": [
             token_for(await token_view(db, t), actor)
             for t in scene.tokens
-            if actor.is_gm
-            or (t.layer != "gm" and (t.owner_id == actor.id or not fog.contains_point(fog_rects, t.x, t.y)))
+            if token_visible(actor, t, fog_rects)
         ],
         "walls": [
             w.to_dict()
@@ -393,8 +487,13 @@ async def upload(request: Request, db: AsyncSession = Depends(get_session)) -> d
     # Имя - случайное: исходное имя файла никуда не попадает, обход
     # каталогов через него невозможен.
     name = f"{uuid.uuid4().hex}.{ext}"
+    subject = await recipient(db, actor.session) if config.EXPERIMENTAL_VISIBILITY else None
+    if config.EXPERIMENTAL_VISIBILITY and subject is None:
+        raise HTTPException(401, "нужно войти")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     (UPLOAD_DIR / name).write_bytes(data)
+    if subject:
+        remember_upload(name, actor, subject[1])
     return {"url": f"/uploads/{name}"}
 
 
@@ -657,10 +756,13 @@ async def get_campaign_view(request: Request, response: Response, db: AsyncSessi
 
 
 @app.get("/api/characters")
-async def list_characters(request: Request, db: AsyncSession = Depends(get_session)) -> list[dict]:
+async def list_characters(request: Request, response: Response, db: AsyncSession = Depends(get_session)) -> list[dict]:
     # Игрок получает только свои листы, ГМ - все. Чужие игроку не уходят
     # вовсе: прятать на клиенте бесполезно, всё пришедшее видно в DevTools.
     actor = await require_actor(request, db)
+    if config.EXPERIMENTAL_VISIBILITY:
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Vary"] = "Cookie"
     campaign = await get_campaign(db)
     query = select(Character).where(Character.campaign_id == campaign.id)
     if not actor.is_gm:
@@ -683,13 +785,20 @@ async def list_scenes(request: Request, db: AsyncSession = Depends(get_session))
 
 
 @app.get("/api/scenes/{scene_id}")
-async def get_scene(scene_id: str, request: Request, db: AsyncSession = Depends(get_session)):
+async def get_scene(scene_id: str, request: Request, response: Response, db: AsyncSession = Depends(get_session)):
     # Через этот адрес клиент перезапрашивает снапшот. Без проверки игрок
     # вытащил бы им скрытую сцену целиком.
-    if not can_see(await require_actor(request, db), await get_campaign(db), scene_id):
-        raise HTTPException(404, "scene not found")
-    data = await scene_snapshot(db, scene_id, await require_actor(request, db))
-    return data or {"error": "scene not found"}
+    if config.EXPERIMENTAL_VISIBILITY:
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Vary"] = "Cookie"
+    actor = await require_actor(request, db)
+    missing = HTTPException(404, "scene not found", headers={"Cache-Control": "private, no-store", "Vary": "Cookie"})
+    if not can_see(actor, await get_campaign(db), scene_id):
+        raise missing
+    data = await scene_snapshot(db, scene_id, actor)
+    if data is None:
+        raise missing
+    return data
 
 
 def origin_allowed(websocket: WebSocket) -> bool:
@@ -740,21 +849,21 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
         return
     await websocket.accept()
 
-    async with SessionLocal() as db:
+    async with projection_session() as db:
         actor = await session_actor(db, websocket.cookies)
-        if actor is None:
-            await websocket.send_json({"type": "auth_required"})
-            await websocket.close(code=4401)
-            return
-        campaign = await get_campaign(db)
-        snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
-        if snap is None:
-            # Скрытая или удалённая сцена - говорим, какая активна, и закрываем.
-            # Отличать "нет такой" от "скрыта" не будем: это тоже утечка.
-            await websocket.send_json(await campaign_view(db, campaign, actor))
+        if actor is not None:
+            campaign = await get_campaign(db)
+            snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
+            view = await campaign_view(db, campaign, actor)
+    if actor is None:
+        await websocket.send_json({"type": "auth_required"})
+        await websocket.close(code=4401)
+        return
+    if snap is None:
+        # Hidden/missing scenes share one redirect path, after closing DB reads.
+        if await send_initial(websocket, scene_id, actor, view, scene_bound=False):
             await websocket.close(code=4000)
-            return
-        view = await campaign_view(db, campaign, actor)
+        return
 
     # Повторный снимок, отправка и подписка под одним локом сцены:
     # событие не может обогнать снимок или попасть между ним и join.
@@ -767,16 +876,18 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
             # приходит при каждом подключении, в отличие от ответа на вход.
             you["public_url"] = PUBLIC_URL
         async with hub.lock(scene_id):
-            async with SessionLocal() as db:
+            async with projection_session() as db:
                 campaign = await get_campaign(db)
                 view = await campaign_view(db, campaign, actor)
                 snap = await scene_snapshot(db, scene_id, actor) if can_see(actor, campaign, scene_id) else None
             if snap is None:
-                await hub.send(websocket, view)
-                await websocket.close(code=4000)
+                if await send_initial(websocket, scene_id, actor, view, scene_bound=False):
+                    await websocket.close(code=4000)
                 return
-            await hub.send(websocket, protocol.snapshot(snap["seq"], snap, you))
-            await hub.send(websocket, view)
+            if not await send_initial(websocket, scene_id, actor, protocol.snapshot(snap["seq"], snap, you)):
+                return
+            if not await send_initial(websocket, scene_id, actor, view):
+                return
             await hub.join(scene_id, websocket, actor)
         await hub.broadcast_all(protocol.presence(hub.users()))
         while True:
@@ -799,6 +910,9 @@ async def scene_socket(websocket: WebSocket, scene_id: str):
 
 
 async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str) -> None:
+    if config.EXPERIMENTAL_VISIBILITY and not await recipient_current(scene_id, actor, {}):
+        await websocket.close(code=4401)
+        raise WebSocketDisconnect(code=4401)
     try:
         command = protocol.Command.model_validate_json(raw)
     except ValidationError:
@@ -854,7 +968,11 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 await hub.send(websocket, protocol.error("сцена не найдена", command.id))
                 return
             try:
+                if config.EXPERIMENTAL_VISIBILITY and not await command_target_visible(db, scene, actor, command.name, command.payload):
+                    raise CommandError("объект недоступен")
                 name, payload = await handler(db, scene, actor, command.payload)
+                if not await attachment_allowed(actor, name, payload):
+                    raise CommandError("изображение недоступно")
                 scene.seq += 1
                 seq = scene.seq
                 await db.commit()
@@ -873,7 +991,11 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
                 return
 
         async with SessionLocal() as db:
-            await prepare_token_views(db, payload)
+            if config.EXPERIMENTAL_VISIBILITY:
+                with anyio.CancelScope(shield=True):
+                    await prepare_token_views(db, payload, scene_id)
+            else:
+                await prepare_token_views(db, payload, scene_id)
         hidden = payload.pop(HIDDEN, None)
         if name in ("token.moved", "token.updated", "token.removed"):
             await previews.clear_token(scene_id, payload.get("id") or payload.get("token", {}).get("id"))
@@ -893,6 +1015,8 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
             campaign = await get_campaign(db)
             try:
                 name, payload = await handler(db, campaign, actor, command.payload)
+                if not await attachment_allowed(actor, name, payload):
+                    raise CommandError("изображение недоступно")
                 await db.commit()
             except CommandError as exc:
                 await db.rollback()
@@ -955,7 +1079,7 @@ async def kick(match) -> None:
 
 # Монтируется последним, чтобы не перекрыть маршруты выше.
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount("/uploads", RecipientUploads(directory=UPLOAD_DIR), name="uploads")
 
 
 # Собранный фронт - на том же порту, что и API. Тоже в самом конце: путь

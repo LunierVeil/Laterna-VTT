@@ -8,9 +8,9 @@ import uuid
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 
-from . import fog
 from .handlers import CommandError
 from .models import Token
+from .recipient_projection import token_visible
 
 
 @dataclass
@@ -129,7 +129,7 @@ class DragPreviews:
         if token is None or token.scene_id != scene.id:
             raise CommandError("токен не найден")
         regions = json.loads(scene.fog_json or '[]')
-        if not actor.is_gm and (token.layer == 'gm' or (token.owner_id != actor.id and fog.contains_point(regions, token.x, token.y))):
+        if not token_visible(actor, token, regions):
             raise CommandError("токен не найден")
         if not actor.is_gm and token.owner_id not in (None, actor.id):
             raise CommandError("нельзя двигать чужой токен")
@@ -160,8 +160,7 @@ class DragPreviews:
                 return
             if sid != scene.id or peer is ws:
                 continue
-            visible = viewer.is_gm or (token.layer != 'gm' and (token.owner_id == viewer.id or
-                not fog.contains_point(regions, token.x, token.y) and not fog.contains_point(regions, stream.x, stream.y)))
+            visible = token_visible(viewer, token, regions, destination=(stream.x, stream.y))
             if visible:
                 readers.add(peer)
                 stream.readers.add(peer)

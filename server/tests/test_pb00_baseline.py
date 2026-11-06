@@ -89,7 +89,9 @@ def seeded(client, gm, player, scene_id):
             for sid in created:
                 run(ws, f"pb00-cleanup-{sid}", "scene.delete", {"id": sid})
                 recv_until(ws, lambda m: m.get("type") == "campaign")
-                assert client.get(f"/api/scenes/{sid}", headers=gm).json() == {"error": "scene not found"}
+                missing = client.get(f"/api/scenes/{sid}", headers=gm)
+                assert missing.status_code == 404
+                assert missing.json() == {"detail": "scene not found"}
                 assert sid not in {s["id"] for s in client.get("/api/scenes", headers=gm).json()}
 
 
