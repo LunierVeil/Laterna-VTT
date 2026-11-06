@@ -82,6 +82,11 @@ export interface Combat {
   entries: CombatEntry[];
 }
 
+export interface VisualLighting {
+  ambient: "none" | "full";
+  sources: {x: number; y: number; radius: number}[];
+}
+
 export interface Scene {
   id: string;
   seq: number;
@@ -96,6 +101,8 @@ export interface Scene {
   walls: Wall[];
   /** Ручной туман: прямоугольники в пикселях сцены. */
   fog?: FogRect[];
+  /** Opt-in public ephemeral visuals; never an entity access predicate. */
+  visuals?: {settings: VisualLighting | null; observer_id: string | null};
   messages: Message[];
 }
 

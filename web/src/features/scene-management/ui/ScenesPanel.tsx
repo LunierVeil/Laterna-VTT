@@ -108,7 +108,7 @@ export function ScenesPanel({ socket, sceneId, onOpenScene }: {
       <input className="grow" placeholder="Новая сцена" maxLength={200} value={name} onChange={e => setName(e.target.value)} /><button className="tool">Создать</button>
     </form>
     <p className="muted side-note">Новая сцена скрыта, пока не нажмёшь «Показать».</p>
-    <details className="scene-settings" ref={settings}><summary>Настройки: {scenes.find(s=>s.id===sceneId)?.name}</summary><MapSettings socket={socket} /></details>
+    <details className="scene-settings" ref={settings}><summary>Настройки: {scenes.find(s=>s.id===sceneId)?.name}</summary><MapSettings socket={socket} sceneId={sceneId} /></details>
     {remove && <ConfirmDialog title={`Удалить ${remove.folder ? "папку" : "сцену"} «${remove.name}»?`}
       text={remove.folder ? "Сцены сохранятся и будут перемещены в «Без папки»." : "Сцена будет удалена вместе с токенами, стенами и туманом."}
       confirmLabel={remove.folder ? "Удалить папку" : "Удалить сцену"} danger onCancel={() => setRemove(null)} onConfirm={() => {

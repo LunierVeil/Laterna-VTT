@@ -12,7 +12,7 @@ scope.onmessage=({data:r})=>{
   const lk=JSON.stringify(r.settings);
   if(lk!==lightKey){
    if(!['none','full'].includes(r.settings.ambient)||r.settings.sources.length>15)throw Error('invalid lighting');
-   lights=r.settings.ambient==='full'?[]:r.settings.sources.map(s=>{if(!Number.isFinite(s.radius)||s.radius<=0)throw Error('invalid radius');const polygon=geometry.polygon(s);if(!polygon.length)throw Error('source unavailable');return {...s,polygon};});lightKey=lk;
+   lights=r.settings.sources.map(s=>{if(!Number.isFinite(s.radius)||s.radius<=0)throw Error('invalid radius');const polygon=geometry.polygon(s);if(!polygon.length)throw Error('source unavailable');return {...s,polygon};});lightKey=lk;
   }
   result.lights=lights;result.observer=r.gm?null:r.observer?geometry.polygon(r.observer):[];result.available=true;
  }catch{/* Opaque visual layer, never a grant. */}

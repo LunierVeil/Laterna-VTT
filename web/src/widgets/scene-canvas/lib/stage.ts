@@ -1,3 +1,4 @@
+import { VisualLayer } from "./visual-layer";
 import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../../../entities/scene/model/scene-port";
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Combat, FogRect, Scene, Token, Wall, TokenPreview } from "../../../shared/api/protocol";
@@ -104,6 +105,10 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   private wallLayer = new Graphics();
   private ghostLayer = new Graphics();
   private tokenLayer = new Container();
+  private ownTokenLayer = new Container();
+  private visualHost = new Container();
+  private visualLayer: VisualLayer | null = null;
+  private visualState: Scene["visuals"] = undefined;
   private movementLayer = new Container();
   private movementPreviews = new Map<string, {node: Container; line: Graphics; body: Graphics; image: Sprite; mask: Graphics; step: number; tokenId: string; expires: number}>();
   private previewClosed = new Set<string>();
@@ -216,6 +221,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   setGm(gm: boolean) {
     if (this.destroyed) return;
     this.gm = gm;
+    this.refreshVisuals();
     this.drawFog();
     if (this.tool === "erase") this.updateEraseHover();
   }
@@ -255,6 +261,8 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       this.ghostLayer,
       this.tokenLayer,
       this.movementLayer,
+      this.visualHost,
+      this.ownTokenLayer,
       this.measureLayer,
       this.measureLabel,
       this.pingLayer,
@@ -378,6 +386,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     window.removeEventListener("touchcancel", this.onPointerCancel, true);
     if (this.destroyed) return;
     this.destroyed = true;
+    this.visualLayer?.destroy();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
 
@@ -465,6 +474,8 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   setSnapshot(scene: Scene) {
     if (this.destroyed) return;
     this.clearDragPreviews();
+    this.visualState = scene.visuals;
+    this.visualLayer?.update(null);
     this.gridSize = scene.grid_size;
     this.sceneWidth = scene.width;
     this.sceneHeight = scene.height;
@@ -489,6 +500,16 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     this.marquee = null;
     this.ghostLayer.clear();
     this.setSelection([...this.selectedIds]);
+    this.refreshVisuals();
+  }
+
+  private refreshVisuals() {
+    const settings = this.visualState?.settings;
+    if (!settings) {this.visualLayer?.update(null); return;}
+    if (!this.visualLayer) {this.visualLayer = new VisualLayer(); this.visualHost.addChild(this.visualLayer.sprite);}
+    const observer = this.visualState?.observer_id ? this.tokens.get(this.visualState.observer_id)?.data : null;
+    this.visualLayer?.update({width:this.sceneWidth,height:this.sceneHeight,walls:[...this.walls.values()],
+      settings,gm:this.gm,observer:observer && observer.owner_id===this.me && observer.character_id ? {x:observer.x,y:observer.y} : null});
   }
 
   applyEvent(name: string, payload: any, cmdId?: string | null) {
@@ -554,6 +575,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
         this.setMap(payload.background_url);
         break;
     }
+    if (name.startsWith("wall.") || name.startsWith("token.") || name === "fog.updated" || name === "scene.updated") this.refreshVisuals();
   }
 
   // --- токены ---------------------------------------------------------
@@ -607,7 +629,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     node.on("pointerdown", (e: FederatedPointerEvent) => this.onTokenDown(e, view));
 
     this.tokens.set(data.id, view);
-    this.tokenLayer.addChild(node);
+    (this.visualState?.settings && data.owner_id === this.me ? this.ownTokenLayer : this.tokenLayer).addChild(node);
     this.redrawToken(view);
   }
 
@@ -615,6 +637,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     const view = this.tokens.get(data.id);
     if (!view) return this.addToken(data);
     view.data = data;
+    (this.visualState?.settings && data.owner_id === this.me ? this.ownTokenLayer : this.tokenLayer).addChild(view.node);
     view.label.text = data.name;
     this.redrawToken(view);
     if (this.selectedIds.has(data.id)) this.setSelection([...this.selectedIds]);
@@ -670,6 +693,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     if (!view) return;
     view.data = { ...view.data, x, y };
     view.node.position.set(x, y);
+    if (id === this.visualState?.observer_id) this.refreshVisuals();
   }
 
   private redrawToken(view: TokenView) {

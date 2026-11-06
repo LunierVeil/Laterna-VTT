@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from . import auth, config, fog, protocol
+from . import auth, config, fog, protocol, visual_lighting
 from .recipient_projection import command_target_visible, projection_session, read_snapshot, recipient, token_visible, visible_state
 from .media_access import RecipientUploads, attachment_allowed, remember_upload
 from .gameplay_visibility import Witnessed, capture_scene, calculate_bounded
@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError):
             await expiry
         await previews.clear_scene()
+        visual_lighting.clear()
 
 
 app = FastAPI(title="Laterna VTT", lifespan=lifespan)
@@ -399,6 +400,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
                 data = await _scene_snapshot(snapshot_db, scene_id, actor)
             if frame is None or data is None:
                 return None
+            data['visuals'] = visual_lighting.projection(frame, actor)
             if actor.is_gm:
                 return Witnessed(data, frame.stamp)
             # No read transaction held over CPU; a late result is not a grant.
@@ -955,6 +957,36 @@ async def handle_raw(websocket: WebSocket, scene_id: str, actor: Actor, raw: str
         await hub.send(websocket, protocol.error("битая команда"))
         return
 
+    if command.name == "scene.visuals":
+        if not config.EXPERIMENTAL_VISIBILITY or not actor.is_gm:
+            await hub.send(websocket, protocol.error("свет доступен только ГМ в экспериментальном режиме", command.id))
+            return
+        async with hub.lock(scene_id):
+            if not await recipient_current(scene_id, actor, {}):
+                await websocket.close(code=4401)
+                raise WebSocketDisconnect(code=4401)
+            async with projection_session() as db:
+                scene = await db.get(Scene, scene_id)
+                if scene is None:
+                    return
+                try:
+                    if 'settings' not in command.payload:
+                        raise CommandError('укажи настройки света или явный null')
+                    visual_lighting.configure(scene, command.payload.get('settings'))
+                except CommandError as exc:
+                    await hub.send(websocket, protocol.error(str(exc), command.id))
+                    return
+            await hub.send(websocket, protocol.reply('scene.visuals', {}, command.id))
+            for sid, peer, viewer in hub.connections():
+                if sid != scene_id:
+                    continue
+                async with projection_session() as db:
+                    snap = await scene_snapshot(db, scene_id, viewer)
+                if snap is not None:
+                    await hub.send(peer, protocol.snapshot(snap['seq'], snap, {
+                        'id': viewer.id, 'name': viewer.name, 'is_gm': viewer.is_gm}))
+        return
+
     if command.name in ("token.preview", "token.preview.end"):
         if not any(sid == scene_id and ws is websocket for sid, ws, _ in hub.connections()):
             return
@@ -1132,6 +1164,8 @@ async def handle_campaign(websocket: WebSocket, actor: Actor, command: protocol.
                     await hub.send(websocket, protocol.reply(name, payload, command.id))
                 await publish_character(name, payload, command.name != "character.update" or "portrait" in command.payload.get("set", {}))
                 return
+            if name == "scene.deleted":
+                visual_lighting.forget(command.payload.get("id"))
             if name in ("scene.activated", "scene.deleted"):
                 await previews.clear_scene()
             await hub.send(websocket, protocol.reply(name, payload, command.id))

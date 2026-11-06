@@ -5,6 +5,7 @@ export class VisualLayer{
  readonly sprite=new Sprite();
  private canvas=document.createElement('canvas');private lights=document.createElement('canvas');
  private texture:Texture;private worker:Worker;private generation=0;private busy=false;
+ private key="";
  private pending:VisualRequest|null=null;private latest:VisualRequest|null=null;private destroyed=false;
  readonly timings:{cpu:number;paint:number}[]=[];updates=0;
  constructor(){
@@ -14,7 +15,7 @@ export class VisualLayer{
   this.worker.onerror=()=>{this.busy=false;this.pending=null;if(!this.destroyed&&this.latest)this.cover(this.latest);};
  }
  update(request:Omit<VisualRequest,'generation'>|null){
-  if(this.destroyed)return;this.generation++;
+  if(this.destroyed)return;const key=JSON.stringify(request);if(key===this.key)return;this.key=key;this.generation++;
   if(!request){this.pending=this.latest=null;this.sprite.visible=false;return;}
   const next={...request,generation:this.generation};
   if(!this.latest||next.width!==this.latest.width||next.height!==this.latest.height)this.cover(next);
