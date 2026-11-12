@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 const suite = process.env.LATERNA_BROWSER_SUITE || process.argv[1]?.split('/').at(-1)?.replace('.test.mjs', '') || 'browser';
 if (process.env.BROWSER_RESULTS_DIR) process.env.BROWSER_RESULTS_DIR = resolve(process.env.BROWSER_RESULTS_DIR, suite);
 const web = resolve(import.meta.dirname, '../..'), root = resolve(web, '..');
+const httpHost = process.env.LATERNA_HTTP_HOST || '127.0.0.1';
 export let browser, server, vite, dir, base, api, gm, player, sceneId, control;
 let key;
 export function setSceneId(id) { sceneId = id; }
@@ -76,6 +77,12 @@ ObservedStage.prototype.mount=async function(...args){
 ` + source});
   });
   await p.goto(base);
+  if (process.env.LATERNA_HTTP_HOST) {
+    assert.equal(await p.evaluate(() => window.isSecureContext), false);
+    assert.equal(await p.evaluate(() => typeof crypto.randomUUID), 'undefined');
+    assert.equal(await p.evaluate(() => {try {crypto.randomUUID(); return false;} catch(error) {return error instanceof TypeError;}}), true, 'old native call reproduces the HTTP failure');
+    assert.match(await p.evaluate(async () => (await import('/src/shared/lib/uuid.ts')).uuidV4()), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  }
   if(options.beforeStageMount) {
     await until(()=>p.received.some(m=>m.type==='snapshot'),'snapshot before renderer mount');
     assert.equal(await p.locator('canvas').count(),0,'renderer is still held before mount');
@@ -118,15 +125,15 @@ export function capture(p) {
 }
 before(async () => {
   dir = await mkdtemp(resolve(tmpdir(), 'laterna-regression-'));
-  const apiPort = await port(), webPort = await port(); api = `http://127.0.0.1:${apiPort}`; base = `http://127.0.0.1:${webPort}`;
+  const apiPort = await port(), webPort = await port(); api = `http://${httpHost}:${apiPort}`; base = `http://${httpHost}:${webPort}`;
   key = randomUUID(); await writeFile(resolve(dir, 'key'), key, {mode: 0o600});
-  server = spawn(resolve(root, 'server/.venv/bin/uvicorn'), ['app.main:app','--host','127.0.0.1','--port',String(apiPort),'--no-proxy-headers'], {
+  server = spawn(resolve(root, 'server/.venv/bin/uvicorn'), ['app.main:app','--host',httpHost,'--port',String(apiPort),'--no-proxy-headers'], {
     cwd: resolve(root,'server'), env: {...process.env, DATABASE_URL:`sqlite+aiosqlite:///${dir}/test.db`, UPLOAD_DIR:resolve(dir,'uploads'), GM_KEY_FILE:resolve(dir,'key'), FRONTEND_URL:base}, stdio: ['ignore','pipe','pipe']});
   server.stderr.on('data', x => serverLog += x); server.stdout.on('data', x => serverLog += x);
-  vite = spawn(process.execPath, [resolve(web,'node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(webPort),'--strictPort'], {cwd:web,env:{...process.env,VITE_API_TARGET:api},stdio:['ignore','pipe','pipe']});
+  vite = spawn(process.execPath, [resolve(web,'node_modules/vite/bin/vite.js'),'--host',httpHost,'--port',String(webPort),'--strictPort'], {cwd:web,env:{...process.env,VITE_API_TARGET:api},stdio:['ignore','pipe','pipe']});
   vite.stdout.on('data', x => viteLog += x); vite.stderr.on('data', x => viteLog += x);
   await ready(`${api}/api/health`); await ready(base);
-  browser = await chromium.launch({headless:true, ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:['--no-sandbox','--enable-blink-features=MiddleClickAutoscroll']});
+  browser = await chromium.launch({headless:true, ...(process.env.LATERNA_HTTP_HOST && process.env.HTTP_PROXY ? {proxy:{server:process.env.HTTP_PROXY,bypass:httpHost}} : {}), ...(process.env.CHROMIUM_PATH ? {executablePath:process.env.CHROMIUM_PATH} : {}), args:[...(process.env.LATERNA_HTTP_HOST ? [`--proxy-bypass-list=${httpHost}`] : []),'--no-sandbox','--enable-blink-features=MiddleClickAutoscroll']});
   gm = await browser.newContext({viewport:{width:1280,height:900}});
   const login = await gm.request.post(`${api}/api/gm/login`, {data:{key,name:'Regression GM',password:randomUUID()}}); assert.equal(login.status(),200);
   // Cookie hostname is shared by API and Vite; ports do not scope cookies.
@@ -136,7 +143,7 @@ before(async () => {
   control = await gm.newPage();
   control.received = capture(control);
   control.on('pageerror', error => errors.push(error.message));
-  await control.goto(`${base}/api/health`);
+  const healthResponse = await control.goto(`${base}/api/health`); assert.equal(healthResponse.status(),200, await control.locator('body').innerText());
   sceneId = (await (await gm.request.get(`${api}/api/campaign`)).json()).active_scene_id;
   await probe(control,sceneId);
   const inv = await command('invite.create');

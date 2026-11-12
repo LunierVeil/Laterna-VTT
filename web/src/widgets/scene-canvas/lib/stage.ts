@@ -1,3 +1,4 @@
+import { uuidV4 } from "../../../shared/lib/uuid";
 import { VisualLayer } from "./visual-layer";
 import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../../../entities/scene/model/scene-port";
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
@@ -982,8 +983,11 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     // не дёргать картинку зря.
     if (!this.canEdit(view.data.owner_id)) return;
     const p = this.toScene(e);
+    let previewId: string;
+    try { previewId = uuidV4(); }
+    catch (error) { window.alert(String(error)); return; }
     this.dragging = {
-      id: crypto.randomUUID(), step: 0, lastSent: -Infinity,
+      id: previewId, step: 0, lastSent: -Infinity,
       to: {x: view.data.x, y: view.data.y},
       view,
       pingOnClick: e.altKey,

@@ -155,6 +155,10 @@ jobs:
         working-directory: web
       - run: npx --no-install playwright install --with-deps chromium
         working-directory: web
+      - name: Insecure HTTP UUID regression
+        if: matrix.group == 'tokens'
+        working-directory: web
+        run: node --test tests/browser/http-uuid.mjs
       - name: Chromium group and isolated evidence
         env:
           BROWSER_RESULTS_DIR: ${{ github.workspace }}/artifacts/browser/${{ matrix.group }}

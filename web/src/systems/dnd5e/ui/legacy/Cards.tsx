@@ -1,3 +1,4 @@
+import { uuidV4 } from "../../../../shared/lib/uuid";
 import { lazy, Suspense, useRef, useState } from "react";
 import type { Block, Field } from "../../../../entities/character/model/legacy-sheet-schema";
 import { RichText, type ResourceInfo } from "./RichText";
@@ -79,7 +80,7 @@ function WeightLine({
 }
 
 function newId(): string {
-  return `c-${crypto.randomUUID().slice(0, 12)}`;
+  return `c-${uuidV4().slice(0, 12)}`;
 }
 
 /**
@@ -130,7 +131,9 @@ export function Cards({
   const shown = query ? cards.filter((c) => cardMatches(c, block, query)) : cards;
 
   const startEdit = (card: Card | null) => {
-    const id = card?.id ?? newId();
+    let id: string;
+    try { id = card?.id ?? newId(); }
+    catch (error) { window.alert(String(error)); return; }
     const strings: Record<string, string> = { [block.titleKey]: String(card?.[block.titleKey] ?? "") };
     for (const f of block.fields) strings[f.key] = card?.[f.key] == null ? "" : String(card[f.key]);
     setDraft(strings);

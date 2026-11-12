@@ -213,3 +213,15 @@ B13 подтверждён двумя серверными вариантами 
 
 
 Текущий итог стабилизации: **169 backend / 33 frontend / 26 Chromium — PASS**, typecheck/build/smoke — PASS. B16 закрыт подтверждённо после исправления лишнего init; B14, B01/B02 и ручная сетевая приёмка остаются открытыми. Полная таблица всех 26 браузерных сценариев и история диагностических падений — в последнем разделе docs/CHECKLIST.md. Ничего не опубликовано.
+
+## P0: UUID на insecure HTTP (LAN/Porthole)
+
+Прямой `crypto.randomUUID()` прерывал отправку команд, начало drag-preview и
+создание карточек на HTTP вне secure context. Общий `shared/lib/uuid.ts`
+использует native UUID либо `getRandomValues`, сохраняя UUID v4 и legacy `c-`
+формат карточек. Без криптографического источника операция прекращается с ошибкой.
+Автотест реального HTTP: из `web` выполнить
+`CHROMIUM_PATH=/usr/bin/chromium node --test tests/browser/http-uuid.mjs`.
+Он требует non-loopback IPv4, проверяет insecure context и переиспользует UI,
+владение, drag-preview/cancel/reconnect regressions. Это не заменяет ручную
+проверку Steam Porthole; она остаётся незакрытой.

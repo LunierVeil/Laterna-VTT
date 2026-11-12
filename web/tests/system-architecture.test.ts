@@ -48,8 +48,8 @@ test("system code cannot reach app/store/widgets or the scene transport; model s
       if (ts.isCallExpression(n)) {
         const expression=n.expression.getText(ast);
         assert.ok(!["fetch","useUi","Math.random"].includes(expression),name);
-        // Existing card IDs, not game RNG: retain exactly the legacy UUID call.
-        if (expression === "crypto.randomUUID") assert.equal(name,"systems/dnd5e/ui/legacy/Cards.tsx");
+        // Client identifiers go through shared/lib, never game RNG.
+        assert.notEqual(expression, "crypto.randomUUID", name);
         if (ts.isPropertyAccessExpression(n.expression)) assert.ok(!["send","setState","getState"].includes(n.expression.name.text),name);
       }
       if (ts.isNewExpression(n)) assert.ok(!["WebSocket","SceneSocket","SceneStage"].includes(n.expression.getText(ast)),name);
@@ -88,7 +88,7 @@ test("system sheet family has one Context, two lazy editor entries and the uncha
     function visit(n: ts.Node) {
       if (ts.isVariableDeclaration(n) && n.name.getText(ast) === "SheetOpsContext") contexts.push(name);
       if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword && n.arguments[0]?.getText(ast) === '"./DocEditor"') lazyEditors.push(name);
-      if (name.startsWith("systems/") && ts.isCallExpression(n) && n.expression.getText(ast) === "crypto.randomUUID") uuids.push(name);
+      if (name.startsWith("systems/") && ts.isCallExpression(n) && n.expression.getText(ast) === "uuidV4") uuids.push(name);
       if (ts.isIdentifier(n)) assert.notEqual(n.text,"SHEETS",`${name}: obsolete second registry`);
       ts.forEachChild(n,visit);
     }
@@ -99,7 +99,7 @@ test("system sheet family has one Context, two lazy editor entries and the uncha
   assert.deepEqual(uuids,["systems/dnd5e/ui/legacy/Cards.tsx"]);
   const cards = sources.find(s=>s.name === uuids[0])!;
   const factory = cards.ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==="newId")!;
-  assert.match(factory.getText(cards.ast), /return `c-\$\{crypto\.randomUUID\(\)\.slice\(0, 12\)\}`;/);
+  assert.match(factory.getText(cards.ast), /return `c-\$\{uuidV4\(\)\.slice\(0, 12\)\}`;/);
   assert.equal(existsSync(path.join(root,"widgets/character-sheet/legacy")),false);
   const table = readFileSync(path.join(root,"pages/table/ui/TablePage.tsx"),"utf8");
   assert.match(table, /<CharacterSheet sheet=\{systemBindings\.sheet\} key=\{openCharacter\.id\}/);
