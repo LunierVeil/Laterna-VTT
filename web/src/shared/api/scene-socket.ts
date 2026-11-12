@@ -1,3 +1,4 @@
+import { uuidV4 } from "../lib/uuid.ts";
 import type { ServerMessage } from "./protocol";
 
 type Listener = (msg: ServerMessage) => void;
@@ -164,7 +165,12 @@ export class SceneSocket {
     payload: Record<string, unknown>,
     optimistic?: { apply: () => void; revert: () => void },
   ): string {
-    const id = crypto.randomUUID();
+    let id: string;
+    try { id = uuidV4(); }
+    catch (error) {
+      this.emit({type: "error", cmd_id: null, message: String(error)});
+      return "";
+    }
     if (this.ws?.readyState !== WebSocket.OPEN) return id;
     if (optimistic) {
       optimistic.apply();
