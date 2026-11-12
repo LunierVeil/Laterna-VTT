@@ -81,7 +81,7 @@ export function SceneView({
       },
     }, useUi.getState().me!.id);
 
-    const offDisconnect = socket.onDisconnect(() => stage.clearDragPreviews());
+    const offDisconnect = socket.onDisconnect(() => stage.handleDisconnect());
 
     // mount() асинхронный: PixiJS инициализируется не мгновенно.
     // В StrictMode эффект отрабатывает дважды, поэтому нужен свой флаг:

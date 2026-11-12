@@ -174,6 +174,8 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     grab: { x: number; y: number };
   } | null = null;
   private panning: { startX: number; startY: number; origX: number; origY: number } | null = null;
+  private sceneId: string | null = null;
+  private disconnected = false;
   private wallStart: { x: number; y: number } | null = null;
   private pointerScene = { x: 0, y: 0 };
   private destroyed = false;
@@ -381,6 +383,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
    * успел отработать - именно так это и вызывается в StrictMode.
    */
   destroy() {
+    this.endChain();
     this.clearDragPreviews();
     window.removeEventListener("blur", this.onPointerCancel);
     window.removeEventListener("pointercancel", this.onPointerCancel, true);
@@ -475,6 +478,9 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   setSnapshot(scene: Scene) {
     if (this.destroyed) return;
     this.clearDragPreviews();
+    if (this.disconnected || this.sceneId !== scene.id) this.endChain();
+    this.disconnected = false;
+    this.sceneId = scene.id;
     this.visualState = scene.visuals;
     this.visualLayer?.update(null);
     this.gridSize = scene.grid_size;
@@ -499,7 +505,8 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     // После переподключения выбранный токен мог исчезнуть или измениться.
     this.dragging = null;
     this.marquee = null;
-    this.ghostLayer.clear();
+    if (this.wallStart) this.drawGhostWall();
+    else this.ghostLayer.clear();
     this.setSelection([...this.selectedIds]);
     this.refreshVisuals();
   }
@@ -1083,7 +1090,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       return;
     }
 
-    if (this.tool === "wall" && e.button === 0) {
+    if (this.tool === "wall" && e.button === 0 && !this.disconnected) {
       const c = this.snapCorner(p);
       if (!this.wallStart) {
         this.wallStart = c;
@@ -1244,6 +1251,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   };
 
   private onPointerCancel = () => {
+    this.endChain();
     this.cancelDrag();
     this.panning = null;
     this.marquee = null;
@@ -1269,6 +1277,13 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       this.previewClosed.add(id);
       if (this.previewClosed.size > 512) this.previewClosed.delete(this.previewClosed.values().next().value!);
     }
+  }
+
+  /** Disconnect invalidates unfinished input, never confirmed geometry. */
+  handleDisconnect() {
+    this.disconnected = true;
+    this.endChain();
+    this.clearDragPreviews();
   }
 
   clearDragPreviews() {
