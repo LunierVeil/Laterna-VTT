@@ -128,17 +128,66 @@ def test_doors(sockets):
 # --- скрытый бросок ---------------------------------------------------------
 
 
+def assert_hidden_roll_redacted(envelope, author):
+    # Проверяем весь контракт, включая запрет новых полей с приватными данными.
+    assert set(envelope) == {"type", "message"}
+    assert envelope["type"] == "chat"
+    message = envelope["message"]
+    assert set(message) == {"id", "author", "author_id", "text", "kind", "roll", "created_at"}
+    # ID и время — публичные метаданные: совпадение их байтов с формулой не утечка.
+    content = {key: value for key, value in message.items()
+               if key not in {"id", "author_id", "created_at"}}
+    assert content == {"author": author, "text": "", "kind": "hidden_roll", "roll": None}
+    raw = json.dumps(content)
+    assert "1d20" not in raw and '"total"' not in raw
+
+
+@pytest.fixture
+def hidden_roll_placeholder():
+    # Валидные UUID специально содержат подстроку формулы; старый assert падал.
+    original = {
+        "id": "00001d20-0000-4000-8000-000000001d20",
+        "author": "Мастер",
+        "author_id": "1d200000-0000-4000-8000-000000000000",
+        "created_at": "2026-11-12T20:07:00Z",
+        "text": "Приватная заметка: 1d20+7",
+        "kind": "roll",
+        "roll": {"hidden": True, "formula": "1d20+7", "total": 20, "dice": [13]},
+    }
+    return {"type": "chat", "message": main.message_for(original, main.Actor("player", "Игрок"))}
+
+
+def test_hidden_roll_uuid_formula_collision(hidden_roll_placeholder):
+    assert "1d20" in json.dumps(hidden_roll_placeholder)  # Воспроизводит старый ложный FAIL.
+    assert_hidden_roll_redacted(hidden_roll_placeholder, "Мастер")
+
+
+@pytest.mark.parametrize("field,value", [
+    ("text", "1d20+7"),
+    ("roll", {"formula": "1d20+7", "total": 20, "dice": [13]}),
+    ("formula", "1d20+7"),
+    ("total", 20),
+    ("private", {"note": "Приватная заметка"}),
+])
+def test_hidden_roll_assertion_rejects_leaks(hidden_roll_placeholder, field, value):
+    hidden_roll_placeholder["message"][field] = value
+    with pytest.raises(AssertionError):
+        assert_hidden_roll_redacted(hidden_roll_placeholder, "Мастер")
+
+
+def test_hidden_roll_assertion_rejects_envelope_leak(hidden_roll_placeholder):
+    hidden_roll_placeholder["formula"] = "1d20+7"
+    with pytest.raises(AssertionError):
+        assert_hidden_roll_redacted(hidden_roll_placeholder, "Мастер")
+
+
 def test_hidden_roll(sockets):
     g, p = sockets
     g.send_text(json.dumps({"type": "cmd", "id": "r1", "name": "chat.say", "payload": {"text": "/gr 1d20+7"}}))
     got_g = recv_until(g, lambda m: m.get("type") == "chat")
     got_p = recv_until(p, lambda m: m.get("type") == "chat")
     assert got_g["message"]["roll"]["hidden"] and got_g["message"]["roll"]["formula"] == "1d20+7"
-    msg = got_p["message"]
-    assert msg["kind"] == "hidden_roll" and msg["roll"] is None and msg["text"] == ""
-    # Ни формулы, ни итога - нигде в сообщении.
-    raw = json.dumps(got_p)
-    assert "1d20" not in raw and f'"total": {got_g["message"]["roll"]["total"]}' not in raw
+    assert_hidden_roll_redacted(got_p, got_g["message"]["author"])
 
     err = run(p, "r2", "chat.say", {"text": "/gr 1d20"})
     assert err["type"] == "error"
