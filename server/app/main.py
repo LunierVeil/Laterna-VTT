@@ -415,7 +415,7 @@ async def scene_snapshot(db: AsyncSession, scene_id: str, actor: Actor) -> dict 
             if current is None or current.stamp != frame.stamp:
                 continue
             data['tokens'] = [token for token in data['tokens'] if token['id'] in visibility.ids]
-            data['walls'] = [wall for wall in data['walls'] if wall['kind'] in ('wall', 'door')]
+            data['walls'] = [wall for wall in data['walls'] if wall['kind'] in ('wall', 'door', 'window')]
             # Missing protected geometry is not permission to draw through it.
             data['visuals'] = visual_lighting.projection(frame, actor, observer_available=(
                 visibility.status == 'complete' and len(data['walls']) == len(frame.walls)))

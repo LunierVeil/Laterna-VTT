@@ -129,7 +129,7 @@ def test_failed_command_rollback_has_no_cache_invalidation(client, gm, test_scen
         assert query(client, test_scene).state is SightState.BLOCKED
 
 
-@pytest.mark.parametrize("kind,state", [("window", "closed"), ("secret_door", "closed"),
+@pytest.mark.parametrize("kind,state", [("future_window", "closed"), ("secret_door", "closed"),
                                        ("invisible", "closed"), ("unknown", "open"),
                                        ("door", "unknown")])
 def test_unknown_saved_geometry_is_explicit_error_not_transparency(client, test_scene, kind, state):

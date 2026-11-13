@@ -7,6 +7,7 @@ A batch uses one point-in-time snapshot; it is not a live authorization lease.
 from __future__ import annotations
 
 from typing import Iterable
+from math import isfinite
 
 from sqlalchemy import select
 from sqlalchemy.orm import Load
@@ -24,15 +25,25 @@ def prepare_scene_geometry(scene: Scene, walls: Iterable[Wall], *,
                            epsilon: float = INITIAL_EPSILON_PX) -> PreparedGeometry:
     """Copy already loaded models. The caller owns the snapshot's lifetime.
 
-    P9 is used provisionally for ordinary doors, not approval of final optics.
-    Unknown kinds (including windows) fail explicitly, even if blocks_sight=false.
+    Ordinary door state overrides flags. W3 windows use blocks_sight independently
+    of movement. Unknown kinds fail explicitly, even if blocks_sight=false.
     Neither this adapter nor CLEAR grants access to any scene or object.
     """
     segments = []
     for wall in walls:
         if wall.scene_id != scene.id:
             raise SceneGeometryUnavailable("wall does not belong to scene")
-        if wall.kind == "wall":
+        # Validate transparent obstacles too: bad protected input is not CLEAR.
+        for value, limit in ((wall.x1, scene.width), (wall.x2, scene.width),
+                             (wall.y1, scene.height), (wall.y2, scene.height)):
+            try:
+                valid = (not isinstance(value, bool) and isinstance(value, (int, float))
+                         and isfinite(value) and 0 <= value <= limit)
+            except (OverflowError, ValueError):
+                valid = False
+            if not valid:
+                raise SceneGeometryUnavailable("invalid wall coordinates")
+        if wall.kind in ("wall", "window"):
             if not isinstance(wall.blocks_sight, bool):
                 raise SceneGeometryUnavailable("ambiguous wall sight flag")
             opaque = wall.blocks_sight

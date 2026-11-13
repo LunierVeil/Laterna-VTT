@@ -28,7 +28,7 @@ def test_each_player_has_exact_personal_projection(state, visible):
     assert 'pc-a' in a.ids and 'pc-b' in b.ids
 
 
-@pytest.mark.parametrize('mutation', ['missing', 'multiple', 'wrong_owner', 'mob', 'on_wall', 'window', 'budget'])
+@pytest.mark.parametrize('mutation', ['missing', 'multiple', 'wrong_owner', 'mob', 'on_wall', 'unknown_kind', 'budget'])
 def test_ambiguous_or_invalid_inputs_keep_only_own_tokens(mutation):
     frame = scene('open')
     pc = frame.tokens[0]
@@ -42,8 +42,8 @@ def test_ambiguous_or_invalid_inputs_keep_only_own_tokens(mutation):
         frame = replace(frame, tokens=(replace(pc, system='mob'), *frame.tokens[1:]))
     elif mutation == 'on_wall':
         frame = replace(frame, tokens=(replace(pc, x=250., y=50.), *frame.tokens[1:]))
-    elif mutation == 'window':
-        frame = replace(frame, walls=(replace(frame.walls[0], kind='window'), *frame.walls[1:]))
+    elif mutation == 'unknown_kind':
+        frame = replace(frame, walls=(replace(frame.walls[0], kind='future_window'), *frame.walls[1:]))
     else:
         frame = replace(frame, over_budget=True)
     result = los.calculate(frame, Actor('a', 'A'))
