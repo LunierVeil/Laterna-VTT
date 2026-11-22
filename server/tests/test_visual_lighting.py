@@ -49,12 +49,12 @@ def test_flag_off_keeps_legacy_snapshot_and_rejects_adapter(client,gm,world,monk
         assert run(master,'off','scene.visuals',{'settings':{'ambient':'full','sources':[]}})['type']=='error'
 
 
-def test_unsupported_geometry_never_implicitly_selects_window_optics(client,gm,world):
+def test_unsupported_geometry_never_becomes_positive_visibility(client,gm,world):
     from app.models import Wall
     from app.db import SessionLocal
     async def seed():
         async with SessionLocal() as db:
-            wall=Wall(scene_id=world.scene,x1=200,y1=0,x2=200,y2=500,kind='window')
+            wall=Wall(scene_id=world.scene,x1=200,y1=0,x2=200,y2=500,kind='secret_door')
             db.add(wall);await db.commit();return wall.id
     wid=client.portal.call(seed)
     try:

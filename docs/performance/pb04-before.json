@@ -1,0 +1,62 @@
+{
+  "platform": "linux",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "wallCount": 200,
+  "tokenCount": 30,
+  "sourceCount": 15,
+  "samples": [
+    {
+      "cpu": 61.700000000186265,
+      "paint": 30.100000000093132
+    },
+    {
+      "cpu": 31.399999999906868,
+      "paint": 37
+    },
+    {
+      "cpu": 73.20000000018626,
+      "paint": 30.299999999813735
+    },
+    {
+      "cpu": 40,
+      "paint": 31.200000000186265
+    },
+    {
+      "cpu": 34.59999999962747,
+      "paint": 28.799999999813735
+    },
+    {
+      "cpu": 51.200000000186265,
+      "paint": 30.600000000093132
+    },
+    {
+      "cpu": 35.5,
+      "paint": 26.399999999906868
+    },
+    {
+      "cpu": 53.60000000009313,
+      "paint": 35
+    }
+  ],
+  "workerMs": {
+    "median": 40,
+    "p95": 73.20000000018626
+  },
+  "paintMs": {
+    "median": 30.299999999813735,
+    "p95": 37
+  },
+  "heapBefore": {
+    "usedSize": 10272416,
+    "totalSize": 11341824,
+    "embedderHeapUsedSize": 2002144,
+    "backingStorageSize": 5558448
+  },
+  "heapAfter": {
+    "usedSize": 14763284,
+    "totalSize": 15798272,
+    "embedderHeapUsedSize": 1952104,
+    "backingStorageSize": 5559033
+  },
+  "limitations": "Local headless Chromium, 8 warm runs, no FPS/SLA or GPU-memory claim; heap includes Pixi/JS caches."
+}

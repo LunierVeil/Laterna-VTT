@@ -48,9 +48,11 @@ def segments_intersect(
 def path_blocked(x1: float, y1: float, x2: float, y2: float, walls) -> bool:
     """Пересекает ли путь токена хоть одну блокирующую движение стену."""
     for w in walls:
-        if not w.blocks_movement:
-            continue
-        if w.kind == "door" and w.door_state == "open":
+        # Как и LOS: состояние обычной двери приоритетнее старых флагов.
+        if w.kind == "door":
+            if w.door_state == "open":
+                continue
+        elif not w.blocks_movement:
             continue
         if segments_intersect(x1, y1, x2, y2, w.x1, w.y1, w.x2, w.y2):
             return True

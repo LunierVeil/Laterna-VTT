@@ -72,6 +72,15 @@ test('Gameplay LOS: real GM door click, two personal players, media revoke and r
   await visible(left,true);
   await command('wall.door', {id:door.id,state:'closed'});
   await visible(left,false);
+  // W3 server contract over real WS: glass reveals, opacity revokes; personal views remain separate.
+  await command('wall.update',{id:door.id,kind:'window',blocks_sight:false,blocks_movement:true});
+  await visible(left,true); await visible(right,true);
+  assert.equal((await left.request.get(`${api}${url}`)).status(),200);
+  await command('wall.update',{id:door.id,blocks_sight:true});
+  await visible(left,false); await visible(right,true);
+  assert.equal((await left.request.get(`${api}${url}`,{headers:{Range:'bytes=0-8'}})).status(),404);
+  await command('wall.update',{id:door.id,kind:'door',door_state:'closed'});
+  await visible(left,false);
   const otherScene=(await command('scene.create',{name:'LOS empty scene'})).payload.id;
   await command('scene.activate',{id:otherScene});
   await until(()=>left.received.some(m=>m.type==='snapshot'&&m.scene.id===otherScene),'player follows active scene');

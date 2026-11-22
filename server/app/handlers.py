@@ -337,10 +337,9 @@ async def token_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: di
     return "token.removed", marked
 
 
-# Пока только стена и дверь. Тайная дверь, окно, невидимая стена есть в
-# модели (ждут освещения), но тайную дверь нельзя слать игроку как тайную -
-# это утечка; её маскировка под стену - отдельный шаг.
-WALL_KINDS = {"wall", "door"}
+# W3 использует существующие независимые флаги. Secret/invisible остаются
+# неподдерживаемыми: их раскрытие требует отдельного projection-контракта.
+WALL_KINDS = {"wall", "door", "window"}
 DOOR_STATES = {"closed", "open", "locked"}
 
 
@@ -356,6 +355,13 @@ def _door_state(value: object) -> str:
     if state not in DOOR_STATES:
         raise CommandError("дверь бывает closed, open или locked")
     return state
+
+
+def _wall_flag(payload: dict, key: str, default: bool) -> bool:
+    value = payload.get(key, default)
+    if not isinstance(value, bool):
+        raise CommandError(f"{key} должен быть boolean")
+    return value
 
 
 async def wall_door(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -383,6 +389,7 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     # Стены - разметка карты, её делает мастер. Игрок со стенами мог бы
     # запереть других или отгородиться от монстров.
     _require_gm(actor, "стены ставит только ГМ")
+    kind = _wall_kind(payload.get("kind"))
     # В границы сцены, как токены: стена за краем карты никому не нужна,
     # а огромные координаты ломают геометрию движения.
     wall = Wall(
@@ -391,10 +398,10 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
         y1=_clamp(_num(payload, "y1"), 0, scene.height),
         x2=_clamp(_num(payload, "x2"), 0, scene.width),
         y2=_clamp(_num(payload, "y2"), 0, scene.height),
-        kind=_wall_kind(payload.get("kind")),
+        kind=kind,
         door_state=_door_state(payload.get("door_state")),
-        blocks_movement=bool(payload.get("blocks_movement", True)),
-        blocks_sight=bool(payload.get("blocks_sight", True)),
+        blocks_movement=_wall_flag(payload, "blocks_movement", True),
+        blocks_sight=_wall_flag(payload, "blocks_sight", kind != "window"),
         blocks_sound=bool(payload.get("blocks_sound", False)),
         owner_id=actor.id,
     )
@@ -404,6 +411,32 @@ async def wall_add(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
     await db.flush()
     fogged = _wall_fogged(_scene_fog(scene), wall)
     return "wall.added", _mark_wall({"wall": wall.to_dict()}, wall, (fogged, fogged))
+
+
+async def wall_update(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
+    """ГМ меняет свойства/концы существующего препятствия без нового объекта."""
+    _require_gm(actor, "стены меняет только ГМ")
+    wall = await db.get(Wall, payload.get("id")) if isinstance(payload.get("id"), str) else None
+    if wall is None or wall.scene_id != scene.id:
+        raise CommandError("стена не найдена")
+    kind = _wall_kind(payload.get("kind", wall.kind))
+    state = _door_state(payload.get("door_state", wall.door_state))
+    movement = _wall_flag(payload, "blocks_movement", wall.blocks_movement)
+    sight = _wall_flag(payload, "blocks_sight", wall.blocks_sight)
+    coords = {key: _clamp(_num(payload, key), 0, limit) if key in payload else getattr(wall, key)
+              for key, limit in (("x1", scene.width), ("y1", scene.height),
+                                 ("x2", scene.width), ("y2", scene.height))}
+    if (coords["x1"], coords["y1"]) == (coords["x2"], coords["y2"]):
+        raise CommandError("стена нулевой длины")
+    regions = _scene_fog(scene)
+    before = _wall_fogged(regions, wall)
+    wall.kind, wall.door_state = kind, state
+    wall.blocks_movement, wall.blocks_sight = movement, sight
+    for key, value in coords.items():
+        setattr(wall, key, value)
+    await db.flush()
+    return "wall.updated", _mark_wall({"wall": wall.to_dict()}, wall,
+                                       (before, _wall_fogged(regions, wall)))
 
 
 async def wall_remove(db: AsyncSession, scene: Scene, actor: Actor, payload: dict):
@@ -1144,6 +1177,7 @@ HANDLERS = {
     "token.update": token_update,
     "token.remove": token_remove,
     "wall.add": wall_add,
+    "wall.update": wall_update,
     "wall.remove": wall_remove,
     "wall.door": wall_door,
     "fog.cover": fog_cover,
