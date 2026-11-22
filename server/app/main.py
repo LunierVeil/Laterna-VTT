@@ -43,7 +43,7 @@ from .config import (
 )
 from .ratelimit import LoginLimiter
 from .previews import preview_file
-from .db import Base, SessionLocal, get_session, init_db
+from .db import Base, SessionLocal, engine, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
 from .drag_preview import DragPreviews
@@ -51,6 +51,7 @@ from .drag_preview import DragPreviews
 previews = DragPreviews(hub)
 from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
 from .roles import Actor, gm_key_notice, initialize_gm_key, is_gm_key
+from .storage_lock import own_storage
 from .storage_preflight import check_storage, prepare_storage
 
 
@@ -59,29 +60,34 @@ log = logging.getLogger("laterna")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
-    state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
-                          cwd=config.STARTUP_CWD, env=os.environ, schema=schema)
-    prepare_storage(config.STORAGE_PATHS, state)
-    if state != "existing":
-        await init_db()
-        await ensure_demo_scene()
-    initialize_gm_key(allow_create=state != "existing")
-    print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
-    async def expire_previews():
-        while True:
-            await asyncio.sleep(0.25)
-            await previews.expire()
-    expiry = asyncio.create_task(expire_previews())
-    try:
-        yield
-    finally:
-        expiry.cancel()
-        from contextlib import suppress
-        with suppress(asyncio.CancelledError):
-            await expiry
-        await previews.clear_scene()
-        visual_lighting.clear()
+    with own_storage(config.STORAGE_PATHS):
+        try:
+            schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
+            state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
+                                  cwd=config.STARTUP_CWD, env=os.environ, schema=schema)
+            prepare_storage(config.STORAGE_PATHS, state)
+            if state != "existing":
+                await init_db()
+                await ensure_demo_scene()
+            initialize_gm_key(allow_create=state != "existing")
+            print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
+            async def expire_previews():
+                while True:
+                    await asyncio.sleep(0.25)
+                    await previews.expire()
+            expiry = asyncio.create_task(expire_previews())
+            try:
+                yield
+            finally:
+                expiry.cancel()
+                from contextlib import suppress
+                with suppress(asyncio.CancelledError):
+                    await expiry
+                await previews.clear_scene()
+                visual_lighting.clear()
+        finally:
+            with anyio.CancelScope(shield=True):
+                await engine.dispose()
 
 
 app = FastAPI(title="Laterna VTT", lifespan=lifespan)

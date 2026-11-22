@@ -55,8 +55,13 @@ def seed_database(database: Path, scene_id: str, gm_id: str, player_id: str, sce
     """Seed only an empty fixture scene, in one transaction, before clients load it."""
     database = database.resolve(strict=True)
     parent = database.parent
-    if (database.name != "test.db" or parent.parent != Path(tempfile.gettempdir()).resolve()
-            or not parent.name.startswith(("laterna-regression-", "laterna-tests-"))):
+    temp = Path(tempfile.gettempdir()).resolve()
+    direct_fixture = parent.parent == temp and parent.name.startswith(("laterna-regression-", "laterna-tests-"))
+    nested_fixture = parent.parent.parent == temp and any(
+        parent.name == prefix + "state" and parent.parent.name.startswith(prefix)
+        for prefix in ("laterna-regression-", "laterna-tests-")
+    )
+    if database.name != "test.db" or not (direct_fixture or nested_fixture):
         raise ValueError("PB00 seed requires the existing fixture's temporary test.db")
     data = scenes()[scenario]
     ids = {"tokens": [], "walls": []}
