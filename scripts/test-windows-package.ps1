@@ -58,6 +58,12 @@ try {
     & $Python "$PSScriptRoot/package-smoke.py"
     if ($LASTEXITCODE -ne 0) { throw 'Repository smoke-test against packaged application failed' }
     Write-Host 'PASS: extracted embedded Python, frontend and full repository smoke-test'
+    $Process.WaitForExit(100) | Out-Null
+    if (-not $Process.HasExited) { Stop-Process -Id $Process.Id -Force; $Process.WaitForExit() }
+    $Replacement = Join-Path $Temp 'Новая распаковка ZIP'
+    Expand-Archive $ZipPath $Replacement
+    & $Python -X utf8 "$PSScriptRoot/windows-datahome-smoke.py" $App $Replacement $Temp
+    if ($LASTEXITCODE -ne 0) { throw 'Windows DataHome smoke-test failed' }
 } finally {
     if ($Process -and -not $Process.HasExited) { Stop-Process -Id $Process.Id -Force; $Process.WaitForExit() }
     foreach ($Name in $Names) { [Environment]::SetEnvironmentVariable($Name, $Saved[$Name], 'Process') }

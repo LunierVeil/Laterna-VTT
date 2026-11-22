@@ -135,3 +135,24 @@ def test_failed_start_releases_lock_without_replacing_partial_database(install):
     with child(install, "lock-after-error", mode="lock") as (proc, _):
         _, error = proc.communicate(timeout=15)
         assert proc.returncode == 0, error
+
+
+def test_different_databases_cannot_share_uploads_or_key(install):
+    _, home, env = install
+    with child(install, "owner") as (owner, marker):
+        _ready(owner, marker)
+        before = snapshot(home)
+        overrides = dict(env)
+        overrides.pop("LANTERNA_DATA_HOME")
+        other = home.with_name("another")
+        other.mkdir()
+        overrides["DATABASE_URL"] = f"sqlite+aiosqlite:///{(other / 'test.db').as_posix()}"
+        for shared, uploads, key in (
+            ("uploads", home / "uploads", other / "gm_key.txt"),
+            ("key", other / "uploads", home / "gm_key.txt"),
+        ):
+            overrides.update(UPLOAD_DIR=str(uploads), GM_KEY_FILE=str(key))
+            with child(install, shared, env=overrides) as (contender, _):
+                _refused(contender, "Хранилище уже занято")
+            assert not list(other.iterdir())
+        assert snapshot(home) == before

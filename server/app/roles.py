@@ -65,6 +65,8 @@ def gm_key_notice(frontend_url: str) -> str:
     перезапуск (а с --reload это каждая правка кода), и потом его
     вставляют в чаты, когда просят помощи. Дальше - только где лежит ключ.
     """
+    if os.name == "nt" and GM_KEY_SOURCE == "created":
+        return "Создан ключ ГМ. Ссылку показывает пункт 3 меню Laterna."
     if GM_KEY_SOURCE == "created":
         return (
             f"Создан ключ ГМ. Ссылка ГМ: {frontend_url}/?gm={GM_KEY}\n"
