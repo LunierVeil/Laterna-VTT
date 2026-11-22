@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from . import auth, config, fog, protocol, visual_lighting
+from . import auth, config, fog, protocol, roles, visual_lighting
 from .recipient_projection import command_target_visible, projection_session, read_snapshot, recipient, token_visible, visible_state
 from .media_access import RecipientUploads, attachment_allowed, remember_upload
 from .gameplay_visibility import Witnessed, capture_scene, calculate_bounded
@@ -51,6 +51,8 @@ from .drag_preview import DragPreviews
 previews = DragPreviews(hub)
 from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
 from .roles import Actor, gm_key_notice, initialize_gm_key, is_gm_key
+from .instance_backup import OnlineBackup
+from .upload_files import publish_upload
 from .storage_lock import own_storage
 from .storage_preflight import check_storage, prepare_storage
 
@@ -75,10 +77,14 @@ async def lifespan(app: FastAPI):
                 while True:
                     await asyncio.sleep(0.25)
                     await previews.expire()
+            backup = OnlineBackup(config.STORAGE_PATHS, schema, external_key=roles.GM_KEY_SOURCE == "env")
+            app.state.instance_backup = backup
             expiry = asyncio.create_task(expire_previews())
             try:
                 yield
             finally:
+                with anyio.CancelScope(shield=True):
+                    await backup.close()
                 expiry.cancel()
                 from contextlib import suppress
                 with suppress(asyncio.CancelledError):
@@ -542,7 +548,7 @@ async def upload(request: Request, db: AsyncSession = Depends(get_session)) -> d
     if config.EXPERIMENTAL_VISIBILITY and subject is None:
         raise HTTPException(401, "нужно войти")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    (UPLOAD_DIR / name).write_bytes(data)
+    publish_upload(UPLOAD_DIR, name, data)
     if subject:
         remember_upload(name, actor, subject[1])
     return {"url": f"/uploads/{name}"}
