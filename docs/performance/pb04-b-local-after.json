@@ -1,0 +1,62 @@
+{
+  "platform": "linux",
+  "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+  "wallCount": 200,
+  "tokenCount": 30,
+  "sourceCount": 15,
+  "samples": [
+    {
+      "cpu": 25.5,
+      "paint": 20.100000000093132
+    },
+    {
+      "cpu": 26.700000000186265,
+      "paint": 19.799999999813735
+    },
+    {
+      "cpu": 24.800000000279397,
+      "paint": 20.100000000093132
+    },
+    {
+      "cpu": 37.5,
+      "paint": 23.100000000093132
+    },
+    {
+      "cpu": 24,
+      "paint": 19.59999999962747
+    },
+    {
+      "cpu": 26.5,
+      "paint": 20.100000000093132
+    },
+    {
+      "cpu": 25.899999999906868,
+      "paint": 23.5
+    },
+    {
+      "cpu": 29,
+      "paint": 20.200000000186265
+    }
+  ],
+  "workerMs": {
+    "median": 25.899999999906868,
+    "p95": 37.5
+  },
+  "paintMs": {
+    "median": 20.100000000093132,
+    "p95": 23.5
+  },
+  "heapBefore": {
+    "usedSize": 10332972,
+    "totalSize": 11476992,
+    "embedderHeapUsedSize": 1976408,
+    "backingStorageSize": 5663308
+  },
+  "heapAfter": {
+    "usedSize": 14816496,
+    "totalSize": 16195584,
+    "embedderHeapUsedSize": 1967432,
+    "backingStorageSize": 5663880
+  },
+  "limitations": "Local headless Chromium, 8 warm runs, no FPS/SLA or GPU-memory claim; heap includes Pixi/JS caches."
+}

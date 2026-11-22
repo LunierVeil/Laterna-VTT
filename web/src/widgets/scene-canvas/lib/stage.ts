@@ -3,7 +3,7 @@ import { VisualLayer } from "./visual-layer";
 import type { TokenAnchorPort, TokenPlacementPort, SelectionPort, ZoomPort, FogUndoPort } from "../../../entities/scene/model/scene-port";
 import { Application, Assets, Circle, Container, Graphics, Sprite, Text, Texture, FederatedPointerEvent } from "pixi.js";
 import type { Combat, FogRect, Scene, Token, Wall, TokenPreview } from "../../../shared/api/protocol";
-import type { Tool } from "../../../entities/scene/model/tool";
+import type { Tool, WallKind } from "../../../entities/scene/model/tool";
 import type { CharacterStats } from "../../../entities/token/model/presentation";
 
 const COLORS = {
@@ -14,6 +14,8 @@ const COLORS = {
   wall: 0xe7e1d4,
   door: 0x6fa8dc,
   doorLocked: 0xd9534f,
+  window: 0x67cdbb,
+  windowOpaque: 0x906fc0,
   wallGhost: 0xf0b14a,
   selection: 0xf0b14a,
   turn: 0xff8c42,
@@ -39,6 +41,7 @@ export interface StageCallbacks {
   onRemoveToken: (id: string) => void;
   /** Возвращает id отправленной команды - по нему стейдж узнаёт свои стены. */
   onAddWall: (x1: number, y1: number, x2: number, y2: number) => string;
+  onEditWall?: (wall: Wall | null) => void;
   onRemoveWall: (id: string) => void;
   /** Клик по двери в режиме выбора: открыть/закрыть, у ГМ с Shift - запереть. */
   onDoor: (id: string, state: "open" | "closed" | "locked") => void;
@@ -177,6 +180,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   private sceneId: string | null = null;
   private disconnected = false;
   private wallStart: { x: number; y: number } | null = null;
+  private wallKind: WallKind = "wall";
   private pointerScene = { x: 0, y: 0 };
   private destroyed = false;
   private resizeObserver: ResizeObserver | null = null;
@@ -424,6 +428,16 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     if (tool === "erase") this.updateEraseHover();
   }
 
+  setWallKind(kind: WallKind) {
+    if (this.destroyed) return;
+    this.wallKind = kind;
+    if (this.wallStart) this.drawGhostWall();
+  }
+
+  canUpdateWall(wall: Wall) {
+    return !this.destroyed && !this.disconnected && this.gm && this.walls.get(wall.id) === wall;
+  }
+
   /** Закончить цепочку стен, не выходя из инструмента. */
   endChain() {
     if (this.destroyed) return;
@@ -477,6 +491,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
 
   setSnapshot(scene: Scene) {
     if (this.destroyed) return;
+    this.cb.onEditWall?.(null);
     this.clearDragPreviews();
     if (this.disconnected || this.sceneId !== scene.id) this.endChain();
     this.disconnected = false;
@@ -855,6 +870,12 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     const g = this.wallLayer;
     g.clear();
     for (const w of this.walls.values()) {
+      if (w.kind === "window") {
+        const color = w.blocks_sight ? COLORS.windowOpaque : COLORS.window;
+        g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2).stroke({ width: 6, color });
+        g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2).stroke({ width: 2, color: COLORS.sceneFill });
+        continue;
+      }
       if (w.kind !== "door") {
         g.moveTo(w.x1, w.y1).lineTo(w.x2, w.y2);
         g.stroke({ width: 4, color: COLORS.wall, alpha: 0.9 });
@@ -922,9 +943,11 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     g.clear();
     if (!this.wallStart) return;
     const end = this.snapCorner(this.pointerScene);
+    const color = this.wallKind === "window" ? COLORS.window
+      : this.wallKind === "door" ? COLORS.door : COLORS.wallGhost;
     g.moveTo(this.wallStart.x, this.wallStart.y).lineTo(end.x, end.y);
-    g.stroke({ width: 3, color: COLORS.wallGhost, alpha: 0.85 });
-    g.circle(this.wallStart.x, this.wallStart.y, 4).fill({ color: COLORS.wallGhost });
+    g.stroke({ width: 3, color, alpha: 0.85 });
+    g.circle(this.wallStart.x, this.wallStart.y, 4).fill({ color });
   }
 
   // --- привязка к сетке -----------------------------------------------
@@ -1052,6 +1075,15 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       // Мимо стен - панорама, как в режиме выбора.
     }
 
+    if (this.tool === "wall-edit" && this.gm && !this.disconnected && e.button === 0) {
+      const wall = this.wallAt(p);
+      if (wall) {
+        this.cancelLongPress();
+        this.cb.onEditWall?.(wall);
+        return;
+      }
+    }
+
     if (this.tool === "select" && e.button === 0) {
       // Дверь под курсором - открыть или закрыть. Решает сервер: запертую
       // игроку не откроет, ГМ с Shift запирает и отпирает.
@@ -1073,7 +1105,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       return;
     }
 
-    if (e.button === 1 || e.button === 2 || this.tool === "select" || this.tool === "erase") {
+    if (e.button === 1 || e.button === 2 || this.tool === "select" || this.tool === "erase" || this.tool === "wall-edit") {
       if (this.tool === "select" && e.button === 0) this.select(null);
       this.panning = {
         startX: e.global.x,
@@ -1090,7 +1122,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
       return;
     }
 
-    if (this.tool === "wall" && e.button === 0 && !this.disconnected) {
+    if (this.tool === "wall" && this.gm && e.button === 0 && !this.disconnected) {
       const c = this.snapCorner(p);
       if (!this.wallStart) {
         this.wallStart = c;
@@ -1116,7 +1148,8 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
     // Delete в них не должен удалять токен, Ctrl+Z - отменять стену.
     if (
       target &&
-      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" ||
+        target.isContentEditable || target.closest?.("dialog[open]"))
     )
       return;
 
@@ -1196,6 +1229,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
 
     if (this.tool === "wall" && this.wallStart) this.drawGhostWall();
     if (this.tool === "erase") this.updateEraseHover();
+    if (this.tool === "wall-edit") this.setCursor(this.gm && this.wallAt(this.pointerScene) ? "pointer" : "default");
     // Над дверью в режиме выбора - рука: её можно открыть. Только корню
     // сцены: над токеном PixiJS сам возьмёт курсор токена.
     if (this.tool === "select") this.app.stage.cursor = this.doorAt(this.pointerScene) ? "pointer" : "default";
@@ -1282,6 +1316,7 @@ export class SceneStage implements TokenAnchorPort, TokenPlacementPort, Selectio
   /** Disconnect invalidates unfinished input, never confirmed geometry. */
   handleDisconnect() {
     this.disconnected = true;
+    this.cb.onEditWall?.(null);
     this.endChain();
     this.clearDragPreviews();
   }

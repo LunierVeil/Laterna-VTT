@@ -1,5 +1,5 @@
 import type { Character, Combat, InviteInfo, Message, SceneFolder, SceneInfo, UserInfo } from "../shared/api/protocol";
-import type { Tool } from "../entities/scene/model/tool";
+import type { Tool, WallKind } from "../entities/scene/model/tool";
 import type { SelectedToken } from "../entities/token/model/selection";
 import type { StateCreator } from "zustand";
 
@@ -69,7 +69,7 @@ export interface UiSlice {
   /** Инструмент "Туман": рамка закрывает или открывает. */
   fogMode: "cover" | "reveal";
   /** Что рисует инструмент "Стена": стену или дверь. */
-  wallKind: "wall" | "door";
+  wallKind: WallKind;
   /** ГМ бросает скрыто: панель кубов и броски из листа. */
   hiddenRolls: boolean;
   /** Вкладка правой колонки. */
@@ -100,7 +100,7 @@ export interface UiSlice {
   setCombatOpen: (v: boolean) => void;
   setPlaceHidden: (v: boolean) => void;
   setFogMode: (v: "cover" | "reveal") => void;
-  setWallKind: (v: "wall" | "door") => void;
+  setWallKind: (v: WallKind) => void;
   setHiddenRolls: (v: boolean) => void;
   setSideTab: (t: SideTab) => void;
   setZoom: (z: number) => void;

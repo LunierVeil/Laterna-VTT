@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SceneStage } from "../lib/stage";
+import { WallProperties } from "./WallProperties";
+import { wallDefaults } from "../../../entities/scene/model/tool";
 import { projectStats } from "../../../entities/token/lib/project-stats";
 import type { CharacterPresentation } from "../../../entities/character/model/definition";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
-import { useUi, uiActions, selectTool, selectIsGm, selectCharacters, selectFogMode } from "../../../state/public";
+import type { Wall } from "../../../shared/api/protocol";
+import { useUi, uiActions, selectTool, selectIsGm, selectCharacters, selectFogMode, selectWallKind } from "../../../state/public";
 
 export function SceneView({
   getCharacterStats,
@@ -20,6 +23,8 @@ export function SceneView({
   const tool = useUi(selectTool);
   const isGm = useUi(selectIsGm);
   const characters = useUi(selectCharacters);
+  const wallKind = useUi(selectWallKind);
+  const [editingWall, setEditingWall] = useState<Wall | null>(null);
 
   useEffect(() => {
     const stage = new SceneStage({
@@ -43,7 +48,10 @@ export function SceneView({
       onRemoveToken: (id) => {
         socket.send("token.remove", { id });
       },
-      onAddWall: (x1, y1, x2, y2) => socket.send("wall.add", { x1, y1, x2, y2, kind: useUi.getState().wallKind }),
+      onAddWall: (x1, y1, x2, y2) => socket.send("wall.add", {
+        x1, y1, x2, y2, ...wallDefaults(useUi.getState().wallKind),
+      }),
+      onEditWall: setEditingWall,
       onDoor: (id, state) => {
         socket.send("wall.door", { id, state });
       },
@@ -97,6 +105,7 @@ export function SceneView({
         if (cancelled || !stage.isAlive) return;
         stageRef.current = stage;
         stage.setTool(useUi.getState().tool);
+        stage.setWallKind(useUi.getState().wallKind);
         stage.setGm(useUi.getState().isGm);
         stage.setFogMode(useUi.getState().fogMode);
         stage.setCharacterStats(projectStats(useUi.getState().characters, getCharacterStats));
@@ -118,6 +127,14 @@ export function SceneView({
   }, [tool, stageRef]);
 
   useEffect(() => {
+    stageRef.current?.setWallKind(wallKind);
+  }, [wallKind, stageRef]);
+
+  useEffect(() => {
+    setEditingWall(null);
+  }, [socket, tool, isGm]);
+
+  useEffect(() => {
     stageRef.current?.setGm(isGm);
   }, [isGm, stageRef]);
 
@@ -131,10 +148,19 @@ export function SceneView({
     stageRef.current?.setCharacterStats(projectStats(characters, getCharacterStats));
   }, [characters, stageRef, getCharacterStats]);
 
-  return <div className="scene" ref={host} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+  return <><div className="scene" ref={host} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
     e.preventDefault();
     const id = e.dataTransfer.getData("application/x-laterna-character");
     const p = stageRef.current?.dropPoint(e.clientX, e.clientY);
     if (id && p) socket.send("token.add", { ...p, character_id: id });
-  }} />;
+  }} />
+    {isGm && tool === "wall-edit" && editingWall && <WallProperties key={editingWall.id}
+      wall={editingWall} onClose={() => setEditingWall(null)} onSave={value => {
+        if (!stageRef.current?.canUpdateWall(editingWall)) {
+          throw new Error("Препятствие изменилось. Откройте его свойства снова.");
+        }
+        socket.send("wall.update", { id: editingWall.id, ...value });
+        setEditingWall(null);
+      }} />}
+  </>;
 }

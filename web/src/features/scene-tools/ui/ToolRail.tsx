@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTouchInput } from "../../../shared/lib/input/useTouchInput";
 import { useUi, uiActions, selectIsGm, selectFogMode, selectWallKind, selectPlaceHidden, selectTool, selectCombat, selectCombatOpen, selectDiceOpen, selectChaining } from "../../../state/public";
-import type { Tool } from "../../../entities/scene/model/tool";
+import { WALL_KINDS, type Tool } from "../../../entities/scene/model/tool";
 import { Icon, type IconName } from "../../../shared/ui/icons/icons";
 import type { SceneSocket } from "../../../shared/api/scene-socket";
 import type { FogUndoPort } from "../../../entities/scene/model/scene-port";
@@ -27,19 +27,26 @@ function ToolOptions({ tool, socket, stageRef }: { tool: Tool; socket: SceneSock
   const wallKind = useUi(selectWallKind);
   const placeHidden = useUi(selectPlaceHidden);
   if (!isGm) return null;
-  if (tool === "wall") {
+  if (tool === "wall" || tool === "wall-edit") {
     return (
-      <div className="rail-flyout" role="group" aria-label="что рисовать">
-        {(["wall", "door"] as const).map((k) => (
+      <div className="rail-flyout rail-flyout-walls" role="group" aria-label="Разметка препятствий">
+        {WALL_KINDS.map(({ value, label }) => (
           <button
-            key={k}
-            className={wallKind === k ? "seg seg-on" : "seg"}
-            onClick={() => uiActions.setWallKind(k)}
+            key={value}
+            className={tool === "wall" && wallKind === value ? "seg seg-on" : "seg"}
+            aria-pressed={tool === "wall" && wallKind === value}
+            onClick={() => {
+              uiActions.setWallKind(value);
+              uiActions.setTool("wall");
+            }}
           >
-            <Icon name={k} size={16} />
-            {k === "wall" ? "Стена" : "Дверь"}
+            {label}
           </button>
         ))}
+        <button className={tool === "wall-edit" ? "seg seg-on" : "seg"}
+          aria-pressed={tool === "wall-edit"} onClick={() => uiActions.setTool("wall-edit")}>
+          Свойства
+        </button>
       </div>
     );
   }
@@ -92,20 +99,23 @@ export function ToolRail({ socket, stageRef }: { socket: SceneSocket; stageRef: 
   return (
     <nav className="rail" aria-label="Инструменты">
       {[false, true].filter(gm => !gm || isGm).map(gm => <div className="rail-group" role="group" aria-label={gm ? "Инструменты мастера" : "Карта"} key={String(gm)}>
-      {TOOLS.filter((t) => !!t.gm === gm && (!t.touch || touch)).map((t) => (
-        <div key={t.id} className="rail-slot">
-          <button
-            className={t.id === tool ? "rail-btn rail-btn-on" : "rail-btn"}
-            title={`${t.label}. ${t.hint}`}
-            aria-label={t.label}
-            aria-pressed={t.id === tool}
-            onClick={() => uiActions.setTool(t.id)}
-          >
-            <Icon name={t.icon} />
-          </button>
-          {t.id === tool && <ToolOptions tool={t.id} socket={socket} stageRef={stageRef} />}
-        </div>
-      ))}
+      {TOOLS.filter((t) => !!t.gm === gm && (!t.touch || touch)).map((t) => {
+        const active = t.id === tool || (t.id === "wall" && tool === "wall-edit");
+        return (
+          <div key={t.id} className="rail-slot">
+            <button
+              className={active ? "rail-btn rail-btn-on" : "rail-btn"}
+              title={`${t.label}. ${t.hint}`}
+              aria-label={t.label}
+              aria-pressed={active}
+              onClick={() => uiActions.setTool(t.id)}
+            >
+              <Icon name={t.icon} />
+            </button>
+            {active && <ToolOptions tool={tool} socket={socket} stageRef={stageRef} />}
+          </div>
+        );
+      })}
       </div>)}
       <button className="rail-btn" aria-label="Кубики" title="Кубики" aria-expanded={diceOpen} onClick={() => uiActions.setDiceOpen(!useUi.getState().diceOpen)}><Icon name="dice" /></button>
       <div className="rail-sep" />
@@ -128,6 +138,6 @@ export function ToolHint() {
   const chaining = useUi(selectChaining);
   const hint = chaining
     ? "Цепочка: Esc, ПКМ или клик в ту же точку - закончить"
-    : TOOLS.find((t) => t.id === tool)?.hint;
+    : tool === "wall-edit" ? "Выберите стену, дверь или окно на карте" : TOOLS.find((t) => t.id === tool)?.hint;
   return <div className={chaining ? "tool-hint tool-hint-active" : "tool-hint"}>{hint}</div>;
 }

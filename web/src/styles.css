@@ -513,6 +513,7 @@ button:focus-visible, a:focus-visible { outline: var(--focus-ring-width) solid v
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
+.rail-flyout-walls { width: max-content; max-width: calc(100vw - 80px); flex-wrap: wrap; }
 .seg {
   display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
   min-height: 32px; padding: 0 10px; border-radius: 7px;
