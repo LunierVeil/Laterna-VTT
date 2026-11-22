@@ -4,6 +4,7 @@ import asyncio
 import ipaddress
 import json
 import logging
+import os
 from urllib.parse import urlsplit
 from contextlib import asynccontextmanager
 
@@ -42,14 +43,15 @@ from .config import (
 )
 from .ratelimit import LoginLimiter
 from .previews import preview_file
-from .db import SessionLocal, get_session, init_db
+from .db import Base, SessionLocal, get_session, init_db
 from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
 from .drag_preview import DragPreviews
 
 previews = DragPreviews(hub)
 from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
-from .roles import Actor, gm_key_notice, is_gm_key
+from .roles import Actor, gm_key_notice, initialize_gm_key, is_gm_key
+from .storage_preflight import check_storage, prepare_storage
 
 
 log = logging.getLogger("laterna")
@@ -57,8 +59,14 @@ log = logging.getLogger("laterna")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    await ensure_demo_scene()
+    schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
+    state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
+                          cwd=config.STARTUP_CWD, env=os.environ, schema=schema)
+    prepare_storage(config.STORAGE_PATHS, state)
+    if state != "existing":
+        await init_db()
+        await ensure_demo_scene()
+    initialize_gm_key(allow_create=state != "existing")
     print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
     async def expire_previews():
         while True:
@@ -1209,8 +1217,7 @@ async def kick(match) -> None:
 
 
 # Монтируется последним, чтобы не перекрыть маршруты выше.
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", RecipientUploads(directory=UPLOAD_DIR), name="uploads")
+app.mount("/uploads", RecipientUploads(directory=UPLOAD_DIR, check_dir=False), name="uploads")
 
 
 # Собранный фронт - на том же порту, что и API. Тоже в самом конце: путь

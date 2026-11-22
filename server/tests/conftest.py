@@ -20,6 +20,8 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP / 'test.db'}"
 os.environ["UPLOAD_DIR"] = str(_TMP / "uploads")
 os.environ["GM_KEY_FILE"] = str(_TMP / "gm_key.txt")
 os.environ["LANTERNA_GM_KEY"] = GM_KEY = secrets.token_urlsafe(18)
+os.environ.pop("LANTERNA_DATA_HOME", None)
+os.environ.pop("LANTERNA_PORTABLE", None)
 os.environ.pop("LANTERNA_TRUST_PROXY", None)
 os.environ.pop("PUBLIC_URL", None)
 

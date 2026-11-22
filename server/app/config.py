@@ -1,23 +1,25 @@
 import os
 from pathlib import Path
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite+aiosqlite:///./lanterna.db",
-)
+from .data_home import resolve_storage
+
+SERVER_DIR = Path(__file__).resolve().parent.parent
+STARTUP_CWD = Path.cwd()
+STORAGE_PATHS = resolve_storage(os.environ, server_dir=SERVER_DIR, cwd=STARTUP_CWD)
+DATABASE_URL = STORAGE_PATHS.database_url
 
 # Размер клетки по умолчанию, в пикселях сцены.
 DEFAULT_GRID_SIZE = 70
 
 # Загруженные карты. Локально - server/uploads, в docker - /app/uploads.
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", Path(__file__).resolve().parent.parent / "uploads"))
+UPLOAD_DIR = Path(STORAGE_PATHS.uploads)
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 # Игрок загружает картинки своих токенов - им хватит и меньшего, а диск
 # мастера не забьют.
 MAX_PLAYER_UPLOAD_BYTES = 5 * 1024 * 1024
 
 # Ключ ГМ создаётся здесь при первом запуске, если не задан LANTERNA_GM_KEY.
-GM_KEY_FILE = Path(os.getenv("GM_KEY_FILE", Path(__file__).resolve().parent.parent / "gm_key.txt"))
+GM_KEY_FILE = Path(STORAGE_PATHS.gm_key)
 # Адреса фронта, через запятую. Первый - для ссылки ГМ, которую сервер
 # печатает при старте; все - разрешённые Origin для websocket.
 FRONTEND_URLS = [
