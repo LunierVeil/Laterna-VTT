@@ -4,7 +4,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Temp = Join-Path ([IO.Path]::GetTempPath()) ("laterna-package-smoke-" + [guid]::NewGuid())
 $Logs = Join-Path $Root 'artifacts/windows-smoke'
 New-Item -ItemType Directory -Force $Temp, $Logs | Out-Null
-$Names = @('DATABASE_URL','UPLOAD_DIR','GM_KEY_FILE','LANTERNA_DATA_HOME','LANTERNA_PORTABLE','LANTERNA_GM_KEY','LANTERNA_TRUST_PROXY','WEB_DIST','FRONTEND_URL','PUBLIC_URL','PYTHONUTF8','SMOKE_BASE')
+$Names = @('DATABASE_URL','UPLOAD_DIR','GM_KEY_FILE','LANTERNA_DATA_HOME','LANTERNA_PORTABLE','LANTERNA_GM_KEY','LANTERNA_TRUST_PROXY','WEB_DIST','FRONTEND_URL','PUBLIC_URL','PYTHONUTF8','SMOKE_BASE','LOCALAPPDATA')
 $Saved = @{}
 foreach ($Name in $Names) { $Saved[$Name] = [Environment]::GetEnvironmentVariable($Name, 'Process') }
 $Process = $null
@@ -21,8 +21,9 @@ try {
     $PortProbe.Start(); $Port = $PortProbe.LocalEndpoint.Port; $PortProbe.Stop()
     New-Item -ItemType Directory "$Temp/state" | Out-Null
     $Db = (Join-Path $Temp 'state/test.db').Replace('\','/')
-    [Environment]::SetEnvironmentVariable('LANTERNA_DATA_HOME', $null, 'Process')
-    [Environment]::SetEnvironmentVariable('LANTERNA_PORTABLE', $null, 'Process')
+    Remove-Item Env:LANTERNA_DATA_HOME, Env:LANTERNA_PORTABLE -ErrorAction SilentlyContinue
+    $env:LOCALAPPDATA = Join-Path $Temp 'override-profile'
+    New-Item -ItemType Directory $env:LOCALAPPDATA | Out-Null
     $env:DATABASE_URL = "sqlite+aiosqlite:///$Db"
     $env:UPLOAD_DIR = Join-Path $Temp 'state/uploads'
     $env:GM_KEY_FILE = Join-Path $Temp 'state/gm_key.txt'
@@ -58,8 +59,17 @@ try {
     & $Python "$PSScriptRoot/package-smoke.py"
     if ($LASTEXITCODE -ne 0) { throw 'Repository smoke-test against packaged application failed' }
     Write-Host 'PASS: extracted embedded Python, frontend and full repository smoke-test'
+    $Process.WaitForExit(100) | Out-Null
+    if (-not $Process.HasExited) { Stop-Process -Id $Process.Id -Force; $Process.WaitForExit() }
+    $Replacement = Join-Path $Temp 'Новая распаковка ZIP'
+    Expand-Archive $ZipPath $Replacement
+    & $Python -X utf8 "$PSScriptRoot/windows-datahome-smoke.py" $App $Replacement $Temp
+    if ($LASTEXITCODE -ne 0) { throw 'Windows DataHome smoke-test failed' }
 } finally {
     if ($Process -and -not $Process.HasExited) { Stop-Process -Id $Process.Id -Force; $Process.WaitForExit() }
-    foreach ($Name in $Names) { [Environment]::SetEnvironmentVariable($Name, $Saved[$Name], 'Process') }
+    foreach ($Name in $Names) {
+        if ($null -eq $Saved[$Name]) { Remove-Item "Env:$Name" -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($Name, $Saved[$Name], 'Process') }
+    }
     if (Test-Path $Temp) { Remove-Item $Temp -Recurse -Force }
 }

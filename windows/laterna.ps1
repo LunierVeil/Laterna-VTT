@@ -1,4 +1,9 @@
-﻿# Laterna VTT для Windows: меню запуска (его открывает laterna.bat).
+﻿param(
+    [ValidateSet("Profile", "Portable", "NewPortable")][string]$Storage,
+    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths")][string]$Action = "Menu"
+)
+
+# Laterna VTT для Windows: меню запуска (его открывает laterna.bat).
 # Встроенный Python лежит рядом (python\python.exe) - ставить ничего не нужно.
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
@@ -15,6 +20,84 @@ if (-not (Test-Path $Python)) {
     Write-Host "Запускай laterna.bat из распакованного архива релиза (Laterna-VTT-...-windows.zip)."
     exit 1
 }
+
+# Resolve through the same Python contract used by the server. The embedded
+# interpreter ignores PYTHONPATH, so pass the absolute app directory explicitly.
+$Marker = Join-Path $Root "laterna-storage-mode.txt"
+foreach ($Name in "DATABASE_URL", "UPLOAD_DIR", "GM_KEY_FILE", "LANTERNA_DATA_HOME", "LANTERNA_PORTABLE", "LANTERNA_GM_KEY") {
+    if ($null -ne [Environment]::GetEnvironmentVariable($Name, "Process")) {
+        throw "Переменная $Name конфликтует с выбором хранилища Windows launcher."
+    }
+}
+$Saved = if (Test-Path -LiteralPath $Marker) {
+    $Item = Get-Item -LiteralPath $Marker -Force
+    if ($Item.PSIsContainer -or ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "Некорректный файл выбора хранилища: $Marker"
+    }
+    [IO.File]::ReadAllText($Marker)
+}
+if ($null -ne $Saved -and $Saved -cnotin @("Profile", "Portable")) {
+    throw "Повреждён файл выбора хранилища. Проверьте $Marker."
+}
+if ($Saved -and $Storage -and $Storage -ne $Saved) {
+    throw "Выбор хранилища уже сохранён как $Saved. Сохраните данные и проверьте инструкцию PB05_DATAHOME."
+}
+if ($Storage -eq "NewPortable" -and $Action -notin @("Menu", "Lan")) {
+    throw "Для создания portable запустите меню или режим LAN."
+}
+$Selected = if ($Storage) { $Storage } elseif ($Saved) { $Saved } else {
+    if ($Action -ne "Menu") { throw "Явно укажите -Storage Profile или -Storage Portable." }
+    Write-Host "Первый запуск этого ZIP. Если у вас уже есть Alpha или portable, сохраните прежний каталог."
+    Write-Host "1 — профиль Windows, 2 — открыть перенесённый portable, 3 — создать новый portable."
+    switch (Read-Host "Выбор хранилища") {
+        "1" { "Profile" }
+        "2" { "Portable" }
+        "3" { "NewPortable" }
+        default { throw "Хранилище не выбрано." }
+    }
+}
+$env:LANTERNA_PORTABLE = if ($Selected -eq "Profile") { "0" } else { "1" }
+$Resolve = @'
+import json, os, sys
+from pathlib import Path
+server = Path(sys.argv[1])
+sys.path.insert(0, str(server))
+from app.data_home import resolve_storage
+paths = resolve_storage(os.environ, server_dir=server, cwd=Path.cwd())
+if len(sys.argv) > 2 and sys.argv[2] == 'key':
+    from app.storage_preflight import _entry
+    path = Path(paths.gm_key)
+    print(json.dumps(path.read_text(encoding='utf-8').strip() if _entry(path, directory=False) else None))
+    raise SystemExit(0)
+print(json.dumps({'home': str(paths.data_home), 'database': paths.database_url.database,
+                  'uploads': str(paths.uploads), 'key': str(paths.gm_key)}))
+'@
+function Resolve-StoragePaths {
+    $Result = & $Python -X utf8 -c $Resolve $Server
+    if ($LASTEXITCODE -ne 0) { throw "Не удалось определить DataHome. Проверьте диагностику выше." }
+    $Result | ConvertFrom-Json
+}
+$Paths = Resolve-StoragePaths
+if ($Selected -eq "Profile") {
+    $env:LANTERNA_PORTABLE = "1"
+    try { $PortablePaths = Resolve-StoragePaths } finally { $env:LANTERNA_PORTABLE = "0" }
+    if (Test-Path -LiteralPath $PortablePaths.home) {
+        throw "Обнаружен portable DataHome: $($PortablePaths.home). Проверьте выбор хранилища."
+    }
+} elseif ($Selected -eq "NewPortable") {
+    if (Test-Path -LiteralPath $Paths.home) { throw "Portable DataHome уже существует: $($Paths.home)" }
+} elseif (-not (Test-Path -LiteralPath $Paths.database -PathType Leaf)) {
+    throw "Portable SQLite отсутствует: $($Paths.database). Верните полный комплект данных."
+}
+if (-not $Saved) {
+    $Token = if ($Selected -eq "Profile") { "Profile" } else { "Portable" }
+    $Stream = [IO.File]::Open($Marker, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+    try {
+        $Bytes = [Text.Encoding]::ASCII.GetBytes($Token)
+        $Stream.Write($Bytes, 0, $Bytes.Length)
+    } finally { $Stream.Dispose() }
+}
+Write-Host "DataHome: $($Paths.home)"
 
 function Test-PortBusy {
     $client = New-Object System.Net.Sockets.TcpClient
@@ -33,7 +116,8 @@ function Start-Table([string]$HostAddr, [string]$Origins) {
     $env:WEB_DIST = Join-Path $Root "web\dist"
     Push-Location $Server
     try {
-        & $Python -m uvicorn app.main:app --app-dir $Server --host $HostAddr --port $Port --no-proxy-headers
+        & $Python -X utf8 -m uvicorn app.main:app --app-dir $Server --host $HostAddr --port $Port --no-proxy-headers
+        if ($LASTEXITCODE -ne 0) { throw "Laterna не запустилась. Проверьте диагностику выше." }
     } finally {
         Pop-Location
     }
@@ -47,7 +131,7 @@ function Show-PortholeSteps {
     Write-Host "    1. В Porthole (Steam) создай лобби и отдай в нём порт $Port (TCP)."
     Write-Host "    2. Передай игрокам код лобби."
     Write-Host "    3. Сам заходи на http://127.0.0.1:$Port. Первый раз - по ссылке мастера:"
-    Write-Host "       она появится ниже при первом запуске, потом - пункт 3 меню."
+    Write-Host "       её покажет пункт 3 меню после первого запуска."
     Write-Host "    4. Вкладка «Игроки» -> «Пригласить игрока» -> отправь ссылку. В ней замени"
     Write-Host "       127.0.0.1:$Port на адрес, который Porthole показал игроку."
     Write-Host ""
@@ -72,31 +156,28 @@ function Show-LanSteps {
 }
 
 function Show-GmLink {
-    $keyFile = Join-Path $Server "gm_key.txt"
-    if (-not (Test-Path $keyFile)) {
-        Write-Host "Ключа мастера ещё нет - он создаётся при первом запуске стола (пункт 1 или 2)."
+    $Result = & $Python -X utf8 -c $Resolve $Server key
+    if ($LASTEXITCODE -ne 0) { throw "Файл ключа ГМ недоступен: $($Paths.key)" }
+    $key = $Result | ConvertFrom-Json
+    if (-not $key) {
+        Write-Host "Ключ ГМ отсутствует или пуст: $($Paths.key)"
         return
     }
-    $key = (Get-Content $keyFile -Raw).Trim()
-    Write-Host ""
-    Write-Host "  Ссылка мастера: http://127.0.0.1:$Port/?gm=$key"
+    $encodedKey = [Uri]::EscapeDataString($key)
+    Write-Host "  Ссылка мастера: http://127.0.0.1:$Port/?gm=$encodedKey"
     Write-Host "  Не показывай её игрокам. Она нужна для первого входа и если забыл пароль."
     Write-Host ""
 }
 
 function Save-Backup {
-    if (Test-PortBusy) {
-        Write-Host "Сначала останови стол (Ctrl+C в его окне) - копию работающей базы делать нельзя."
-        return
-    }
-    $dest = Join-Path $Root ("backup\" + (Get-Date -Format "yyyy-MM-dd_HH-mm"))
-    New-Item -ItemType Directory -Force $dest | Out-Null
-    foreach ($name in "lanterna.db", "uploads", "gm_key.txt") {
-        $src = Join-Path $Server $name
-        if (Test-Path $src) { Copy-Item $src -Destination $dest -Recurse -Force }
-    }
-    Write-Host "Копия сохранена: $dest"
-    Write-Host "Вернуть - скопировать эти файлы обратно в папку server."
+    Write-Host "Копирование отключено. Проверяемое резервное копирование появится в PB-06."
+}
+
+switch ($Action) {
+    "Lan" { Start-Table "0.0.0.0" "http://localhost:$Port"; return }
+    "GmLink" { Show-GmLink; return }
+    "Backup" { Save-Backup; return }
+    "Paths" { $Paths | ConvertTo-Json -Compress; return }
 }
 
 while ($true) {
@@ -105,7 +186,7 @@ while ($true) {
     Write-Host "    1. Игра через Porthole   (стол на 127.0.0.1:$Port)"
     Write-Host "    2. Игра в локальной сети"
     Write-Host "    3. Ссылка мастера (первый вход)"
-    Write-Host "    4. Копия базы в папку backup"
+    Write-Host "    4. Резервная копия (пока недоступна)"
     Write-Host "    5. Выход"
     $choice = Read-Host "  Выбери пункт"
     switch ($choice) {

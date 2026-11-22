@@ -1,6 +1,6 @@
 """Process ownership of a file-backed SQLite installation."""
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import errno
 from hashlib import sha256
 import os
@@ -46,20 +46,31 @@ def own_storage(paths: StoragePaths):
 
     _check_uvicorn_workers()
     database = Path(url.database)
+    resources = {database: False, Path(paths.uploads): True, Path(paths.gm_key): False}
+    if len(resources) != 3:
+        raise StorageError("Пути базы, uploads и ключа ГМ должны быть раздельными.")
+    with ExitStack() as locks:
+        for resource, directory in sorted(resources.items()):
+            locks.enter_context(_own_resource(resource, directory=directory, resources=resources))
+        yield
+
+
+@contextmanager
+def _own_resource(resource: Path, *, directory: bool, resources: dict[Path, bool]):
     fd = None
     try:
         # Validate the original path before resolving it. Preflight rejects
         # redirects too, but must never run before the lock is acquired.
-        if _entry(database, directory=False) and database.stat().st_nlink != 1:
-            raise StorageError(f"SQLite с несколькими жёсткими ссылками не поддерживается: {database}")
-        canonical = database.resolve(strict=False)
+        if _entry(resource, directory=directory) and not directory and resource.stat().st_nlink != 1:
+            raise StorageError(f"Файл хранилища имеет несколько жёстких ссылок: {resource}")
+        canonical = resource.resolve(strict=False)
         identity = sha256(os.fsencode(os.path.normcase(canonical))).hexdigest()
         lock_path = canonical.parent.parent / f".laterna-{identity}.lock"
         if not _entry(lock_path.parent, directory=True):
             raise StorageError(f"Родительский каталог хранилища отсутствует: {lock_path.parent}")
         if _entry(lock_path, directory=False) and lock_path.stat().st_nlink != 1:
             raise StorageError(f"Некорректная жёсткая ссылка файла блокировки: {lock_path}")
-        if lock_path in (Path(paths.gm_key), Path(paths.uploads)):
+        if lock_path in resources:
             raise StorageError(f"Путь хранилища совпадает с файлом блокировки: {lock_path}")
         fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
         opened = os.fstat(fd)
@@ -72,12 +83,12 @@ def own_storage(paths: StoragePaths):
             _lock(fd)
         except OSError as exc:
             if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
-                raise StorageError(f"Хранилище уже занято другим экземпляром Laterna: {database}") from exc
+                raise StorageError(f"Хранилище уже занято другим экземпляром Laterna: {resource}") from exc
             raise
     except OSError as exc:
         if fd is not None:
             os.close(fd)
-        raise StorageError(f"Не удалось заблокировать хранилище {database}: {exc}") from exc
+        raise StorageError(f"Не удалось заблокировать хранилище {resource}: {exc}") from exc
     except BaseException:
         if fd is not None:
             os.close(fd)
