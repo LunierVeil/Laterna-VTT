@@ -29,11 +29,18 @@ export class VisualGeometry {
         if (!this.valid)
             return;
         for (const w of walls) {
-            if (!finite(w.x1, w.y1, w.x2, w.y2) || !['wall', 'door'].includes(w.kind ?? 'wall')) {
+            if (!finite(w.x1, w.y1, w.x2, w.y2) ||
+                Math.min(w.x1, w.x2, w.y1, w.y2) < 0 ||
+                Math.max(w.x1, w.x2) > width || Math.max(w.y1, w.y2) > height ||
+                !['wall', 'door', 'window'].includes(w.kind ?? 'wall')) {
                 this.valid = false;
                 return;
             }
             if (w.kind === 'door' && !['open', 'closed', 'locked'].includes(w.door_state ?? '')) {
+                this.valid = false;
+                return;
+            }
+            if (w.kind === 'window' && typeof w.blocks_sight !== 'boolean') {
                 this.valid = false;
                 return;
             }

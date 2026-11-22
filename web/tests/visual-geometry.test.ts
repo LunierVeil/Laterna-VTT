@@ -18,9 +18,21 @@ test('bounds, intersections, reverse/duplicate and zero segments', () => {
     assert.ok(a.every(v => Number.isFinite(v) && v >= 0 && v <= 100));
     assert.ok(!inside(a, 75, 20));
 });
-test('on obstacle, unsupported W3, invalid and budget inputs', () => {
+test('windows use sight independently of movement and reject ambiguous optics', () => {
+    for (const blocks_sight of [false, true]) {
+        for (const blocks_movement of [false, true]) {
+            const window = { ...wall, kind: 'window', blocks_sight, blocks_movement };
+            const geometry = new VisualGeometry(100, 100, [window]);
+            assert.equal(geometry.valid, true);
+            assert.equal(inside(geometry.polygon({ x: 25, y: 50 }), 75, 50), !blocks_sight);
+        }
+    }
+    assert.equal(new VisualGeometry(100, 100, [{ ...wall, kind: 'window', blocks_sight: undefined }]).valid, false);
+    assert.equal(new VisualGeometry(100, 100, [{ ...wall, kind: 'window', blocks_sight: false, y2: 101 }]).valid, false);
+});
+test('on obstacle, unknown kinds, invalid and budget inputs', () => {
     assert.deepEqual(new VisualGeometry(100, 100, [wall]).polygon({ x: 50, y: 50 }), []);
-    for (const g of [new VisualGeometry(100, 100, [{ ...wall, kind: 'window' }]), new VisualGeometry(NaN, 100, []), new VisualGeometry(100, 100, Array(201).fill(wall))])
+    for (const g of [new VisualGeometry(100, 100, [{ ...wall, kind: 'secret_door' }]), new VisualGeometry(NaN, 100, []), new VisualGeometry(100, 100, Array(201).fill(wall))])
         assert.equal(g.valid, false);
 });
 test('narrow doorway stays open away from approximation edges', () => { const p = new VisualGeometry(100, 100, [{ ...wall, y2: 49 }, { ...wall, y1: 51 }]).polygon({ x: 25, y: 50 }); assert.ok(inside(p, 75, 50)); assert.ok(!inside(p, 75, 60)); });
