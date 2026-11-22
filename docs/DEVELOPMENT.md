@@ -56,8 +56,9 @@ npm --prefix web run dev
 ```
 
 SQLite DATABASE_URL по умолчанию относителен cwd; скрипты запуска используют server.
-UPLOAD_DIR и GM_KEY_FILE по умолчанию указывают в server. Это текущие пути Alpha,
-не будущий DataHome. Не меняйте cwd/параметры поверх единственной игровой БД без проверки.
+UPLOAD_DIR и GM_KEY_FILE в Linux dev по умолчанию указывают в server.
+Выбор DataHome и диагностика startup описаны в [PB05_DATAHOME](PB05_DATAHOME.md).
+При отказе preflight сохраните исходную SQLite, её журналы, uploads и ключ ГМ.
 
 Dev Compose (существующая PostgreSQL-альтернатива):
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -11,7 +13,13 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+_engine_url = DATABASE_URL
+if DATABASE_URL.get_backend_name() == "sqlite" and DATABASE_URL.database != ":memory:":
+    # Only prepare_storage may create the file, with exclusive ownership.
+    _engine_url = DATABASE_URL.set(database=Path(DATABASE_URL.database).as_uri()).update_query_dict(
+        {"uri": "true", "mode": "rw"},
+    )
+engine = create_async_engine(_engine_url, echo=False, future=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -21,7 +29,10 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_check_columns)
+        # SQLite startup reaches this only for a newly reserved database (or
+        # an in-memory fixture). Existing SQLite is validated before opening it.
+        if engine.dialect.name != "sqlite":
+            await conn.run_sync(_check_columns)
 
 
 def _check_columns(conn) -> None:

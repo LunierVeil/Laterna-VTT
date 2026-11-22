@@ -29,7 +29,7 @@ class Actor:
     session: str = ""
 
 
-def _load_gm_key() -> tuple[str, str]:
+def _load_gm_key(*, allow_create: bool) -> tuple[str, str]:
     """Ключ и откуда он: "env", "file" или "created" (только что создан)."""
     # Ключ живёт в файле, а не генерируется на каждый старт: uvicorn
     # --reload перезапускается на каждую правку кода, и ГМ терял бы права.
@@ -37,14 +37,25 @@ def _load_gm_key() -> tuple[str, str]:
     if env:
         return env.strip(), "env"
     if GM_KEY_FILE.is_file():
-        return GM_KEY_FILE.read_text().strip(), "file"
+        key = GM_KEY_FILE.read_text(encoding="utf-8").strip()
+        if not key:
+            raise RuntimeError(f"Файл ключа ГМ пуст: {GM_KEY_FILE}")
+        return key, "file"
+    if not allow_create:
+        raise RuntimeError(f"Файл ключа ГМ исчез после preflight: {GM_KEY_FILE}")
     key = secrets.token_urlsafe(18)
-    GM_KEY_FILE.write_text(key + "\n")
-    GM_KEY_FILE.chmod(0o600)
+    with os.fdopen(os.open(GM_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600),
+                   "w", encoding="utf-8") as key_file:
+        key_file.write(key + "\n")
     return key, "created"
 
 
-GM_KEY, GM_KEY_SOURCE = _load_gm_key()
+GM_KEY, GM_KEY_SOURCE = "", ""
+
+
+def initialize_gm_key(*, allow_create: bool) -> None:
+    global GM_KEY, GM_KEY_SOURCE
+    GM_KEY, GM_KEY_SOURCE = _load_gm_key(allow_create=allow_create)
 
 
 def gm_key_notice(frontend_url: str) -> str:

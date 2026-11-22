@@ -126,9 +126,12 @@ export function capture(p) {
 before(async () => {
   dir = await mkdtemp(resolve(tmpdir(), 'laterna-regression-'));
   const apiPort = await port(), webPort = await port(); api = `http://${httpHost}:${apiPort}`; base = `http://${httpHost}:${webPort}`;
-  key = randomUUID(); await writeFile(resolve(dir, 'key'), key, {mode: 0o600});
+  key = randomUUID();
+  const serverEnv = {...process.env};
+  delete serverEnv.LANTERNA_DATA_HOME;
+  delete serverEnv.LANTERNA_PORTABLE;
   server = spawn(resolve(root, 'server/.venv/bin/uvicorn'), ['app.main:app','--host',httpHost,'--port',String(apiPort),'--no-proxy-headers'], {
-    cwd: resolve(root,'server'), env: {...process.env, DATABASE_URL:`sqlite+aiosqlite:///${dir}/test.db`, UPLOAD_DIR:resolve(dir,'uploads'), GM_KEY_FILE:resolve(dir,'key'), FRONTEND_URL:base}, stdio: ['ignore','pipe','pipe']});
+    cwd: resolve(root,'server'), env: {...serverEnv, DATABASE_URL:`sqlite+aiosqlite:///${dir}/test.db`, UPLOAD_DIR:resolve(dir,'uploads'), GM_KEY_FILE:resolve(dir,'key'), LANTERNA_GM_KEY:key, FRONTEND_URL:base}, stdio: ['ignore','pipe','pipe']});
   server.stderr.on('data', x => serverLog += x); server.stdout.on('data', x => serverLog += x);
   vite = spawn(process.execPath, [resolve(web,'node_modules/vite/bin/vite.js'),'--host',httpHost,'--port',String(webPort),'--strictPort'], {cwd:web,env:{...process.env,VITE_API_TARGET:api},stdio:['ignore','pipe','pipe']});
   vite.stdout.on('data', x => viteLog += x); vite.stderr.on('data', x => viteLog += x);
