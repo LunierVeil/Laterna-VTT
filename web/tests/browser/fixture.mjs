@@ -13,6 +13,7 @@ if (process.env.BROWSER_RESULTS_DIR) process.env.BROWSER_RESULTS_DIR = resolve(p
 const web = resolve(import.meta.dirname, '../..'), root = resolve(web, '..');
 const httpHost = process.env.LATERNA_HTTP_HOST || '127.0.0.1';
 export let browser, server, vite, dir, base, api, gm, player, sceneId, control;
+let fixtureRoot;
 let key;
 export function setSceneId(id) { sceneId = id; }
 export const errors = [];
@@ -124,7 +125,9 @@ export function capture(p) {
   return messages;
 }
 before(async () => {
-  dir = await mkdtemp(resolve(tmpdir(), 'laterna-regression-'));
+  fixtureRoot = await mkdtemp(resolve(tmpdir(), 'laterna-regression-'));
+  dir = resolve(fixtureRoot, 'laterna-regression-state');
+  await mkdir(dir);
   const apiPort = await port(), webPort = await port(); api = `http://${httpHost}:${apiPort}`; base = `http://${httpHost}:${webPort}`;
   key = randomUUID();
   const serverEnv = {...process.env};
@@ -161,7 +164,7 @@ after(async () => {
   await mkdir(out,{recursive:true});
   await writeFile(resolve(out,'startup.json'),JSON.stringify(startupRecords,null,2));
   await writeFile(resolve(out,'server.log'),serverLog); await writeFile(resolve(out,'vite.log'),viteLog);
-  if(dir) await rm(dir,{recursive:true,force:true});
+  if(fixtureRoot) await rm(fixtureRoot,{recursive:true,force:true});
   assert.deepEqual(errors,[], 'browser page errors');
 });
 

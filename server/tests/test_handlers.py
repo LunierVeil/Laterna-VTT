@@ -854,7 +854,7 @@ def test_fog_reappearance_preserves_portraits_and_visibility(client, gm, player,
         recv_until(p, lambda m: m.get("type") == "tokens_refresh")
 
 
-def test_scene_folders_real_clients_preserve_state_and_secrets(client, gm, player, sockets, scene_id):
+def test_scene_folders_real_clients_preserve_state_and_secrets(client, gm, player, sockets, scene_id, tmp_path):
     g, p = sockets
     def apply(cid, command, payload):
         reply = run(g, cid, command, payload)
@@ -896,8 +896,21 @@ def test_scene_folders_real_clients_preserve_state_and_secrets(client, gm, playe
         assert next(s for s in view["scenes"] if s["id"] == sid)["folder_id"] == other
         _, view = apply("folder-root", "scene.move", {"id": sid, "folder_id": None})
         assert next(s for s in view["scenes"] if s["id"] == sid)["folder_id"] is None
-        # A fresh process reads the persisted hierarchy (not the app's session/cache).
-        import subprocess, sys
+        # A fresh process reads an SQLite snapshot while the original process
+        # retains exclusive ownership of its own DataHome.
+        from contextlib import closing
+        import sqlite3, subprocess, sys
+        state = tmp_path / "state"
+        state.mkdir()
+        uploads = state / "uploads"
+        uploads.mkdir()
+        database = state / "test.db"
+        source = Path(os.environ["DATABASE_URL"].removeprefix("sqlite+aiosqlite:///"))
+        with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)) as reader:
+            with closing(sqlite3.connect(database)) as replica:
+                reader.backup(replica)
+        env = dict(os.environ, DATABASE_URL=f"sqlite+aiosqlite:///{database.as_posix()}",
+                   UPLOAD_DIR=str(uploads), GM_KEY_FILE=str(state / "key"))
         script = """import json,sys
 from fastapi.testclient import TestClient
 from app.main import app
@@ -906,7 +919,7 @@ with TestClient(app) as client:
  assert response.status_code==200,response.text
  print('PERSISTED:'+json.dumps(response.json()))
 """
-        result = subprocess.run([sys.executable, "-c", script, json.dumps(gm)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=20)
+        result = subprocess.run([sys.executable, "-c", script, json.dumps(gm)], cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, text=True, timeout=20)
         assert result.returncode == 0, result.stderr
         persisted = json.loads(result.stdout.rsplit("PERSISTED:", 1)[1])
         assert persisted["scenes"] == view["scenes"]
