@@ -52,6 +52,7 @@ from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, To
 from .roles import Actor, gm_key_notice, initialize_gm_key, is_gm_key
 from .instance_backup import BackupError, OnlineBackup
 from .backup_control import control_directory, serve_backups
+from .automatic_backup import BackupPolicy, serve_automatic_backups
 from .upload_files import publish_upload
 from .storage_lock import own_storage
 from .storage_preflight import StorageError, check_storage, prepare_storage
@@ -89,16 +90,31 @@ async def lifespan(app: FastAPI):
                     log.warning("Локальное резервное копирование недоступно: %s", exc)
                 else:
                     control = asyncio.create_task(serve_backups(root, backup))
+            automatic_stop = asyncio.Event()
+            automatic = None
+            if os.getenv("LANTERNA_AUTO_BACKUP", "1") != "0" and config.STORAGE_PATHS.mode != "overrides":
+                try:
+                    control_directory(config.STORAGE_PATHS)
+                    policy = BackupPolicy.from_env(os.environ)
+                except (BackupError, StorageError, OSError) as exc:
+                    log.warning("Автоматическое копирование недоступно: %s", exc)
+                else:
+                    automatic = asyncio.create_task(serve_automatic_backups(backup, policy, automatic_stop))
             expiry = asyncio.create_task(expire_previews())
             try:
                 yield
             finally:
                 with anyio.CancelScope(shield=True):
+                    automatic_stop.set()
                     if control is not None:
                         control.cancel()
                         result, = await asyncio.gather(control, return_exceptions=True)
                         if result and not isinstance(result, asyncio.CancelledError):
                             log.error("Локальное резервное копирование недоступно: %s", result)
+                    if automatic is not None:
+                        result, = await asyncio.gather(automatic, return_exceptions=True)
+                        if result and not isinstance(result, asyncio.CancelledError):
+                            log.error("Автоматическое копирование остановлено: %s", type(result).__name__)
                     await backup.close()
                 expiry.cancel()
                 from contextlib import suppress
