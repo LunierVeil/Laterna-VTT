@@ -58,20 +58,12 @@ def initialize_gm_key(*, allow_create: bool) -> None:
     GM_KEY, GM_KEY_SOURCE = _load_gm_key(allow_create=allow_create)
 
 
-def gm_key_notice(frontend_url: str) -> str:
-    """Что сказать в лог при старте.
-
-    Ссылку с ключом - только в момент создания: лог печатается на каждый
-    перезапуск (а с --reload это каждая правка кода), и потом его
-    вставляют в чаты, когда просят помощи. Дальше - только где лежит ключ.
-    """
-    if os.name == "nt" and GM_KEY_SOURCE == "created":
-        return "Создан ключ ГМ. Ссылку показывает пункт 3 меню Laterna."
+def gm_key_notice() -> str:
+    """Describe the key source without logging the recovery credential."""
     if GM_KEY_SOURCE == "created":
-        return (
-            f"Создан ключ ГМ. Ссылка ГМ: {frontend_url}/?gm={GM_KEY}\n"
-            f"  Не показывай её игрокам. Позже её выведет ./laterna.sh gm (или ./dev.sh gm)."
-        )
+        if os.name == "nt":
+            return "Создан ключ ГМ. Ссылку показывает пункт 3 меню Laterna."
+        return "Создан ключ ГМ. Ссылку показывает ./laterna.sh gm (или ./dev.sh gm)."
     if GM_KEY_SOURCE == "env":
         if len(GM_KEY) < 16:
             # Ключ - полный доступ к серверу. Короткий подбирается.

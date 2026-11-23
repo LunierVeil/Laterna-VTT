@@ -31,6 +31,8 @@ maket
 *.backup
 backup/
 backups/
+Laterna Backups/
+.backup-control/
 uploads/
 data/
 .env.*

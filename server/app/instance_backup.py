@@ -40,7 +40,10 @@ def _deadline_check(deadline: float) -> None:
 
 
 def _stamp(info: os.stat_result) -> tuple:
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    # On Windows Python 3.12, lstat exposes creation time as ctime but
+    # fstat exposes NTFS change time. Both expose the same birthtime.
+    identity_time = info.st_birthtime_ns if os.name == "nt" else info.st_ctime_ns
+    return (info.st_dev, info.st_ino, info.st_nlink, info.st_size, info.st_mtime_ns, identity_time)
 
 
 @contextmanager
@@ -50,10 +53,13 @@ def _regular_file(path: Path):
     before = path.lstat()
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
     with os.fdopen(fd, "rb") as source:
-        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or _stamp(before) != _stamp(os.fstat(fd)):
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or _stamp(before) != _stamp(opened):
             raise BackupError("Файл был перенаправлен или заменён.")
         yield source
-        if _stamp(before) != _stamp(os.fstat(fd)) or _stamp(before) != _stamp(path.lstat()):
+        after = os.fstat(fd)
+        if (_stamp(opened) != _stamp(after) or opened.st_ctime_ns != after.st_ctime_ns
+                or _stamp(before) != _stamp(path.lstat())):
             raise BackupError("Файл изменился во время чтения.")
 
 
