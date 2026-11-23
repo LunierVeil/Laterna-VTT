@@ -10,7 +10,6 @@ import asyncio
 import anyio
 from collections import OrderedDict
 import json
-import re
 from time import monotonic
 
 from fastapi import Request
@@ -21,6 +20,7 @@ from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
 
 from . import auth, config
+from .upload_files import UPLOAD_NAME, UPLOAD_TEMP, upload_references as _upload_references
 from .models import Character, Scene, Token
 from .recipient_projection import projection_session, read_snapshot, recipient, scene_token_visible
 
@@ -30,7 +30,6 @@ MAX_JSON_BYTES = 1_000_000
 ACL_SECONDS = 1.
 PENDING_TTL = 600.
 PENDING_LIMIT = 256
-UPLOAD_NAME = re.compile(r'[0-9a-f]{32}\.(?:png|jpg|webp)')
 _pending = OrderedDict()
 PRIVATE_HEADERS = {'Cache-Control': 'private, no-store', 'Vary': 'Cookie'}
 
@@ -70,21 +69,6 @@ def _character_references(raw: str, url: str):
             stack.extend(value)
     portrait = data.get('portrait') if isinstance(data, dict) else None
     return found, portrait == url
-
-
-def _upload_references(value):
-    names, stack = set(), [value]
-    while stack:
-        item = stack.pop()
-        if isinstance(item, str) and item.startswith('/uploads/'):
-            name = item.removeprefix('/uploads/')
-            if UPLOAD_NAME.fullmatch(name):
-                names.add(name)
-        elif isinstance(item, dict):
-            stack.extend(item.values())
-        elif isinstance(item, list):
-            stack.extend(item)
-    return names
 
 
 async def attachment_allowed(actor, event_name: str, payload: dict) -> bool:
@@ -199,6 +183,8 @@ async def _allowed_upload(db, name: str, session_hash: str) -> bool:
 
 class RecipientUploads(StaticFiles):
     async def get_response(self, path, scope):
+        if path.replace("\\", "/").rsplit("/", 1)[-1].startswith(UPLOAD_TEMP):
+            raise HTTPException(404, headers=PRIVATE_HEADERS)
         if not config.EXPERIMENTAL_VISIBILITY:
             return await super().get_response(path, scope)
         if not UPLOAD_NAME.fullmatch(path):
