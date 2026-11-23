@@ -34,6 +34,8 @@ backups/
 Laterna Backups/
 .backup-control/
 .laterna-auto-*/
+.laterna-pre-upgrade-*/
+.laterna-upgrade-in-progress
 uploads/
 data/
 .env.*

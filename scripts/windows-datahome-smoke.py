@@ -386,3 +386,42 @@ for package, settings, mode in (
                                  capture_output=True, encoding="utf-8", errors="replace", timeout=40)
     assert auto_result.returncode == 0, auto_result.stderr
     print(f"PASS: Windows {mode} automatic backup workspace, retention and junction protection")
+
+pre_upgrade = r"""
+import os, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from app import config, pre_upgrade as gate
+
+paths = config.STORAGE_PATHS
+home = Path(paths.data_home)
+def take_inventory():
+    return {p.relative_to(home): p.read_bytes() if p.is_file() else None
+            for p in home.rglob("*")}
+before = take_inventory()
+roots = set(home.parent.glob(".laterna-pre-upgrade-*"))
+def write(_):
+    raise AssertionError("Windows must not begin an unproven upgrade")
+try:
+    gate.run_pre_upgrade(paths, server_dir=config.SERVER_DIR, cwd=Path.cwd(),
+                         env=os.environ, target_revision="windows-smoke", apply=write)
+except gate.UpgradeBlocked as exc:
+    assert "Долговечность" in str(exc), exc
+else:
+    raise AssertionError("The Windows durability gate did not reject the attempt")
+assert before == take_inventory()
+assert roots == set(home.parent.glob(".laterna-pre-upgrade-*"))
+"""
+for package, settings, mode in (
+    (replacement, env, "Profile"),
+    (portable, spare_env, "Portable"),
+):
+    upgrade_env = dict(settings)
+    if mode == "Portable":
+        upgrade_env["LANTERNA_PORTABLE"] = "1"
+    result = subprocess.run([str(package / "python/python.exe"), "-X", "utf8", "-c",
+                             pre_upgrade, str(package / "server")], cwd=temporary,
+                            env=upgrade_env, capture_output=True, encoding="utf-8",
+                            errors="replace", timeout=20)
+    assert result.returncode == 0, result.stderr
+    print(f"PASS: Windows {mode} pre-upgrade gate blocks writes when durability is unproven")

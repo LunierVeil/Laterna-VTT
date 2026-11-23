@@ -138,4 +138,4 @@ Windows также поддерживает `-Action Backup`, `-Action Verify -B
 он недоступен. Verify и restore выполняются без игрового сервера.
 
 [Автоматическое расписание и retention](PB07_AUTOMATIC_BACKUP.md) относятся к
-PB-07 B. Обязательный pre-upgrade snapshot относится к PB-07 C.
+PB-07 B. Обязательный pre-upgrade snapshot описан в [контракте PB-07 C](PB07_AUTOMATIC_BACKUP.md#pb-07-c--предобновительный-gate).
