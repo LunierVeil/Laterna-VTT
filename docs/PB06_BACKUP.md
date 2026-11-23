@@ -137,5 +137,5 @@ Windows также поддерживает `-Action Backup`, `-Action Verify -B
 в едином DataHome и Linux development по умолчанию. При отдельных overrides
 он недоступен. Verify и restore выполняются без игрового сервера.
 
-Автоматическое расписание копирования, retention и обязательный pre-upgrade
-snapshot относятся к PB-07.
+[Автоматическое расписание и retention](PB07_AUTOMATIC_BACKUP.md) относятся к
+PB-07 B. Обязательный pre-upgrade snapshot относится к PB-07 C.

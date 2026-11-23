@@ -33,6 +33,7 @@ backup/
 backups/
 Laterna Backups/
 .backup-control/
+.laterna-auto-*/
 uploads/
 data/
 .env.*

@@ -1,8 +1,10 @@
 """Verified directory snapshots of a live, exclusively owned Laterna instance."""
 
 import asyncio
-from contextlib import closing, contextmanager
+from collections.abc import Callable
+from contextlib import closing, contextmanager, nullcontext
 import ctypes
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -111,16 +113,23 @@ def _upload_paths(directory: Path, deadline: float, *, source: bool = False) -> 
     return paths
 
 
-def _snapshot(source: Path, target: Path, deadline: float) -> int:
+def _snapshot(source: Path, target: Path, deadline: float, *, max_bytes: int = MAX_BYTES, exclusive: bool = False) -> int:
     if not _entry(source, directory=False):
         raise BackupError("Исходная SQLite отсутствует.")
+    if exclusive:
+        # Reserve an empty destination without replacing an unexpected file.
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.close(fd)
     with closing(sqlite3.connect(source.as_uri() + "?mode=ro", uri=True, timeout=.1)) as reader:
         with closing(sqlite3.connect(target)) as writer:
             page_size = reader.execute("PRAGMA page_size").fetchone()[0]
 
+            if max_bytes < MAX_BYTES and page_size * reader.execute("PRAGMA page_count").fetchone()[0] > max_bytes:
+                raise BackupError("SQLite превышает допустимый размер резервной копии.")
+
             def progress(status, remaining, total):
                 _deadline_check(deadline)
-                if page_size * total > MAX_BYTES:
+                if page_size * total > max_bytes:
                     raise BackupError("SQLite превышает допустимый размер резервной копии.")
 
             reader.backup(writer, pages=64, sleep=.02, progress=progress)
@@ -243,8 +252,18 @@ def _publish(staging: Path, destination: Path) -> None:
         raise BackupError("Атомарная публикация поддерживается на Linux и Windows.")
 
 
+@dataclass(frozen=True)
+class BackupWorkspace:
+    """Optional automatic-series staging, payload budget and publication receipt."""
+
+    directory: Path
+    max_bytes: int
+    validate: Callable[[], None]
+    before_publish: Callable[[Path, dict], None]
+
+
 def create_backup(paths: StoragePaths, destination: Path, schema: dict[str, set[str]], *,
-                  external_key: bool, timeout: float = 120) -> dict:
+                  external_key: bool, timeout: float = 120, workspace: BackupWorkspace | None = None) -> dict:
     """Internal online API. The caller holds the instance's PB-05 locks."""
     started = monotonic()
     deadline = started + timeout
@@ -262,14 +281,30 @@ def create_backup(paths: StoragePaths, destination: Path, schema: dict[str, set[
         uploads = Path(paths.uploads)
         if uploads == destination or uploads in destination.parents:
             raise BackupError("Нельзя размещать резервную копию в uploads.")
-        with TemporaryDirectory(prefix=".laterna-backup-", dir=destination.parent) as temporary:
+        if workspace is not None and (
+            workspace.directory.parent != destination.parent
+            or not _entry(workspace.directory, directory=True)
+            or not 0 < workspace.max_bytes <= MAX_BYTES
+        ):
+            raise BackupError("Некорректный staging или бюджет автоматической копии.")
+        temporary_directory = (nullcontext(workspace.directory) if workspace else
+                               TemporaryDirectory(prefix=".laterna-backup-", dir=destination.parent))
+        budget = workspace.max_bytes if workspace else MAX_BYTES
+        with temporary_directory as temporary:
             staging = Path(temporary) / "snapshot"
-            staging.mkdir(mode=0o700)
-            (staging / "uploads").mkdir(mode=0o700)
+            if workspace:
+                workspace.validate()
+                if ({path.name for path in staging.iterdir()} != {"uploads"}
+                        or next((staging / "uploads").iterdir(), None) is not None):
+                    raise BackupError("Staging автоматической копии изменился.")
+            else:
+                staging.mkdir(mode=0o700)
+                (staging / "uploads").mkdir(mode=0o700)
             database = staging / "lanterna.db"
-            version = _snapshot(Path(url.database), database, deadline)
-            files = {"lanterna.db": _measure(database, deadline)}
-            remaining = MAX_BYTES - files["lanterna.db"]["size"]
+            snapshot_options = {"max_bytes": budget, "exclusive": True} if workspace else {}
+            version = _snapshot(Path(url.database), database, deadline, **snapshot_options)
+            files = {"lanterna.db": _measure(database, deadline, limit=budget)}
+            remaining = budget - files["lanterna.db"]["size"]
             if not external_key:
                 files["gm_key.txt"] = _measure(Path(paths.gm_key), deadline,
                                                target=staging / "gm_key.txt", limit=min(4096, remaining))
@@ -292,9 +327,11 @@ def create_backup(paths: StoragePaths, destination: Path, schema: dict[str, set[
                 os.fsync(output.fileno())
             verify_backup(staging, schema, deadline=deadline)
             _deadline_check(deadline)
+            if workspace:
+                workspace.before_publish(staging, manifest)
             _publish(staging, destination)
         log.info("instance backup verified files=%s bytes=%s seconds=%.2f",
-                 len(files), MAX_BYTES - remaining, monotonic() - started)
+                 len(files), budget - remaining, monotonic() - started)
         return manifest
     except (OSError, sqlite3.Error, StorageError, ValueError) as exc:
         log.warning("instance backup failed: %s seconds=%.2f", type(exc).__name__, monotonic() - started)
@@ -302,6 +339,10 @@ def create_backup(paths: StoragePaths, destination: Path, schema: dict[str, set[
     except BackupError as exc:
         log.warning("instance backup rejected: %s seconds=%.2f", exc, monotonic() - started)
         raise
+
+
+class BackupBusy(BackupError):
+    """The instance already has an active backup worker or is stopping."""
 
 
 class OnlineBackup:
@@ -314,11 +355,11 @@ class OnlineBackup:
         self._task: asyncio.Task | None = None
         self._closed = False
 
-    async def create(self, destination: Path) -> dict:
+    async def create(self, destination: Path, *, workspace: BackupWorkspace | None = None) -> dict:
         if self._closed or (self._task is not None and not self._task.done()):
-            raise BackupError("Резервное копирование недоступно или уже выполняется.")
+            raise BackupBusy("Резервное копирование недоступно или уже выполняется.")
         self._task = asyncio.create_task(anyio.to_thread.run_sync(
-            lambda: create_backup(self.paths, destination, self.schema, external_key=self.external_key),
+            lambda: create_backup(self.paths, destination, self.schema, external_key=self.external_key, workspace=workspace),
         ))
         self._task.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
         # A cancelled requester must not release the instance owner's OS locks

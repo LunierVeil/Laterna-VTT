@@ -334,3 +334,55 @@ backup_flow(replacement, home, env, "profile")
 # server needs the equivalent process setting.
 backup_flow(portable, portable / "data", spare_env, "portable")
 print("PASS: Windows Profile and Portable backup, verify, restore and startup")
+
+automatic = r"""
+import asyncio, os, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from app import automatic_backup as auto, instance_backup as core, main
+from app.storage_preflight import StorageError
+
+async def run():
+    async with main.lifespan(main.app):
+        backup = main.app.state.instance_backup
+        policy = auto.BackupPolicy(max_count=1, reserve_min=1, reserve_max=1)
+        series = auto.BackupSeries(backup, policy)
+        names = []
+        for at in (1000, 2000):
+            path, workspace, state = series.reserve(at)
+            await backup.create(path, workspace=workspace)
+            series.finish(state, at)
+            names.append(path)
+        assert not names[0].exists()
+        assert core.verify_backup(names[1], backup.schema)["complete"]
+        foreign = Path(sys.argv[2]) / "Junction sentinel"
+        foreign.mkdir()
+        (foreign / "sentinel").write_text("keep", encoding="utf-8")
+        os.rename(names[1], foreign.parent / "displaced-auto")
+        subprocess.run(["cmd.exe", "/d", "/c", "mklink", "/J", str(names[1]), str(foreign)],
+                       check=True, capture_output=True)
+        try:
+            series.load()
+        except StorageError:
+            pass
+        else:
+            raise AssertionError("Retention trusted a junction")
+        assert (foreign / "sentinel").read_text(encoding="utf-8") == "keep"
+        names[1].rmdir()
+
+asyncio.run(run())
+"""
+for package, settings, mode in (
+    (replacement, env, "Profile"),
+    (portable, spare_env, "Portable"),
+):
+    probe = temporary / ("Automatic " + mode)
+    probe.mkdir()
+    auto_env = dict(settings, LANTERNA_AUTO_BACKUP="0")
+    if mode == "Portable":
+        auto_env["LANTERNA_PORTABLE"] = "1"
+    auto_result = subprocess.run([str(package / "python/python.exe"), "-X", "utf8", "-c", automatic,
+                                  str(package / "server"), str(probe)], cwd=temporary, env=auto_env,
+                                 capture_output=True, encoding="utf-8", errors="replace", timeout=40)
+    assert auto_result.returncode == 0, auto_result.stderr
+    print(f"PASS: Windows {mode} automatic backup workspace, retention and junction protection")
