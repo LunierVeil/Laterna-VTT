@@ -30,20 +30,16 @@ port_busy() {
 }
 
 if [ "${1:-}" = gm ]; then
-  KEY_FILE="$ROOT/server/gm_key.txt"
-  if [ ! -f "$KEY_FILE" ]; then
-    echo "ключа ещё нет - запусти ./laterna.sh, он создастся при первом старте"
-    exit 1
-  fi
-  echo "http://localhost:$PORT/?gm=$(tr -d '[:space:]' < "$KEY_FILE")"
-  echo "Не показывай её игрокам."
-  exit 0
+  GM=1
 elif [ "${1:-}" = tunnel ]; then
   TUNNEL=1
 elif [ "${1:-}" = porthole ]; then
   PORTHOLE=1
+elif [ "${1:-}" = backup ]; then
+  shift
+  BACKUP=1
 elif [ -n "${1:-}" ]; then
-  echo "неизвестная команда: $1 (есть: porthole, tunnel, gm)"
+  echo "неизвестная команда: $1 (есть: porthole, tunnel, gm, backup)"
   exit 1
 fi
 
@@ -53,6 +49,26 @@ if [ ! -x "$PY" ]; then
   echo "> создаю server/.venv"
   python3 -m venv "$VENV"
   "$PY" -m pip install -q -r "$ROOT/server/requirements.txt"
+fi
+
+if [ "${GM:-}" = 1 ]; then
+  cd "$ROOT/server"
+  exec "$PY" -c '
+import sys
+from urllib.parse import quote
+from app.roles import _load_gm_key
+try:
+    key, _ = _load_gm_key(allow_create=False)
+except (OSError, RuntimeError):
+    raise SystemExit("Ключ ГМ недоступен. Проверьте выбранный DataHome.")
+print("http://localhost:{}/?gm={}".format(sys.argv[1], quote(key, safe="")))
+print("Не показывай её игрокам.")
+' "$PORT"
+fi
+
+if [ "${BACKUP:-}" = 1 ]; then
+  cd "$ROOT/server"
+  exec "$PY" -m app.backup_cli "$@"
 fi
 
 # Собираем, если сборки нет или исходники новее её. Node нужен только
@@ -203,5 +219,5 @@ fi
 # лимит попыток входа. Заголовок учитывает только наш client_ip, и только
 # при LANTERNA_TRUST_PROXY.
 # Без exec: после сервера trap гасит туннель.
-FRONTEND_URL="${FRONTEND_URL:-$ORIGINS}" WEB_DIST="$DIST" PUBLIC_URL="$PUBLIC" \
+LANTERNA_BACKUP_CONTROL=1 FRONTEND_URL="${FRONTEND_URL:-$ORIGINS}" WEB_DIST="$DIST" PUBLIC_URL="$PUBLIC" \
   "$VENV/bin/uvicorn" app.main:app --host "$HOST" --port "$PORT" --no-proxy-headers

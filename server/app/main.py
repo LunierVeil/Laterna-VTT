@@ -27,7 +27,6 @@ from .recipient_projection import command_target_visible, projection_session, re
 from .media_access import RecipientUploads, attachment_allowed, remember_upload
 from .gameplay_visibility import Witnessed, capture_scene, calculate_bounded
 from .config import (
-    FRONTEND_URL,
     FRONTEND_URLS,
     LOGIN_MAX_FAILURES,
     LOGIN_MAX_FAILURES_PER_IP,
@@ -51,10 +50,11 @@ from .drag_preview import DragPreviews
 previews = DragPreviews(hub)
 from .models import Campaign, Character, Invite, Message, Scene, SceneFolder, Token, User
 from .roles import Actor, gm_key_notice, initialize_gm_key, is_gm_key
-from .instance_backup import OnlineBackup
+from .instance_backup import BackupError, OnlineBackup
+from .backup_control import control_directory, serve_backups
 from .upload_files import publish_upload
 from .storage_lock import own_storage
-from .storage_preflight import check_storage, prepare_storage
+from .storage_preflight import StorageError, check_storage, prepare_storage
 
 
 log = logging.getLogger("laterna")
@@ -67,23 +67,38 @@ async def lifespan(app: FastAPI):
             schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
             state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
                                   cwd=config.STARTUP_CWD, env=os.environ, schema=schema)
+            if os.getenv("LANTERNA_REQUIRE_EXISTING") == "1" and state != "existing":
+                raise StorageError("Указанный восстановленный DataHome не содержит готовый стол.")
             prepare_storage(config.STORAGE_PATHS, state)
             if state != "existing":
                 await init_db()
                 await ensure_demo_scene()
             initialize_gm_key(allow_create=state != "existing")
-            print(f"\n  {gm_key_notice(FRONTEND_URL)}\n", flush=True)
+            print(f"\n  {gm_key_notice()}\n", flush=True)
             async def expire_previews():
                 while True:
                     await asyncio.sleep(0.25)
                     await previews.expire()
             backup = OnlineBackup(config.STORAGE_PATHS, schema, external_key=roles.GM_KEY_SOURCE == "env")
             app.state.instance_backup = backup
+            control = None
+            if os.getenv("LANTERNA_BACKUP_CONTROL") == "1":
+                try:
+                    root = control_directory(config.STORAGE_PATHS)
+                except (BackupError, StorageError, OSError) as exc:
+                    log.warning("Локальное резервное копирование недоступно: %s", exc)
+                else:
+                    control = asyncio.create_task(serve_backups(root, backup))
             expiry = asyncio.create_task(expire_previews())
             try:
                 yield
             finally:
                 with anyio.CancelScope(shield=True):
+                    if control is not None:
+                        control.cancel()
+                        result, = await asyncio.gather(control, return_exceptions=True)
+                        if result and not isinstance(result, asyncio.CancelledError):
+                            log.error("Локальное резервное копирование недоступно: %s", result)
                     await backup.close()
                 expiry.cancel()
                 from contextlib import suppress

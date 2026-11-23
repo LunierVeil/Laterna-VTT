@@ -1,6 +1,9 @@
 ﻿param(
     [ValidateSet("Profile", "Portable", "NewPortable")][string]$Storage,
-    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths")][string]$Action = "Menu"
+    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths", "Verify", "Restore")][string]$Action = "Menu",
+    [string]$BackupPath,
+    [string]$Destination,
+    [string]$RestoredDataHome
 )
 
 # Laterna VTT для Windows: меню запуска (его открывает laterna.bat).
@@ -21,10 +24,32 @@ if (-not (Test-Path $Python)) {
     exit 1
 }
 
+$BackupEntry = @'
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+from app.backup_cli import main
+raise SystemExit(main())
+'@
+function Invoke-BackupCommand([string[]]$Arguments) {
+    & $Python -X utf8 -c $BackupEntry $Server @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "Операция резервного копирования не выполнена." }
+}
+
+if ($Action -eq "Verify") {
+    if (-not $BackupPath) { throw "Укажите -BackupPath." }
+    Invoke-BackupCommand @("verify", $BackupPath)
+    return
+}
+if ($Action -eq "Restore") {
+    if (-not $BackupPath -or -not $Destination) { throw "Укажите -BackupPath и -Destination." }
+    Invoke-BackupCommand @("restore", $BackupPath, $Destination)
+    return
+}
+
 # Resolve through the same Python contract used by the server. The embedded
 # interpreter ignores PYTHONPATH, so pass the absolute app directory explicitly.
 $Marker = Join-Path $Root "laterna-storage-mode.txt"
-foreach ($Name in "DATABASE_URL", "UPLOAD_DIR", "GM_KEY_FILE", "LANTERNA_DATA_HOME", "LANTERNA_PORTABLE", "LANTERNA_GM_KEY") {
+foreach ($Name in "DATABASE_URL", "UPLOAD_DIR", "GM_KEY_FILE", "LANTERNA_DATA_HOME", "LANTERNA_PORTABLE") {
     if ($null -ne [Environment]::GetEnvironmentVariable($Name, "Process")) {
         throw "Переменная $Name конфликтует с выбором хранилища Windows launcher."
     }
@@ -45,7 +70,12 @@ if ($Saved -and $Storage -and $Storage -ne $Saved) {
 if ($Storage -eq "NewPortable" -and $Action -notin @("Menu", "Lan")) {
     throw "Для создания portable запустите меню или режим LAN."
 }
-$Selected = if ($Storage) { $Storage } elseif ($Saved) { $Saved } else {
+$Selected = if ($RestoredDataHome) {
+    if ($Storage -or $Action -notin @("Lan", "Menu")) { throw "RestoredDataHome поддерживается при запуске меню или LAN без -Storage." }
+    $env:LANTERNA_DATA_HOME = $RestoredDataHome
+    $env:LANTERNA_REQUIRE_EXISTING = "1"
+    "Restored"
+} elseif ($Storage) { $Storage } elseif ($Saved) { $Saved } else {
     if ($Action -ne "Menu") { throw "Явно укажите -Storage Profile или -Storage Portable." }
     Write-Host "Первый запуск этого ZIP. Если у вас уже есть Alpha или portable, сохраните прежний каталог."
     Write-Host "1 — профиль Windows, 2 — открыть перенесённый portable, 3 — создать новый portable."
@@ -56,7 +86,10 @@ $Selected = if ($Storage) { $Storage } elseif ($Saved) { $Saved } else {
         default { throw "Хранилище не выбрано." }
     }
 }
-$env:LANTERNA_PORTABLE = if ($Selected -eq "Profile") { "0" } else { "1" }
+if ($env:LANTERNA_GM_KEY -and $Selected -ne "Restored") {
+    throw "Внешний LANTERNA_GM_KEY поддерживается для явно выбранного восстановленного стола."
+}
+$env:LANTERNA_PORTABLE = if ($Selected -in @("Profile", "Restored")) { "0" } else { "1" }
 $Resolve = @'
 import json, os, sys
 from pathlib import Path
@@ -86,10 +119,10 @@ if ($Selected -eq "Profile") {
     }
 } elseif ($Selected -eq "NewPortable") {
     if (Test-Path -LiteralPath $Paths.home) { throw "Portable DataHome уже существует: $($Paths.home)" }
-} elseif (-not (Test-Path -LiteralPath $Paths.database -PathType Leaf)) {
+} elseif ($Selected -ne "Restored" -and -not (Test-Path -LiteralPath $Paths.database -PathType Leaf)) {
     throw "Portable SQLite отсутствует: $($Paths.database). Верните полный комплект данных."
 }
-if (-not $Saved) {
+if (-not $Saved -and $Selected -ne "Restored") {
     $Token = if ($Selected -eq "Profile") { "Profile" } else { "Portable" }
     $Stream = [IO.File]::Open($Marker, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     try {
@@ -112,6 +145,7 @@ function Start-Table([string]$HostAddr, [string]$Origins) {
     # X-Forwarded-For не учитываем никогда: через Porthole игроки приходят с
     # 127.0.0.1 и могли бы подделать заголовок (поэтому и --no-proxy-headers).
     $env:LANTERNA_TRUST_PROXY = "0"
+    $env:LANTERNA_BACKUP_CONTROL = "1"
     $env:FRONTEND_URL = $Origins
     $env:WEB_DIST = Join-Path $Root "web\dist"
     Push-Location $Server
@@ -169,14 +203,37 @@ function Show-GmLink {
     Write-Host ""
 }
 
-function Save-Backup {
-    Write-Host "Копирование отключено. Проверяемое резервное копирование появится в PB-06."
+function Show-Backups {
+    while ($true) {
+        Write-Host "  1. Создать копию работающего стола"
+        Write-Host "  2. Проверить копию"
+        Write-Host "  3. Восстановить в новый DataHome"
+        Write-Host "  4. Назад"
+        try {
+            switch (Read-Host "Резервные копии") {
+                "1" { Invoke-BackupCommand @("create") }
+                "2" { Invoke-BackupCommand @("verify", (Read-Host "Абсолютный путь к копии")) }
+                "3" {
+                    $Source = Read-Host "Абсолютный путь к копии"
+                    $Target = Read-Host "Абсолютный путь к новому каталогу DataHome"
+                    Write-Host "Источник: $Source"
+                    Write-Host "Назначение: $Target"
+                    Write-Host "Текущий стол сохраняется. Если каталог уже существует, операция остановится."
+                    if ((Read-Host "Для запуска проверки и восстановления введите ДА") -ceq "ДА") {
+                        Invoke-BackupCommand @("restore", $Source, $Target)
+                        Write-Host "Для игры запустите laterna.bat -RestoredDataHome с указанным путём."
+                    }
+                }
+                "4" { return }
+            }
+        } catch { Write-Host $_.Exception.Message }
+    }
 }
 
 switch ($Action) {
     "Lan" { Start-Table "0.0.0.0" "http://localhost:$Port"; return }
     "GmLink" { Show-GmLink; return }
-    "Backup" { Save-Backup; return }
+    "Backup" { Invoke-BackupCommand @("create"); return }
     "Paths" { $Paths | ConvertTo-Json -Compress; return }
 }
 
@@ -186,14 +243,14 @@ while ($true) {
     Write-Host "    1. Игра через Porthole   (стол на 127.0.0.1:$Port)"
     Write-Host "    2. Игра в локальной сети"
     Write-Host "    3. Ссылка мастера (первый вход)"
-    Write-Host "    4. Резервная копия (пока недоступна)"
+    Write-Host "    4. Резервные копии"
     Write-Host "    5. Выход"
     $choice = Read-Host "  Выбери пункт"
     switch ($choice) {
         "1" { Show-PortholeSteps; Start-Table "127.0.0.1" "http://127.0.0.1:$Port,http://localhost:$Port" }
         "2" { Show-LanSteps; Start-Table "0.0.0.0" "http://localhost:$Port" }
         "3" { Show-GmLink }
-        "4" { Save-Backup }
+        "4" { Show-Backups }
         "5" { exit 0 }
         default { Write-Host "Нет такого пункта." }
     }

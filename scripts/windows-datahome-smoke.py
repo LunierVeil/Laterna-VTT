@@ -1,10 +1,11 @@
 """Run against extracted Windows ZIPs using the bundled Python."""
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
@@ -154,7 +155,7 @@ paths = menu(replacement, "-Storage", "Profile", "-Action", "Paths")
 assert Path(json.loads(paths.splitlines()[-1])["home"]) == home
 key = (home / "gm_key.txt").read_text().strip()
 assert "?gm=" + key in menu(replacement, "-Action", "GmLink")
-assert key not in menu(replacement, "-Action", "Backup")
+assert key not in menu(replacement, "-Action", "Backup", succeeds=False)
 assert not (replacement / "backup").exists()
 with process(replacement, "second") as owner:
     ready(*owner)
@@ -229,3 +230,107 @@ with process(app, "alpha", dict(env, LOCALAPPDATA=str(clean_profile))) as owner:
 assert alpha.read_bytes() == b"synthetic alpha"
 assert not (clean_profile / "LaternaVTT").exists()
 print("PASS: Windows DataHome, launcher, ZIP replacement, portable, contention and fail-closed startup")
+
+def backup_flow(package, data_home, settings, label):
+    asset = "b" * 32 + ".png"
+    image = data_home / "uploads" / asset
+    image.write_bytes(b"synthetic image")
+    with closing(sqlite3.connect(data_home / "lanterna.db")) as conn:
+        conn.execute("UPDATE scenes SET name=?, background_url=?", ("Recovered scene", "/uploads/" + asset))
+        ids = conn.execute("SELECT id FROM campaigns").fetchall()
+        conn.execute(
+            "INSERT INTO characters (id,campaign_id,name,system,data_json,created_at,updated_at) "
+            "VALUES ('smoke-character',?,'Recovered hero','dnd5e','{}',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+            (ids[0][0],),
+        )
+        conn.commit()
+    original = {path: path.read_bytes() for path in (image, data_home / "lanterna.db", data_home / "gm_key.txt")}
+    server_settings = dict(settings, LANTERNA_BACKUP_CONTROL="1")
+    if label == "portable":
+        server_settings["LANTERNA_PORTABLE"] = "1"
+    with process(package, label + "-backup", server_settings) as owner:
+        ready(*owner)
+        stdout = menu(package, "-Action", "Backup", settings=settings)
+        assert "Verification: PASSED" in stdout
+        assert (data_home / "gm_key.txt").read_text().strip() not in stdout
+        copy = Path(stdout.split("Location: ", 1)[1].splitlines()[0])
+        assert copy.parent == data_home.parent / "Laterna Backups"
+        assert "Verification: PASSED" in menu(package, "-Action", "Verify", "-BackupPath", str(copy), settings=settings)
+        destination = temporary / ("Восстановленный стол " + label)
+        args = ("-Action", "Restore", "-BackupPath", str(copy), "-Destination")
+        assert "Restore: SUCCESS" in menu(package, *args, str(destination), settings=settings)
+        menu(package, *args, str(data_home), settings=settings, succeeds=False)
+        menu(package, *args, str(destination), settings=settings, succeeds=False)
+        stopped(owner[0])
+    with process(package, label + "-restored",
+                 dict(settings, LANTERNA_PORTABLE="0", LANTERNA_DATA_HOME=str(destination),
+                      LANTERNA_REQUIRE_EXISTING="1")) as owner:
+        ready(*owner)
+        with closing(sqlite3.connect(destination / "lanterna.db")) as conn:
+            assert conn.execute("SELECT id FROM campaigns").fetchall() == ids
+            assert conn.execute("SELECT name FROM scenes").fetchone() == ("Recovered scene",)
+        assert (destination / "uploads" / asset).read_bytes() == original[image]
+        assert (destination / "gm_key.txt").read_bytes() == original[data_home / "gm_key.txt"]
+        stopped(owner[0])
+    settings_restored = dict(settings, LANTERNA_PORTABLE="0", LANTERNA_DATA_HOME=str(destination),
+                             LANTERNA_REQUIRE_EXISTING="1")
+    check = """
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from fastapi.testclient import TestClient
+from app.config import GM_KEY_FILE
+from app.main import app
+with TestClient(app) as client:
+    key = GM_KEY_FILE.read_text(encoding='utf-8').strip()
+    assert client.post('/api/gm/login', json={'key': key, 'name': 'Recovered GM', 'password': 'test-only-password'}).status_code == 200
+    characters = client.get('/api/characters').json()
+    assert any(item['id'] == 'smoke-character' for item in characters)
+    scenes = client.get('/api/scenes').json()
+    scene = client.get('/api/scenes/' + scenes[0]['id']).json()
+    assert scene['name'] == 'Recovered scene'
+    assert client.get(scene['background_url']).content == b'synthetic image'
+"""
+    restarted = subprocess.run([str(package / "python/python.exe"), "-X", "utf8", "-c", check,
+                                str(package / "server")], cwd=temporary, env=settings_restored,
+                               capture_output=True, encoding="utf-8", errors="replace", timeout=30)
+    assert restarted.returncode == 0, restarted.stderr
+    assert all(path.read_bytes() == content for path, content in original.items())
+    if label == "profile":
+        fail = """
+import errno, os, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv.pop(1))
+from app import instance_restore
+from app.backup_cli import main
+mode = sys.argv.pop(1)
+if mode == 'crash':
+    instance_restore._publish = lambda *args: os._exit(73)
+else:
+    real_measure = instance_restore._measure
+    def fail_during_copy(*args, **kwargs):
+        if kwargs.get('target') is not None and kwargs['target'].parent.name == 'uploads':
+            raise OSError(getattr(errno, mode), mode)
+        return real_measure(*args, **kwargs)
+    instance_restore._measure = fail_during_copy
+raise SystemExit(main())
+"""
+        for mode, status in (("crash", 73), ("ENOSPC", 1), ("EACCES", 1)):
+            failed_target = temporary / ("Отказ " + mode)
+            failed = subprocess.run([str(package / "python/python.exe"), "-X", "utf8", "-c", fail,
+                                     str(package / "server"), mode, "restore", str(copy), str(failed_target)],
+                                    cwd=temporary, env=settings, capture_output=True, timeout=30)
+            assert failed.returncode == status and not failed_target.exists()
+            assert all(path.read_bytes() == content for path, content in original.items())
+        assert "Restore: SUCCESS" in menu(package, *args, str(temporary / "Отказ crash"), settings=settings)
+    (copy / "uploads" / asset).write_bytes(b"corrupt")
+    menu(package, "-Action", "Verify", "-BackupPath", str(copy), settings=settings, succeeds=False)
+    menu(package, *args, str(temporary / ("broken-" + label)), settings=settings, succeeds=False)
+    assert not (temporary / ("broken-" + label)).exists()
+
+
+backup_flow(replacement, home, env, "profile")
+# The launcher supplies Portable to the CLI using its marker; only the child
+# server needs the equivalent process setting.
+backup_flow(portable, portable / "data", spare_env, "portable")
+print("PASS: Windows Profile and Portable backup, verify, restore and startup")
