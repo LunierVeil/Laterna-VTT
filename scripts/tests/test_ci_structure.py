@@ -22,23 +22,36 @@ class WorkflowContracts(unittest.TestCase):
         groups = self.full['jobs']['browser']['strategy']['matrix']['group']
         runner = (ROOT/'web/tests/browser/run.mjs').read_text()
         mapping = {name: re.findall(r"'([^']+)'", contents) for name, contents in re.findall(r"^  (\w+): \[([^\]]+)\]", runner, re.M)}
-        self.assertEqual(set(groups), set(mapping))
-        suites = [suite for group in groups for suite in mapping[group]]
+        self.assertEqual(set(groups), set(mapping) | {'http-uuid'})
+        suites = [suite for group in mapping for suite in mapping[group]]
         self.assertEqual(len(suites), len(set(suites)))
         self.assertEqual({f'{s}.test.mjs' for s in suites}, {p.name for p in (ROOT/'web/tests/browser').glob('*.test.mjs')})
         import importlib.util
         spec=importlib.util.spec_from_file_location('gate_counts', ROOT/'scripts/ci_gate.py')
         gate=importlib.util.module_from_spec(spec);spec.loader.exec_module(gate)
-        for group in groups:
-            count=sum(len(re.findall(r'^test\(', (ROOT/f'web/tests/browser/{suite}.test.mjs').read_text(), re.M)) for suite in mapping[group])
+        http_runner = (ROOT/'web/tests/browser/http-uuid.mjs').read_text()
+        http_suites = re.findall(r"await import\('\./([^']+)\.test\.mjs'\)", http_runner)
+        self.assertCountEqual(http_suites, ['catalog', 'tokens'])
+        self.assertIn("insecureHttp ? ['http-uuid.mjs']", runner)
+        self.assertEqual(set(gate.GROUP_COUNTS), set(groups))
+        for group, group_suites in (mapping | {'http-uuid': http_suites}).items():
+            count=sum(len(re.findall(r'^test\(', (ROOT/f'web/tests/browser/{suite}.test.mjs').read_text(), re.M)) for suite in group_suites)
             self.assertEqual(count, gate.GROUP_COUNTS[group], group)
+        self.assertEqual(sum(gate.GROUP_COUNTS[group] for group in mapping), 38)
 
     def test_full_gate_is_always_and_cannot_export_unchecked_sha(self):
         required = self.full['jobs']['required']
         self.assertEqual(required['if'], 'always()')
         self.assertEqual(set(required['needs']), {'resolve','backend','frontend','browser'})
         self.assertEqual(required['outputs']['tested_sha'], '${{ steps.gate.outputs.tested_sha }}')
-        self.assertFalse(self.full['jobs']['browser']['strategy']['fail-fast'] == 'true')
+        browser = self.full['jobs']['browser']
+        self.assertEqual(browser['strategy']['fail-fast'], 'false')
+        group_step = next(step for step in browser['steps'] if step.get('name') == 'Chromium group and isolated evidence')
+        self.assertNotIn('if', group_step)
+        self.assertIn('npm run test:browser -- --group "$BROWSER_GROUP"', group_step['run'])
+        self.assertIn('ci_gate.py evidence --group "$BROWSER_GROUP" --sha "$TESTED_SHA"', group_step['run'])
+        self.assertEqual(self.full['on']['workflow_call']['outputs']['tested_sha']['value'],
+                         '${{ jobs.required.outputs.tested_sha }}')
 
     def test_fast_does_not_publish_required_context_or_install_chromium(self):
         self.assertNotIn('required', self.fast['jobs'])

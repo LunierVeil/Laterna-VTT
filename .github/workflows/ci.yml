@@ -132,7 +132,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [sheets, tokens, scenes, interaction]
+        group: [sheets, tokens, scenes, interaction, http-uuid]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -155,10 +155,6 @@ jobs:
         working-directory: web
       - run: npx --no-install playwright install --with-deps chromium
         working-directory: web
-      - name: Insecure HTTP UUID regression
-        if: matrix.group == 'tokens'
-        working-directory: web
-        run: node --test tests/browser/http-uuid.mjs
       - name: Chromium group and isolated evidence
         env:
           BROWSER_RESULTS_DIR: ${{ github.workspace }}/artifacts/browser/${{ matrix.group }}
