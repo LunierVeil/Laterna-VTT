@@ -6,16 +6,14 @@ Self-hosted VTT: FastAPI, React/TypeScript, PixiJS 8, один Zustand-store.
 актуальный master, рабочую ветку, HEAD соответствующего PR и локальный diff.
 Исторический SHA — для изучения решений и сравнения, не для автоматического
 возврата к старому состоянию. Исторические результаты CI не выдавать за проверки
-новых изменений. Перед работой читать [архитектуру](docs/ARCHITECTURE.md),
-[Beta-решения](docs/BETA_DECISIONS.md), [roadmap](docs/ROADMAP.md) и
-[руководство по разработке и проверкам](docs/DEVELOPMENT.md). Не перезаписывать чужие изменения.
+новых изменений. Не перезаписывать чужие изменения и не смешивать историю
+Alpha Legacy с новой. Сверять затронутые контракты и этапы по соответствующим
+разделам [архитектуры](docs/ARCHITECTURE.md), [Beta-решений](docs/BETA_DECISIONS.md),
+[roadmap](docs/ROADMAP.md) и [руководства по разработке](docs/DEVELOPMENT.md).
+Для изменений в `web/` или `server/` прочитать [web/AGENTS.md](web/AGENTS.md)
+или [server/AGENTS.md](server/AGENTS.md) соответственно, в том числе при запуске
+Codex из корня. Повторяемые действия описаны в [Codex Workflow](docs/agent-workflow/CODEX_WORKFLOW.md).
 
-- Frontend: app композиция → pages/widgets/features → entities/shared;
-  systems/dnd5e предоставляет projections/UI slots, static bindings находятся в app.
-  Один плоский store, Session/Campaign/Gameplay/UI; UI использует state/public,
-  app/session — ограниченный state/bridge. Entities/shared/systems не импортируют store.
-- Backend пока в server/app с основными main.py/handlers.py и доменными helpers.
-  Практичный модульный монолит, DataHome и Alembic — утверждённая цель, не реализация.
 - Порядок Beta: **A** LOS/базовый свет/FoW → **B** сохранность, DataHome, backup/restore,
   Alembic и постепенный backend → **C** кампании/AccessPolicy → **D** остальные
   обязательные функции Beta C → **E** стабилизация. Если PB-01 или другая задача A
@@ -33,15 +31,14 @@ Self-hosted VTT: FastAPI, React/TypeScript, PixiJS 8, один Zustand-store.
 - Перед реализацией LOS изучить LATERNA_SCENE_CORE_AUDIT.md, если доступен локально
   или в материалах проекта. Его исторические рекомендации не становятся APPROVED
   автоматически; при отсутствии файла сообщить об этом, не придумывать содержание.
-- PixiJS — renderer, не граница безопасности; высокочастотные координаты и
-  drag-preview не переносить в Zustand.
-  Beta rules engine — D&D 5e 2014; ключи dnd5e/mob сохраняются, SDK не вводится.
+- Beta rules engine — D&D 5e 2014; ключи dnd5e/mob сохраняются, SDK не вводится.
 - Не менять пользовательские БД/сохранения без явного разрешения. Не выполнять reset,
   reset/clean Git, удаление uploads/ключей/DataHome или down -v для игровых данных.
   Перед разрешённой миграцией — проверяемый backup/restore; исходник Alpha сохранять.
   Тесты используют только изолированные временные DB/uploads/ключи.
-- Для затронутых частей — профильные проверки; перед готовым PR — необходимые
-  backend/frontend/typecheck/build/Chromium по AGENTS и CI_CD. Не ослаблять assertions,
+- Для затронутых частей — профильные проверки, включая нужные регрессии и документацию;
+  перед готовым PR — необходимые
+  backend/frontend/typecheck/build/Chromium по [CI/CD](docs/CI_CD.md). Не ослаблять assertions,
   counts или gate. Fast CI точного commit SHA — между этапами; Full CI актуального
   test merge + CI required — для ready PR. Fast CI не разрешает merge.
 - Актуальный Git-регламент — ниже; он заменяет прежнее требование отдельного
