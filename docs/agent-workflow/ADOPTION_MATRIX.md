@@ -9,7 +9,7 @@
 [LICENSE][license] распространяет гайд на условиях CC BY-SA 4.0.
 [README][readme] отдельно указывает CC0 1.0 для переиспользуемых шаблонов.
 Для заимствования конкретного файла нужно установить применимые условия,
-включая отдельные notices и права на вложенный контент. Workflow-01 и Workflow-02 используют
+включая отдельные notices и права на вложенный контент. Workflow-01–03 используют
 ссылки и самостоятельно написанные инструкции Laterna. Текст, скрипты и
 конфигурации из гайда в репозиторий не переносились.
 
@@ -37,7 +37,7 @@ P1 — практическая экономия работы, P2 — экспе
 | Red → Green → Refactor · [TDD][tdd] | Прямо. Воспроизводимый тест, минимальное исправление, профильный прогон. | P1 | [tdd](../../.agents/skills/tdd/SKILL.md) | 02, реализовано |
 | QA и доказательства для ревью · [Reviewable Agent Changes][reviewable], [Code Review][review], [Production Reliability][reliability] | Адаптация. Риск-ориентированная матрица, изолированные fixtures и выводы со ссылками на проверки и пробелы покрытия. | P0 | [qa](../../.agents/skills/qa/SKILL.md) | 02, реализовано |
 | Диагностика CI · [GitHub Actions][actions], [Production Reliability][reliability] | Адаптация. Проверка фактических Actions run, попытки, SHA и обязательных jobs без автоматической публикации или обхода gate. | P0 | [ci](../../.agents/skills/ci/SKILL.md) | 02, реализовано |
-| Специализированные агенты · [Agents][agents] | Адаптация. Проектные TOML-профили Codex для архитектуры, backend/frontend review и проверки CI. Ограничить права и область. [Codex Subagents][codex-agents] | P1 | `.codex/agents/{architecture,backend-review,frontend-review,ci-review}.toml` | 03 |
+| Специализированные агенты · [Agents][agents] | Адаптация. Четыре проектные роли с общим отчётом, родительскими sandbox и approvals и лимитом двух потоков. Регистрация и запуск подтверждены в CLI 0.171.0. [Codex Subagents][codex-agents] | P1 | `.codex/agents/`, `.codex/config.toml`, [свидетельства](WORKFLOW_03_VALIDATION.md) | 03, реализовано |
 | Локальные hooks · [Hooks Events Reference][hooks] | Адаптация. Выбрать событие и поля по схеме установленного Codex. Проверить trust, тайм-аут и обработку ошибки. Кандидаты — проверка diff и ссылок. [Codex Hooks][codex-hooks] | P1 | `.codex/hooks.json`, локальные скрипты при необходимости | 04 |
 | Аудит контекста · [Context Engineering][context] | Адаптация. Сравнить размер обязательного контекста, повторные чтения и конфликты на одинаковых задачах. | P1 | `docs/agent-workflow/CONTEXT_AUDIT.md` | 05 |
 | Оценка навыков и агентов · [Agent Evaluation][eval], [Team Metrics][metrics] | Адаптация. Повторять обезличенные сценарии с фиксированными условиями и версией CLI. Измерять соблюдение гарантий, повторную работу, время и доступные показатели контекста. | P1 | `docs/agent-workflow/EVALUATION.md` | 05 |
