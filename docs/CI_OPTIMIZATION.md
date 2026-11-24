@@ -143,6 +143,60 @@ review. Сравнение benchmark с baseline наблюдательное. �
 кэш и нагрузка могут различаться. Для поведения и инвентаря используются
 локальные проверки, а скорость измеряется на GitHub runners.
 
+[Ручной Full CI](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45418152143)
+на `09d980bf84f71e19664dbf034188d6c260370529` прошёл с первой попытки.
+Ниже — результат рядом с медианой десяти запусков и последним исходным
+Full CI master. Время указано в секундах, кроме строки runner-минут.
+
+| Метрика | Медиана baseline | Baseline master | Benchmark |
+| --- | ---: | ---: | ---: |
+| Full CI wall | 388 | 387 | 257 |
+| До старта resolve | 3 | 2 | 4 |
+| Самый долгий browser job | 366,5 | 368 | 240 |
+| Все jobs, runner-минуты | 20,79 | 20,50 | 20,30 |
+| Обычные testcase / HTTP testcase | 38 / 8 | 38 / 8 | 38 / 8 |
+
+Benchmark занял на 131 с (33,8%) меньше медианы baseline и попал в целевые
+210–270 с. Сумма runner time в этом запуске на 0,49 минуты ниже медианы.
+Пятый job добавляет один setup и может увеличить потребление на другом
+runner. Одного наблюдения мало для вывода о долгосрочном снижении стоимости
+или о времени полного цикла PR.
+
+| Job | Baseline master, с | Benchmark, с | Шаги benchmark, с |
+| --- | ---: | ---: | --- |
+| resolve | 5 | 4 | checkout 1 |
+| backend | 118 | 95 | pip 6, служебные тесты 3, pytest 78 |
+| frontend | 32 | 24 | npm ci 3, typecheck 3, unit 3, build 6 |
+| browser (sheets) | 262 | 240 | Chromium 17, тесты/evidence 199 |
+| browser (tokens) | 368 | 231 | Chromium 19, тесты/evidence 178 |
+| browser (scenes) | 214 | 228 | Chromium 32, тесты/evidence 154 |
+| browser (interaction) | 225 | 240 | Chromium 17, тесты/evidence 201 |
+| browser (http-uuid) | — | 151 | setup Python/Node 2/5, venv/pip 9, npm ci 4, Chromium 18, тесты/evidence 106 |
+| CI required | 6 | 5 | скачивание пяти evidence 1 |
+
+Все пять browser jobs стартовали через 2 с после завершения resolve.
+Upload диагностики занял 1–2 с на группу, upload evidence — 1 с.
+В новом HTTP job оба cache hit, интервалы от cache hit до restored
+составили 1,1–1,4 с. На первичных ключах сохранение снова пропущено.
+Идентичность 38 обычных и восьми HTTP случаев сверена по JUnit GitHub,
+а все пять evidence содержат SHA кандидата, run `45418152143`, attempt `1`
+и соответствующие counts. Лог gate подтвердил тот же SHA.
+
+[Fast CI кандидата](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45418130936)
+по push занял 119 с при runner time 150 с. Backend занял 116 с, включая
+99 с pytest, а frontend — 34 с. Цель 45–90 с в этом наблюдении не достигнута.
+Этот замер относится к SHA реализации.
+
+[Windows candidate smoke](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45418187901)
+на том же SHA прошёл с первой попытки, с `publish=false` и пустым тегом.
+Все пять jobs Chromium и `checks / CI required` прошли в reusable Full CI.
+Шаг проверки candidate/tested/checkout и запуск извлечённого пакета прошли,
+`publish` пропущен. В скачанном ZIP `SOURCE_COMMIT.txt` совпадает с SHA
+кандидата, SHA-256 совпадает с контрольной суммой артефакта. В этом запуске
+Interaction занял 306 с. Разница с 240 с самостоятельного benchmark показывает
+вариативность runner time. Этот Windows run измерял совместимость, а не
+время типового PR.
+
 Локально прошли `actionlint` 1.7.12, 45 служебных unittest, проверка Markdown
 и `git diff --check`. Для frontend прошли typecheck, 25 frontend unit-проверок и
 production build. Изолированные браузерные проверки выполнены с Chromium
