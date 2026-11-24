@@ -9,7 +9,7 @@
 [LICENSE][license] распространяет гайд на условиях CC BY-SA 4.0.
 [README][readme] отдельно указывает CC0 1.0 для переиспользуемых шаблонов.
 Для заимствования конкретного файла нужно установить применимые условия,
-включая отдельные notices и права на вложенный контент. Workflow-01–03 используют
+включая отдельные notices и права на вложенный контент. Workflow-01–05 используют
 ссылки и самостоятельно написанные инструкции Laterna. Текст, скрипты и
 конфигурации из гайда в репозиторий не переносились.
 
@@ -39,9 +39,9 @@ P1 — практическая экономия работы, P2 — экспе
 | Диагностика CI · [GitHub Actions][actions], [Production Reliability][reliability] | Адаптация. Проверка фактических Actions run, попытки, SHA и обязательных jobs без автоматической публикации или обхода gate. | P0 | [ci](../../.agents/skills/ci/SKILL.md) | 02, реализовано |
 | Специализированные агенты · [Agents][agents] | Адаптация. Четыре проектные роли с общим отчётом, родительскими sandbox и approvals и лимитом двух потоков. Регистрация и запуск подтверждены в CLI 0.171.0. [Codex Subagents][codex-agents] | P1 | `.codex/agents/`, `.codex/config.toml`, [свидетельства](WORKFLOW_03_VALIDATION.md) | 03, реализовано |
 | Локальные hooks · [Hooks Events Reference][hooks] | Адаптация. Один advisory Stop для staged/unstaged diff и напоминание о ручной проверке Markdown. Доверенный Stop, отключение, один сценарий с backend_review, failure и timeout подтверждены на Codex CLI 0.171.0. [Codex Hooks][codex-hooks] | P1 | `.codex/hooks.json`, `scripts/codex_hooks/check_changes.py`, [проверки](WORKFLOW_04_VALIDATION.md) | 04, runtime-приёмка пройдена |
-| Аудит контекста · [Context Engineering][context] | Адаптация. Сравнить размер обязательного контекста, повторные чтения и конфликты на одинаковых задачах. | P1 | `docs/agent-workflow/CONTEXT_AUDIT.md` | 05 |
-| Оценка навыков и агентов · [Agent Evaluation][eval], [Team Metrics][metrics] | Адаптация. Повторять обезличенные сценарии с фиксированными условиями и версией CLI. Измерять соблюдение гарантий, повторную работу, время и доступные показатели контекста. | P1 | `docs/agent-workflow/EVALUATION.md` | 05 |
-| Внешние интеграции · [Memory Systems][memory], [Security Hardening][security] | Вне scope Workflow-01. MCP, плагины, телеметрия и стороннее хранение требуют обоснованной потребности и отдельного разрешения. | P2 | `docs/agent-workflow/EVALUATION.md` для записи решения | 05, решение |
+| Аудит контекста · [Context Engineering][context] | Адаптация. Сравнить размер обязательного контекста, повторные чтения и конфликты на одинаковых задачах. | P1 | [Аудит контекста](CONTEXT_AUDIT.md) | 05, измерен объём |
+| Оценка навыков и агентов · [Agent Evaluation][eval], [Team Metrics][metrics] | Адаптация. Повторять обезличенные сценарии с фиксированными условиями и версией CLI. Измерять соблюдение гарантий, повторную работу, время и доступные показатели контекста. | P1 | [Методика и пилот](EVALUATION.md) | 05, пилот выполнен |
+| Внешние интеграции · [Memory Systems][memory], [Security Hardening][security] | MCP, плагины и расширение локальных инструментов отложены. Внешняя память, телеметрия и eval-платформы отклонены для текущей серии. Принята рекомендация собирать только локальные агрегаты существующими средствами. | P2 | [Решения](EVALUATION.md#решения-об-интеграциях) | 05, решения записаны |
 | Claude-инструкции и команды · [Skills][skills], [Agents][agents], [пример][resume] | Несовместимо напрямую. `CLAUDE.md`, `.claude/commands`, `.claude/agents`, `argument-hint`, `$ARGUMENTS` и permission modes имеют собственную семантику. | P0 | — | Исключено |
 | Claude hooks и автономные циклы · [Hooks][hooks], [Loop & Graph Engineering][loops] | Формат `.claude/settings.json`, payload и ответы hooks несовместимы напрямую. Автоповторы исправлений, автоматическое одобрение и обход gate исключены. | P0 | — | Исключено |
 | Внешние фреймворки spec/review · [Spec-First][spec], [Code Review][review] | Вне scope. Для указанных этапов достаточно Git/GitHub, Markdown, Codex и существующих проверок. | P2 | — | Исключено |
@@ -57,8 +57,9 @@ P1 — практическая экономия работы, P2 — экспе
   Корень указывает на оба файла для задач, охватывающих несколько каталогов.
 - Из `docs/DEVELOPMENT.md` убран повтор Git-процедуры. Ссылки на разделы по задаче
   заменяют полное перечитывание четырёх справочников. Команды проверок и сведения
-  о Ruleset сохраняются в профильных документах. Workflow-05 измерит экономию
-  контекста на сопоставимых задачах.
+  о Ruleset сохраняются в профильных документах. [Workflow-05](CONTEXT_AUDIT.md)
+  измерил объём выбранных маршрутов. Сокращение повторных чтений в реальных
+  задачах требует отдельных наблюдений.
 
 [reviewable]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/guide/workflows/reviewable-agent-changes.md
 [reliability]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/guide/workflows/production-reliability.md
