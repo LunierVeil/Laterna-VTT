@@ -56,3 +56,6 @@ playwright-report/
 
 # Optional local Claude Code instructions
 /CLAUDE.md
+
+# Local Codex session handoffs
+/.agent-handoffs/
