@@ -9,7 +9,7 @@
 [LICENSE][license] распространяет гайд на условиях CC BY-SA 4.0.
 [README][readme] отдельно указывает CC0 1.0 для переиспользуемых шаблонов.
 Для заимствования конкретного файла нужно установить применимые условия,
-включая отдельные notices и права на вложенный контент. Workflow-01 использует
+включая отдельные notices и права на вложенный контент. Workflow-01 и Workflow-02 используют
 ссылки и самостоятельно написанные инструкции Laterna. Текст, скрипты и
 конфигурации из гайда в репозиторий не переносились.
 
@@ -33,9 +33,10 @@ P1 — практическая экономия работы, P2 — экспе
 | Самопроверка и независимое review · [Code Review][review] | Адаптация. Встроенный `/review` помогает в самопроверке. Независимое архитектурное review привязано к PR и полному HEAD. [Команды Codex][codex-cli] | P0 | `AGENTS.md`, `.agents/skills/pr-preflight/SKILL.md`, `CODEX_WORKFLOW.md` | 01 |
 | Доказательства проверок · [Code Review][review], [Agent Evaluation][eval] | Адаптация. Diff и локальные результаты с привязкой к исходникам, Fast CI push HEAD, отдельный Full CI test merge и CI required. | P0 | `.agents/skills/pr-preflight/SKILL.md`, `CODEX_WORKFLOW.md` | 01 |
 | Sandbox, approvals и доверие · [Security Hardening][security] | Адаптация. Проверять происхождение инструкций и применять ограничения Codex вместе с действующими границами прав, данных и публикации. [Codex Security][codex-security] | P0 | `AGENTS.md`, `.agents/skills/*/SKILL.md` | 01 |
-| Спецификация контрактов · [Spec-First][spec] | Прямо. Навык для протокола, прав, совместимости и связи критериев с проверками. | P1 | `.agents/skills/spec-first/SKILL.md` | 02 |
-| Red → Green → Refactor · [TDD][tdd] | Прямо. Воспроизводимый тест, минимальное исправление, профильный прогон. | P1 | `.agents/skills/tdd/SKILL.md` | 02 |
-| QA и CI · [TDD][tdd], [Code Review][review] | Адаптация. Изолированные browser/backend fixtures, отрицательные сценарии и проверка текущего test merge. | P0 | `.agents/skills/qa/SKILL.md`, `.agents/skills/ci/SKILL.md` | 02 |
+| Спецификация контрактов · [Spec-First][spec], [Plan-Driven][plan] | Прямо. Протокол, права, совместимость и связь критериев с проверками. | P1 | [spec-first](../../.agents/skills/spec-first/SKILL.md) | 02, реализовано |
+| Red → Green → Refactor · [TDD][tdd] | Прямо. Воспроизводимый тест, минимальное исправление, профильный прогон. | P1 | [tdd](../../.agents/skills/tdd/SKILL.md) | 02, реализовано |
+| QA и доказательства для ревью · [Reviewable Agent Changes][reviewable], [Code Review][review], [Production Reliability][reliability] | Адаптация. Риск-ориентированная матрица, изолированные fixtures и выводы со ссылками на проверки и пробелы покрытия. | P0 | [qa](../../.agents/skills/qa/SKILL.md) | 02, реализовано |
+| Диагностика CI · [GitHub Actions][actions], [Production Reliability][reliability] | Адаптация. Проверка фактических Actions run, попытки, SHA и обязательных jobs без автоматической публикации или обхода gate. | P0 | [ci](../../.agents/skills/ci/SKILL.md) | 02, реализовано |
 | Специализированные агенты · [Agents][agents] | Адаптация. Проектные TOML-профили Codex для архитектуры, backend/frontend review и проверки CI. Ограничить права и область. [Codex Subagents][codex-agents] | P1 | `.codex/agents/{architecture,backend-review,frontend-review,ci-review}.toml` | 03 |
 | Локальные hooks · [Hooks Events Reference][hooks] | Адаптация. Выбрать событие и поля по схеме установленного Codex. Проверить trust, тайм-аут и обработку ошибки. Кандидаты — проверка diff и ссылок. [Codex Hooks][codex-hooks] | P1 | `.codex/hooks.json`, локальные скрипты при необходимости | 04 |
 | Аудит контекста · [Context Engineering][context] | Адаптация. Сравнить размер обязательного контекста, повторные чтения и конфликты на одинаковых задачах. | P1 | `docs/agent-workflow/CONTEXT_AUDIT.md` | 05 |
@@ -59,6 +60,9 @@ P1 — практическая экономия работы, P2 — экспе
   о Ruleset сохраняются в профильных документах. Workflow-05 измерит экономию
   контекста на сопоставимых задачах.
 
+[reviewable]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/guide/workflows/reviewable-agent-changes.md
+[reliability]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/guide/workflows/production-reliability.md
+[actions]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/guide/workflows/github-actions.md
 [repo]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/tree/3fd3e805ffca92a5e69813daf46912a645cd549b
 [readme]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/README.md#license
 [license]: https://github.com/FlorianBruniaux/claude-code-ultimate-guide/blob/3fd3e805ffca92a5e69813daf46912a645cd549b/LICENSE
