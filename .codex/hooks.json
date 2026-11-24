@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I -B -c 'from hashlib import sha256\nfrom pathlib import Path\ncwd = Path.cwd()\nroot = next((p for p in (cwd, *cwd.parents) if (p / \".git\").exists()), None)\nif root is not None and (root / \".codex/hooks.json\").is_file():\n    script = root / \"scripts/codex_hooks/check_changes.py\"\n    source = b\"\"\n    if script.resolve() == script and script.is_file():\n        with script.open(\"rb\") as stream:\n            source = stream.read(32768)\n    if sha256(source.replace(b\"\\r\\n\", b\"\\n\")).hexdigest() == \"ea73d6246ca76ab36245076da4574ad228d85620875d56c86c8ffe65fc7a1074\":\n        exec(compile(source, str(script), \"exec\"), {\"__name__\": \"__main__\", \"__file__\": str(script)})\n    else:\n        print(\"{\\\"systemMessage\\\":\\\"ERROR Stop: project hook script unavailable or changed.\\\"}\")'",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
