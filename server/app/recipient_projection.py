@@ -4,7 +4,6 @@ CLEAR alone never replaces actor/campaign/ownership checks.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
 import anyio
@@ -13,9 +12,11 @@ import json
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import auth, fog
+from . import fog
+from .campaign_lookup import experimental_primary_campaign_id
 from .models import AuthSession, Campaign, Scene, Token, User, Wall
 from .roles import Actor
+from .sessions import session_expired
 from .db import SessionLocal
 from .gameplay_visibility import capture_scene, calculate_bounded
 
@@ -64,15 +65,13 @@ async def recipient(db: AsyncSession, session_hash: str, *, scene_id: str | None
 async def _recipient(db: AsyncSession, session_hash: str, *, scene_id: str | None = None):
     if not session_hash:
         return None
-    primary = (select(Campaign.id).order_by(Campaign.created_at, Campaign.id)
-               .limit(1).correlate(None).scalar_subquery())
     # Scalar columns deliberately bypass SQLAlchemy's identity map: an earlier
     # request check must not mask a committed role/session/campaign change.
     query = (select(AuthSession.created_at, User.id, User.name, User.is_gm,
                     Campaign.id, Campaign.active_scene_id).select_from(AuthSession)
              .join(User, User.id == AuthSession.user_id)
              .join(Campaign, Campaign.id == User.campaign_id)
-             .where(AuthSession.token_hash == session_hash, Campaign.id == primary))
+             .where(AuthSession.token_hash == session_hash, Campaign.id == experimental_primary_campaign_id()))
     if scene_id is not None:
         query = query.join(Scene, Scene.campaign_id == Campaign.id).where(
             Scene.id == scene_id, (User.is_gm | (Scene.id == Campaign.active_scene_id)))
@@ -80,9 +79,7 @@ async def _recipient(db: AsyncSession, session_hash: str, *, scene_id: str | Non
     if row is None:
         return None
     created, user_id, name, is_gm, campaign_id, active_id = row
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    if datetime.now(timezone.utc) - created > timedelta(seconds=auth.SESSION_MAX_AGE):
+    if session_expired(created):
         return None
     return Actor(user_id, name, bool(is_gm), session_hash), campaign_id, active_id
 

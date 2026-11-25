@@ -1,4 +1,4 @@
-"""Аккаунты и сессии.
+"""Аккаунты, приглашения и совместимые импорты операций над сессиями.
 
 Публичной регистрации нет. ГМ входит первый раз по ключу (roles.py) и
 задаёт себе имя и пароль; игроков создаёт он же. Дальше все входят по
@@ -8,20 +8,27 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .campaign_lookup import find_user as find_user
 from .models import AuthSession, Campaign, Invite, User
-from .roles import Actor
+from .sessions import (
+    SESSION_COOKIE as SESSION_COOKIE,
+    SESSION_MAX_AGE as SESSION_MAX_AGE,
+    actor_of as actor_of,
+    assume_utc as _aware,
+    create_session as create_session,
+    drop_session as drop_session,
+    session_id as session_id,
+    session_user as session_user,
+    token_digest as _digest,
+)
 
-SESSION_COOKIE = "lanterna_session"
-SESSION_MAX_AGE = 60 * 60 * 24 * 30
 MIN_PASSWORD = 8
 INVITE_TTL = timedelta(days=7)
 
@@ -71,12 +78,6 @@ def check_password(password: object) -> str:
     return value
 
 
-async def find_user(db: AsyncSession, campaign: Campaign, name: str) -> User | None:
-    return (
-        await db.execute(select(User).where(User.campaign_id == campaign.id, User.name == name))
-    ).scalar_one_or_none()
-
-
 async def create_user(
     db: AsyncSession, campaign: Campaign, name: object, password: object, *, is_gm: bool
 ) -> User:
@@ -90,49 +91,6 @@ async def create_user(
     db.add(user)
     await db.flush()
     return user
-
-
-def _digest(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-async def create_session(db: AsyncSession, user: User) -> str:
-    token = secrets.token_urlsafe(32)
-    db.add(AuthSession(token_hash=_digest(token), user_id=user.id))
-    await db.flush()
-    return token
-
-
-def _aware(moment: datetime) -> datetime:
-    # SQLite отдаёт время без пояса, хотя писали UTC.
-    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
-
-
-def session_id(token: str) -> str:
-    """Под каким ключом сессия лежит в базе (и в Actor.session)."""
-    return _digest(token)
-
-
-async def session_user(db: AsyncSession, token: str | None) -> User | None:
-    if not token:
-        return None
-    session = await db.get(AuthSession, _digest(token))
-    if session is None:
-        return None
-    # Срок cookie - это просьба к браузеру, а не гарантия: украденный токен
-    # можно слать и дальше. Поэтому срок проверяет и сервер.
-    if datetime.now(timezone.utc) - _aware(session.created_at) > timedelta(seconds=SESSION_MAX_AGE):
-        await db.delete(session)
-        await db.commit()
-        return None
-    return await db.get(User, session.user_id)
-
-
-async def drop_session(db: AsyncSession, token: str | None) -> None:
-    if token:
-        session = await db.get(AuthSession, _digest(token))
-        if session:
-            await db.delete(session)
 
 
 async def create_invite(db: AsyncSession, campaign: Campaign, user_id: str | None) -> str:
@@ -178,9 +136,3 @@ async def accept_invite(
     await db.delete(invite)
     await db.flush()
     return user
-
-
-def actor_of(user: User, token: str | None = None) -> Actor:
-    return Actor(
-        id=user.id, name=user.name, is_gm=user.is_gm, session=_digest(token) if token else ""
-    )
