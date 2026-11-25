@@ -7,7 +7,13 @@ import re
 import urllib.request
 import xml.etree.ElementTree as ET
 
-GROUP_COUNTS = {'sheets': 8, 'tokens': 9, 'scenes': 5, 'interaction': 16, 'http-uuid': 8}
+BROWSER_DIR = Path(__file__).resolve().parents[1] / 'web/tests/browser'
+INVENTORY = json.loads((BROWSER_DIR / 'inventory.json').read_text(encoding='utf-8'))
+GROUP_CASES = {
+    group: sorted([f'{suite}.test.mjs', name] for suite in suites for name in INVENTORY['suites'][suite])
+    for group, suites in (INVENTORY['groups'] | {'http-uuid': INVENTORY['httpSuites']}).items()
+}
+GROUP_COUNTS = {group: len(cases) for group, cases in GROUP_CASES.items()}
 SHA = re.compile(r'[0-9a-f]{40}')
 
 
@@ -22,12 +28,20 @@ def browser_evidence(group, sha, run_id, attempt, report):
     root = ET.parse(report).getroot()
     cases = root.findall('.//testcase')
     require(len(cases) == GROUP_COUNTS[group], f'Wrong test count for {group}: {len(cases)}')
-    identities = {(case.get('file'), case.get('name')) for case in cases}
-    require(all(name for _, name in identities) and len(identities) == len(cases), 'Missing or duplicate browser testcase identity')
+    identities = []
+    for case in cases:
+        file = case.get('file', '').replace('\\', '/').split('/')
+        name = case.get('name')
+        require(file[-4:-1] == ['web', 'tests', 'browser'] and name, 'Invalid browser testcase inventory identity')
+        identities.append([file[-1], name])
+    require(sorted(identities) == GROUP_CASES[group], f'Unexpected browser testcase inventory for {group}')
     require(not any(root.findall(f'.//{tag}') for tag in ('failure', 'error', 'skipped')), 'Failed or skipped browser tests')
     for suite in root.iter('testsuite'):
         require(all(int(suite.get(k, '0')) == 0 for k in ('failures', 'errors', 'skipped', 'disabled')), 'Unsuccessful browser suite')
-    return {'group': group, 'sha': sha, 'run_id': str(run_id), 'attempt': str(attempt), 'passed': len(cases)}
+    return {
+        'group': group, 'sha': sha, 'run_id': str(run_id), 'attempt': str(attempt),
+        'passed': len(cases), 'testcases': sorted(identities),
+    }
 
 
 def validate(needs, records, run_id, attempt, candidate=''):
@@ -48,6 +62,7 @@ def validate(needs, records, run_id, attempt, candidate=''):
         require(record.get('sha') == sha, 'Stale Chromium SHA')
         require(record.get('run_id') == str(run_id) and record.get('attempt') == str(attempt), 'Stale Chromium run or attempt')
         require(record.get('passed') == GROUP_COUNTS[record['group']], 'Incomplete Chromium group')
+        require(record.get('testcases') == GROUP_CASES[record['group']], 'Unexpected Chromium testcase inventory')
     return sha
 
 

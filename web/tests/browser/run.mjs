@@ -2,13 +2,9 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
+import inventory from './inventory.json' with { type: 'json' };
 
-export const groups = {
-  sheets: ['sheets'],
-  tokens: ['tokens', 'network', 'sheet-lifecycle'],
-  scenes: ['scenes', 'auth'],
-  interaction: ['chat-dice', 'ui', 'smoke', 'design-system', 'components-v03', 'initiative', 'catalog'],
-};
+export const { groups } = inventory;
 export const suites = Object.values(groups).flat();
 const args = process.argv.slice(2);
 let selected = suites;
@@ -18,7 +14,11 @@ if (args.length) {
     throw Error('Usage: node tests/browser/run.mjs [--suite NAME | --group NAME]');
   }
   insecureHttp = args[0] === '--group' && args[1] === 'http-uuid';
-  selected = args[0] === '--group' ? groups[args[1]] : suites.includes(args[1]) ? [args[1]] : undefined;
+  if (args[0] === '--group') {
+    selected = Object.hasOwn(groups, args[1]) ? groups[args[1]] : undefined;
+  } else {
+    selected = suites.includes(args[1]) ? [args[1]] : undefined;
+  }
   if (!selected && !insecureHttp) throw Error(`Unknown browser selection: ${args[1]}`);
 }
 const entries = insecureHttp ? ['http-uuid.mjs'] : selected.map(name => `${name}.test.mjs`);

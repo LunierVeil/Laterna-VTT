@@ -21,8 +21,11 @@ class WorkflowContracts(unittest.TestCase):
     def test_matrix_covers_every_suite_exactly_once(self):
         groups = self.full['jobs']['browser']['strategy']['matrix']['group']
         runner = (ROOT/'web/tests/browser/run.mjs').read_text()
-        mapping = {name: re.findall(r"'([^']+)'", contents) for name, contents in re.findall(r"^  (\w+): \[([^\]]+)\]", runner, re.M)}
+        inventory = json.loads((ROOT/'web/tests/browser/inventory.json').read_text())
+        mapping = inventory['groups']
+        self.assertIn("import inventory from './inventory.json'", runner)
         self.assertEqual(set(groups), set(mapping) | {'http-uuid'})
+        self.assertEqual(len(groups), len(set(groups)))
         suites = [suite for group in mapping for suite in mapping[group]]
         self.assertEqual(len(suites), len(set(suites)))
         self.assertEqual({f'{s}.test.mjs' for s in suites}, {p.name for p in (ROOT/'web/tests/browser').glob('*.test.mjs')})
@@ -32,12 +35,35 @@ class WorkflowContracts(unittest.TestCase):
         http_runner = (ROOT/'web/tests/browser/http-uuid.mjs').read_text()
         http_suites = re.findall(r"await import\('\./([^']+)\.test\.mjs'\)", http_runner)
         self.assertCountEqual(http_suites, ['catalog', 'tokens'])
+        self.assertCountEqual(http_suites, inventory['httpSuites'])
         self.assertIn("insecureHttp ? ['http-uuid.mjs']", runner)
         self.assertEqual(set(gate.GROUP_COUNTS), set(groups))
-        for group, group_suites in (mapping | {'http-uuid': http_suites}).items():
-            count=sum(len(re.findall(r'^test\(', (ROOT/f'web/tests/browser/{suite}.test.mjs').read_text(), re.M)) for suite in group_suites)
-            self.assertEqual(count, gate.GROUP_COUNTS[group], group)
+        self.assertEqual(set(suites), set(inventory['suites']))
+        for suite in suites:
+            source = (ROOT/f'web/tests/browser/{suite}.test.mjs').read_text()
+            names = re.findall(r"^test\('([^']+)'", source, re.M)
+            self.assertEqual(len(names), len(set(names)), suite)
+            self.assertCountEqual(names, inventory['suites'][suite], suite)
         self.assertEqual(sum(gate.GROUP_COUNTS[group] for group in mapping), 38)
+
+    def test_backend_keeps_one_complete_pytest_schedule_and_service_checks(self):
+        for workflow in (self.fast, self.full):
+            with self.subTest(workflow=workflow['name']):
+                steps = workflow['jobs']['backend']['steps']
+                runs = [step.get('run', '') for step in steps]
+                self.assertIn('python -m pip install -r server/requirements.txt -r server/requirements-ci.txt', runs)
+                self.assertIn('python -m unittest discover -s scripts/tests -v', runs)
+                pytest = [run for run in runs if 'python -m pytest' in run]
+                self.assertEqual(pytest, ['python -m pytest server/tests -q -n 4 --dist loadfile --junitxml=artifacts/backend.xml'])
+
+    def test_build_retains_typecheck_with_frontend_unit_tests(self):
+        package = json.loads((ROOT/'web/package.json').read_text())
+        self.assertEqual(package['scripts']['build'].split(' && ')[0], package['scripts']['typecheck'])
+        for workflow in (self.fast, self.full):
+            runs = [step.get('run') for step in workflow['jobs']['frontend']['steps']]
+            self.assertIn('npm test', runs)
+            self.assertIn('npm run build', runs)
+            self.assertNotIn('npm run typecheck', runs)
 
     def test_full_gate_is_always_and_cannot_export_unchecked_sha(self):
         required = self.full['jobs']['required']

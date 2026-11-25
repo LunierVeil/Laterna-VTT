@@ -1,0 +1,79 @@
+{
+  "groups": {
+    "sheets": ["sheets", "initiative", "sheet-lifecycle"],
+    "sheet-layout": ["sheet-layout", "components-v03", "design-system"],
+    "tokens": ["tokens"],
+    "scenes": ["scenes", "ui"],
+    "interaction": ["chat-dice", "catalog"],
+    "auth": ["auth", "network", "smoke"]
+  },
+  "httpSuites": ["catalog", "tokens"],
+  "suites": {
+    "auth": [
+      "Final shared invite: one copied link for independent users, repeat login, pause and revoke"
+    ],
+    "catalog": [
+      "Catalog: PC/NPC UI create, copy, placement, owner/GM visibility and safe deletion detach"
+    ],
+    "chat-dice": [
+      "Alpha chat: open, hide from chat, return, preserve draft; rotate and resize canvas",
+      "v012 dice: seven types, server faces/totals on two clients, chat history, secret rolls and nonblocking cleanup",
+      "v012 dice mobile: viewport fit, close/quick roll, disable preference, reduced motion, rapid bounded rolls"
+    ],
+    "components-v03": [
+      "Components v0.3 Tabs: roving focus, conditional/disabled tabs, retained drafts and narrow overflow",
+      "Components v0.3 Dialog: native modal, safe Enter, trap, restore, cancel, pending and async error",
+      "Components v0.3 Tooltip: hover delay, focus, Escape, all placements and viewport collision",
+      "Components v0.3 Select: native keyboard, controlled value, disabled, error, loading and ref"
+    ],
+    "design-system": [
+      "Design System: ConfirmDialog safe focus, keyboard, backdrop and confirmation",
+      "Design System: fields, checkboxes, refs, native forms and disabled behavior",
+      "Design System: palette, button states and keyboard skips disabled controls"
+    ],
+    "initiative": [
+      "Initiative: linked bonus, server d20 result, owner/GM rights and missing bonus fallback"
+    ],
+    "network": [
+      "B06: portrait edits and mob deletion update both live scenes after automatic reconnect"
+    ],
+    "scenes": [
+      "B01/B02: live player renders fog events and the correct snapshot when GM changes scene",
+      "Fog images: repeated reveal restores sprite pixels without rebuilding stage or leaking hidden tokens",
+      "v012 scenes: folder CRUD, menu/order/drag, private lazy previews and persistence without scene data loss",
+      "Final scenes: explicit current/active labels, one-tap preview, rename without switching and settings"
+    ],
+    "sheet-layout": [
+      "B10 PC: populated sheet fits every mobile tab in view and edit modes",
+      "B10 NPC: populated sheet fits every mobile tab in view and edit modes",
+      "Alpha layout: empty/populated PC and mob, view/edit, six widths; controls stay inside cards"
+    ],
+    "sheet-lifecycle": [
+      "Sheet lifecycle: unsaved card/editor survive events, scene and reconnect; Context commands remain live"
+    ],
+    "sheets": [
+      "B03: open PC and mob sheets retain geometry without overlaps after a scene switch",
+      "B05: damage from sheet and token card consumes temporary hp and broadcasts the remainder",
+      "Alpha skills: grouped main controls, expertise/manual/automatic bonuses, search and server rolls preserve data",
+      "Final sheets: native middle autoscroll cannot escape the sheet; wheel and reopening work",
+      "Final NPC equipment: shared card editor CRUD, document, reload and player privacy"
+    ],
+    "smoke": [
+      "Repository smoke_test.py"
+    ],
+    "tokens": [
+      "B04: GM button, player button and drag/drop place a linked token owned by the player",
+      "B08/B09: actual dragging keeps distance clear of token card and Alt disables snapping",
+      "B07: deleting a mob detaches the rendered tokens on both connected clients",
+      "Alpha token settings: linked controls removed without data loss; legacy and unlinked tokens remain usable",
+      "v012 multi-select: Shift clicks and rectangle, permission-aware Delete/button, fog/removal and snapshot cleanup",
+      "Final preview desktop: real intermediate ghosts, unchanged DB, commit/reject/cancel, disconnect and stale packets",
+      "Final preview touch and secrecy: touch drag/cancel, GM-layer, fog destination, scene switch"
+    ],
+    "ui": [
+      "B12: mobile panels collapse and restore map space",
+      "B11: explicit ping tool on touch device broadcasts to the GM",
+      "Alpha tools: capabilities instead of width; player creation removed, ruler/GM tools and Alt ping work"
+    ]
+  }
+}

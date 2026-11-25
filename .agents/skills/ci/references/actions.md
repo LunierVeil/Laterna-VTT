@@ -48,8 +48,8 @@ gh run view "$run_id" --json attempt,event,headSha,status,conclusion,jobs,url
   `Full CI passed for …` успешного job `CI required` или из свидетельств
   `chromium-evidence-<run>-<attempt>-<group>`. Сверь его с текущим test merge.
 - В одной и той же попытке требуются `resolve`, `backend`, `frontend`,
-  `browser (sheets)`, `browser (tokens)`, `browser (scenes)`,
-  `browser (interaction)`, `browser (http-uuid)` и `CI required`, все со статусом success.
+  jobs для каждой browser-группы из [матрицы Full CI](../../../../.github/workflows/ci.yml)
+  и `CI required`, все со статусом success.
   Для точной попытки используй
   `gh api "repos/$repo/actions/runs/$run_id/attempts/$attempt/jobs" --paginate`.
   Сверь Run ID, attempt и SHA с [проверкой gate](../../../../scripts/ci_gate.py).
