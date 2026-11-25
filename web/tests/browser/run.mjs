@@ -4,22 +4,25 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 export const groups = {
-  sheets: ['sheets', 'sheet-lifecycle'],
-  tokens: ['tokens', 'network'],
+  sheets: ['sheets'],
+  tokens: ['tokens', 'network', 'sheet-lifecycle'],
   scenes: ['scenes', 'auth'],
   interaction: ['chat-dice', 'ui', 'smoke', 'design-system', 'components-v03', 'initiative', 'catalog'],
 };
 export const suites = Object.values(groups).flat();
 const args = process.argv.slice(2);
 let selected = suites;
+let insecureHttp = false;
 if (args.length) {
   if (args.length !== 2 || !['--suite', '--group'].includes(args[0])) {
     throw Error('Usage: node tests/browser/run.mjs [--suite NAME | --group NAME]');
   }
+  insecureHttp = args[0] === '--group' && args[1] === 'http-uuid';
   selected = args[0] === '--group' ? groups[args[1]] : suites.includes(args[1]) ? [args[1]] : undefined;
-  if (!selected) throw Error(`Unknown browser selection: ${args[1]}`);
+  if (!selected && !insecureHttp) throw Error(`Unknown browser selection: ${args[1]}`);
 }
-const files = selected.map(name => fileURLToPath(new URL(`./${name}.test.mjs`, import.meta.url)));
+const entries = insecureHttp ? ['http-uuid.mjs'] : selected.map(name => `${name}.test.mjs`);
+const files = entries.map(entry => fileURLToPath(new URL(`./${entry}`, import.meta.url)));
 const reporters = [];
 if (process.env.BROWSER_JUNIT) {
   mkdirSync(dirname(process.env.BROWSER_JUNIT), {recursive: true});

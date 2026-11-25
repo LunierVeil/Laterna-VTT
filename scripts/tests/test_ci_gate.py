@@ -60,7 +60,7 @@ class RequiredGateTests(unittest.TestCase):
         self.assertEqual(gate.validate(self.needs, self.records, '123', '2', SHA), SHA)
 
     def test_groups_require_the_added_catalog_and_sheet_lifecycle_cases(self):
-        for group, expected, invalid in [('sheets', 9, (8, 10)), ('interaction', 16, (14, 15, 17))]:
+        for group, expected, invalid in [('tokens', 9, (8, 10)), ('interaction', 16, (14, 15, 17))]:
             self.assertEqual(gate.GROUP_COUNTS[group], expected)
             for count in invalid:
                 records = copy.deepcopy(self.records)
@@ -69,16 +69,39 @@ class RequiredGateTests(unittest.TestCase):
                     gate.validate(self.needs, records, '123', '2')
         self.assertEqual(self.check(), SHA)
 
-    def test_junit_rejects_zero_missing_failed_skipped_or_disabled_tests(self):
-        valid = '<testsuites><testsuite>' + '<testcase name="test"/>'*9 + '</testsuite></testsuites>'
-        variants = [valid.replace('<testcase name="test"/>', '', 1), valid.replace('<testcase name="test"/>', '<testcase><skipped/></testcase>', 1), valid.replace('<testsuite>', '<testsuite disabled="1">'), valid.replace('<testcase name="test"/>', '<testcase><failure/></testcase>', 1), '<testsuites/>']
+    def test_junit_rejects_missing_duplicate_failed_skipped_or_disabled_tests(self):
+        valid = '<testsuites><testsuite>' + ''.join(f'<testcase name="test-{i}"/>' for i in range(8)) + '</testsuite></testsuites>'
+        first = '<testcase name="test-0"/>'
+        variants = [
+            valid.replace(first, '', 1),
+            valid.replace(first, '<testcase name="test-1"/>', 1),
+            valid.replace(first, '<testcase><skipped/></testcase>', 1),
+            valid.replace('<testsuite>', '<testsuite disabled="1">'),
+            valid.replace(first, '<testcase><failure/></testcase>', 1),
+            '<testsuites/>',
+        ]
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'results.xml'
             path.write_text(valid)
-            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 9)
+            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 8)
             for invalid in variants:
                 path.write_text(invalid)
                 with self.subTest(invalid=invalid[:90]), self.assertRaises(ValueError): gate.browser_evidence('sheets', SHA, '123', '2', path)
+
+    def test_http_uuid_requires_eight_passes_in_the_same_attempt(self):
+        self.assertEqual(gate.GROUP_COUNTS.get('http-uuid'), 8)
+        original = copy.deepcopy(self.records)
+        http = next(record for record in self.records if record['group'] == 'http-uuid')
+        for key, value in [('passed', 7), ('sha', 'b' * 40), ('run_id', '122'), ('attempt', '1')]:
+            with self.subTest(key=key):
+                self.records = [dict(record, **{key: value}) if record == http else record for record in original]
+                with self.assertRaises(ValueError):
+                    self.check()
+        self.records = [record for record in original if record != http]
+        with self.assertRaises(ValueError):
+            self.check()
+        self.records = original
+        self.assertEqual(self.check(), SHA)
 
     def test_pr_head_base_merge_draft_and_state_must_remain_current(self):
         old = {'head': {'sha': 'b'*40}, 'base': {'sha': 'c'*40}}

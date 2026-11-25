@@ -7,7 +7,7 @@ import re
 import urllib.request
 import xml.etree.ElementTree as ET
 
-GROUP_COUNTS = {'sheets': 9, 'tokens': 8, 'scenes': 5, 'interaction': 16}
+GROUP_COUNTS = {'sheets': 8, 'tokens': 9, 'scenes': 5, 'interaction': 16, 'http-uuid': 8}
 SHA = re.compile(r'[0-9a-f]{40}')
 
 
@@ -22,6 +22,8 @@ def browser_evidence(group, sha, run_id, attempt, report):
     root = ET.parse(report).getroot()
     cases = root.findall('.//testcase')
     require(len(cases) == GROUP_COUNTS[group], f'Wrong test count for {group}: {len(cases)}')
+    identities = {(case.get('file'), case.get('name')) for case in cases}
+    require(all(name for _, name in identities) and len(identities) == len(cases), 'Missing or duplicate browser testcase identity')
     require(not any(root.findall(f'.//{tag}') for tag in ('failure', 'error', 'skipped')), 'Failed or skipped browser tests')
     for suite in root.iter('testsuite'):
         require(all(int(suite.get(k, '0')) == 0 for k in ('failures', 'errors', 'skipped', 'disabled')), 'Unsuccessful browser suite')
@@ -96,7 +98,7 @@ def main():
         check_current(os.environ['GITHUB_EVENT_NAME'], json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text()), sha, candidate, github_request)
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write(f'tested_sha={sha}\n')
-        print(f'Full CI passed for {sha}; all four Chromium groups belong to this run and attempt.')
+        print(f'Full CI passed for {sha}; all {len(GROUP_COUNTS)} Chromium groups belong to this run and attempt.')
 
 
 if __name__ == '__main__':
