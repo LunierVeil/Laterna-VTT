@@ -3,6 +3,7 @@ uvicorn[standard]>=0.32
 # [asyncio] тянет greenlet. Без него async-движок SQLAlchemy не стартует,
 # и на свежих Python он не приезжает транзитивно.
 sqlalchemy[asyncio]>=2.0.36
+alembic==1.18.4
 greenlet>=3.2
 pydantic>=2.9
 # Пароли игроков. argon2id - медленный и требовательный к памяти хеш,
