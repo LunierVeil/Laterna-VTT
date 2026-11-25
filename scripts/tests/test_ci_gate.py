@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 spec = importlib.util.spec_from_file_location('ci_gate', Path(__file__).resolve().parents[1] / 'ci_gate.py')
 gate = importlib.util.module_from_spec(spec)
@@ -16,7 +17,11 @@ class RequiredGateTests(unittest.TestCase):
         self.needs['resolve']['outputs'] = {'sha': SHA, 'full': 'true'}
         for name in ('backend', 'frontend'):
             self.needs[name]['outputs'].update(tested_sha=SHA, run_id='123', attempt='2')
-        self.records = [{'group': group, 'sha': SHA, 'run_id': '123', 'attempt': '2', 'passed': count} for group, count in gate.GROUP_COUNTS.items()]
+        self.records = [
+            {'group': group, 'sha': SHA, 'run_id': '123', 'attempt': '2',
+             'passed': len(cases), 'testcases': copy.deepcopy(cases)}
+            for group, cases in gate.GROUP_CASES.items()
+        ]
 
     def check(self):
         return gate.validate(self.needs, self.records, '123', '2')
@@ -31,6 +36,11 @@ class RequiredGateTests(unittest.TestCase):
                     self.needs[name]['result'] = status
                     with self.assertRaises(ValueError): self.check()
             self.needs[name]['result'] = 'success'
+        for name in self.needs.copy():
+            job = self.needs.pop(name)
+            with self.subTest(missing=name), self.assertRaisesRegex(ValueError, 'Missing required job'):
+                self.check()
+            self.needs[name] = job
 
     def test_rejects_missing_duplicate_wrong_or_stale_evidence(self):
         original = copy.deepcopy(self.records)
@@ -59,8 +69,8 @@ class RequiredGateTests(unittest.TestCase):
         with self.assertRaises(ValueError): gate.validate(self.needs, self.records, '123', '2', 'master')
         self.assertEqual(gate.validate(self.needs, self.records, '123', '2', SHA), SHA)
 
-    def test_groups_require_the_added_catalog_and_sheet_lifecycle_cases(self):
-        for group, expected, invalid in [('tokens', 9, (8, 10)), ('interaction', 16, (14, 15, 17))]:
+    def test_groups_require_the_full_catalog_and_sheet_lifecycle_counts(self):
+        for group, expected, invalid in [('sheets', 7, (6, 8)), ('interaction', 4, (3, 5))]:
             self.assertEqual(gate.GROUP_COUNTS[group], expected)
             for count in invalid:
                 records = copy.deepcopy(self.records)
@@ -70,23 +80,28 @@ class RequiredGateTests(unittest.TestCase):
         self.assertEqual(self.check(), SHA)
 
     def test_junit_rejects_missing_duplicate_failed_skipped_or_disabled_tests(self):
-        valid = '<testsuites><testsuite>' + ''.join(f'<testcase name="test-{i}"/>' for i in range(8)) + '</testsuite></testsuites>'
-        first = '<testcase name="test-0"/>'
-        variants = [
-            valid.replace(first, '', 1),
-            valid.replace(first, '<testcase name="test-1"/>', 1),
-            valid.replace(first, '<testcase><skipped/></testcase>', 1),
-            valid.replace('<testsuite>', '<testsuite disabled="1">'),
-            valid.replace(first, '<testcase><failure/></testcase>', 1),
-            '<testsuites/>',
-        ]
+        root = ET.Element('testsuites')
+        suite = ET.SubElement(root, 'testsuite')
+        for file, name in gate.GROUP_CASES['sheets']:
+            ET.SubElement(suite, 'testcase', name=name, file=f'/checkout/web/tests/browser/{file}')
+        variants = {
+            'missing': lambda s: s.remove(s[0]),
+            'duplicate': lambda s: s[0].attrib.update(s[1].attrib),
+            'wrong-file': lambda s: s[0].set('file', '/other/sheets.test.mjs'),
+            'skipped': lambda s: ET.SubElement(s[0], 'skipped'),
+            'disabled': lambda s: s.set('disabled', '1'),
+            'failed': lambda s: ET.SubElement(s[0], 'failure'),
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp)/'results.xml'
-            path.write_text(valid)
-            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['passed'], 8)
-            for invalid in variants:
-                path.write_text(invalid)
-                with self.subTest(invalid=invalid[:90]), self.assertRaises(ValueError): gate.browser_evidence('sheets', SHA, '123', '2', path)
+            path = Path(tmp) / 'results.xml'
+            ET.ElementTree(root).write(path)
+            self.assertEqual(gate.browser_evidence('sheets', SHA, '123', '2', path)['testcases'], gate.GROUP_CASES['sheets'])
+            for label, mutate in variants.items():
+                invalid = copy.deepcopy(root)
+                mutate(invalid[0])
+                ET.ElementTree(invalid).write(path)
+                with self.subTest(invalid=label), self.assertRaises(ValueError):
+                    gate.browser_evidence('sheets', SHA, '123', '2', path)
 
     def test_http_uuid_requires_eight_passes_in_the_same_attempt(self):
         self.assertEqual(gate.GROUP_COUNTS.get('http-uuid'), 8)
@@ -102,6 +117,22 @@ class RequiredGateTests(unittest.TestCase):
             self.check()
         self.records = original
         self.assertEqual(self.check(), SHA)
+
+    def test_gate_rechecks_case_identities_in_artifact(self):
+        self.records[0]['testcases'][-1][1] = 'Unexpected testcase with the same count'
+        with self.assertRaisesRegex(ValueError, 'testcase inventory'):
+            self.check()
+
+    def test_correct_count_with_substituted_testcase_is_rejected(self):
+        report = '<testsuites>' + ''.join(
+            f'<testcase file="/checkout/web/tests/browser/sheets.test.mjs" name="substitute-{i}"/>'
+            for i in range(gate.GROUP_COUNTS['sheets'])
+        ) + '</testsuites>'
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'results.xml'
+            path.write_text(report)
+            with self.assertRaisesRegex(ValueError, 'testcase inventory'):
+                gate.browser_evidence('sheets', SHA, '123', '2', path)
 
     def test_pr_head_base_merge_draft_and_state_must_remain_current(self):
         old = {'head': {'sha': 'b'*40}, 'base': {'sha': 'c'*40}}

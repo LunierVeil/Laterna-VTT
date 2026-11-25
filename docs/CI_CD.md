@@ -21,6 +21,11 @@ DOCS-00 не меняет workflows, manifest или gate и не запуска
 `fast-ci.yml` запускает backend и frontend при push в рабочие ветки и для draft PR.
 Он проверяет pytest, служебные unittest, TypeScript, frontend unit и production build.
 Chromium не устанавливается. Этот workflow не создаёт контекст `CI required`.
+Fast CI и Full CI выполняют весь backend pytest одним запуском с четырьмя
+process workers (`--dist loadfile`). Зависимости workers установлены из
+`server/requirements-ci.txt` только в backend jobs. Каждый процесс использует
+временное состояние из conftest. TypeScript проверяется один раз внутри
+`npm run build`, а `npm test` остаётся отдельной проверкой.
 
 `ci.yml` (Full CI) запускается для готовых PR в master, после push в master,
 вручную через workflow_dispatch и как reusable workflow для Windows candidate.
@@ -30,14 +35,16 @@ Chromium не устанавливается. Этот workflow не созда�
 
 Ref один раз разрешается в SHA. Backend, frontend и все Chromium-группы получают
 одинаковый checkout. Backend/frontend сообщают SHA, run ID и attempt только после
-успешных проверок. Chromium работает пятью независимыми jobs (fail-fast=false):
+успешных проверок. Chromium работает семью независимыми jobs (fail-fast=false):
 
 | Группа | Suites | Проверок |
 | --- | --- | --- |
-| sheets | sheets | 8 |
-| tokens | tokens, network, sheet-lifecycle | 9 |
-| scenes | scenes, auth | 5 |
-| interaction | chat-dice, ui, smoke, design-system, components-v03, initiative, catalog | 16 |
+| sheets | sheets, initiative, sheet-lifecycle | 7 |
+| sheet-layout | sheet-layout, components-v03, design-system | 10 |
+| tokens | tokens | 7 |
+| scenes | scenes, ui | 7 |
+| interaction | chat-dice, catalog | 4 |
+| auth | auth, network, smoke | 3 |
 | http-uuid | catalog, tokens на реальном insecure LAN HTTP | 8 |
 
 Обычные группы сохраняют 37 UI-тестов и самостоятельный smoke_test.py (38 проверок, включая три
@@ -47,14 +54,20 @@ Ref один раз разрешается в SHA. Backend, frontend и все C
 имеет отдельную временную SQLite, uploads, ключ, API/Vite, порты, браузер и contexts.
 HTTP-группа повторяет прежнюю отдельную команду с теми же восьмью сценариями
 через `npm run test:browser -- --group http-uuid`, со своей временной средой и JUnit.
-Запуск внутри группы последовательный; группы работают на разных GitHub runners.
+Запуск внутри группы последовательный. Группы работают на разных GitHub
+runners c Chromium headless shell установленной версии Playwright.
 `BROWSER_RESULTS_DIR` разделён по группе и suite. В диагностику входят runner.log,
 JUnit, server/Vite logs, screenshots и startup.json с временами создания canvas.
 Базы и ключи в artifacts не включаются.
 
-`scripts/ci_gate.py` проверяет реальные JUnit testcase: нулевой, неполный,
-failed/skipped/disabled прогон и дубликаты testcase отклоняются. Пять evidence
-артефакта связываются с SHA, github.run_id и github.run_attempt. `CI required`
+[`inventory.json`](../web/tests/browser/inventory.json) задаёт ожидаемые имена
+testcase по suite и раскладку. При добавлении или переносе testcase обновите
+соответствующую запись в inventory и проверьте JUnit выбранной группы. Если
+меняются группы, синхронизируйте матрицу workflow. Launcher и gate используют
+этот же файл. Gate сверяет пару «файл suite, имя testcase» в JUnit и повторно
+проверяет список в evidence. Неполный или failed/skipped/disabled прогон,
+неизвестные и повторные testcase отклоняются. Семь evidence
+артефактов связываются с SHA, github.run_id и github.run_attempt. `CI required`
 исполняется через always() и отклоняет failed/cancelled/skipped jobs, отсутствующие
 или повторные группы, старые SHA/run/attempt и несоответствие candidate SHA.
 Выход tested_sha появляется только после полного успешного gate.
@@ -138,7 +151,7 @@ gh workflow run windows-release.yml --ref master -f candidate_ref=FULL_SHA -f pu
 использовать новую конфигурацию Full CI; candidate_ref задавайте полным SHA.
 
 Для PR из рабочей ветки в master проверьте Full CI: backend, frontend,
-четыре обычные browser-группы, `browser (http-uuid)` и CI required. PR должен быть готовым к review (не draft).
+шесть обычных browser-групп, `browser (http-uuid)` и CI required. PR должен быть готовым к review (не draft).
 Сверьте refs/pull/<number>/merge с SHA resolve/checkout и tested_sha успешного gate,
 а его родителей — с актуальными head/base. После изменения head/base нужен новый
 полный прогон; старые результаты кандидата не подтверждают новый merge-коммит.
@@ -150,7 +163,7 @@ Windows release и publish на событии PR должны отсутств�
 - Require status checks to pass: `CI required` из Full CI, источник GitHub Actions.
   Выберите точное имя контекста после появления проверки на PR; не подставляйте
   `checks / CI required` из reusable Windows candidate. Gate уже требует backend,
-  frontend и все пять Chromium-групп; Fast CI его не заменяет.
+  frontend и все семь Chromium-групп; Fast CI его не заменяет.
 - Require branches to be up to date before merging (strict required checks).
 - Запретить force-push и удаление master; исключить обход обязательного PR/gate,
   в том числе административный bypass.

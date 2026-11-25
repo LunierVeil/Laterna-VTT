@@ -1,0 +1,3 @@
+# Test-only process workers for GitHub Actions. Runtime and browser fixtures use requirements.txt.
+pytest-xdist==3.8.0
+execnet==2.1.1

@@ -65,12 +65,14 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: server/requirements.txt
-      - run: python -m pip install -r server/requirements.txt
+          cache-dependency-path: |
+            server/requirements.txt
+            server/requirements-ci.txt
+      - run: python -m pip install -r server/requirements.txt -r server/requirements-ci.txt
       - name: Migration snapshot safety tests
         run: python -m unittest discover -s scripts/tests -v
       - name: All backend tests, including SQLite upgrades
-        run: python -m pytest server/tests -q --junitxml=artifacts/backend.xml
+        run: python -m pytest server/tests -q -n 4 --dist loadfile --junitxml=artifacts/backend.xml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
@@ -110,7 +112,6 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run typecheck
       - run: npm test
       - run: npm run build
 
@@ -132,7 +133,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [sheets, tokens, scenes, interaction, http-uuid]
+        group: [sheets, sheet-layout, tokens, scenes, interaction, auth, http-uuid]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -153,7 +154,7 @@ jobs:
           server/.venv/bin/python -m pip install -r server/requirements.txt
       - run: npm ci
         working-directory: web
-      - run: npx --no-install playwright install --with-deps chromium
+      - run: npx --no-install playwright install --with-deps --only-shell chromium
         working-directory: web
       - name: Chromium group and isolated evidence
         env:
