@@ -20,14 +20,13 @@ from .instance_backup import (
     MAX_BYTES, MAX_MANIFEST, BackupError, _regular_file, _stamp, _upload_paths,
     create_backup, verify_backup,
 )
+from .schema_catalog import ALPHA_CATALOG_SHA256 as SOURCE_CATALOG_SHA256
+from .schema_catalog import catalog_digest, sqlite_catalog
 from .storage_lock import own_storage
 from .storage_preflight import StorageError, _entry, check_storage
 
 FENCE = ".laterna-upgrade-in-progress"
 SOURCE_REVISION = "pb07-v0"
-# Frozen SQLite catalog for the schema from PB-07 B. Do not regenerate
-# this value when a future migrator changes the ORM models.
-SOURCE_CATALOG_SHA256 = "9ad6459f345338d3cb76f5720090000b2f56bf2d1f439cfb53513d5979700c4b"
 LOCAL_FILESYSTEMS = {"ext4", "xfs", "btrfs"}
 UNSAFE_OPTIONS = {"nobarrier", "barrier=0"}
 
@@ -116,13 +115,6 @@ def _write_exclusive(path: Path, contents: bytes) -> tuple:
         return _stamp(os.fstat(output.fileno()))
 
 
-def _catalog(connection: sqlite3.Connection) -> list[tuple]:
-    return connection.execute(
-        "SELECT type,name,tbl_name,sql FROM sqlite_schema "
-        "WHERE name NOT GLOB 'sqlite_*' ORDER BY type,name"
-    ).fetchall()
-
-
 def _require_no_sidecars(database: Path) -> None:
     for suffix in ("-wal", "-shm", "-journal"):
         if _entry(database.with_name(database.name + suffix), directory=False):
@@ -132,8 +124,8 @@ def _require_no_sidecars(database: Path) -> None:
 def _require_known_schema(database: Path) -> dict[str, set[str]]:
     _require_no_sidecars(database)
     with _regular_file(database), closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as current:
-        catalog = _catalog(current)
-        digest = hashlib.sha256(json.dumps(catalog, ensure_ascii=False).encode()).hexdigest()
+        catalog = sqlite_catalog(current)
+        digest = catalog_digest(catalog)
         if (current.execute("PRAGMA user_version").fetchone() != (0,)
                 or current.execute("PRAGMA application_id").fetchone() != (0,)
                 or digest != SOURCE_CATALOG_SHA256):
