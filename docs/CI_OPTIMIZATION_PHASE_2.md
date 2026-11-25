@@ -141,3 +141,139 @@ pip и runner allocation и потребовали отдельной сборк
 В Fast CI и Full CI убран только второй запуск одинакового typecheck:
 `npm run build` запускает тот же `tsc --noEmit` до Vite. Frontend unit
 сохранены. Push HEAD и PR test merge сохранены как разные точки проверки.
+
+## Проверка инвентаря и гарантий
+
+- Node JUnit и [проверяемый инвентарь](../web/tests/browser/inventory.json)
+  сопоставляются по паре «файл, имя testcase». Gate проверяет пары при
+  создании отчёта и повторяет сверку для скачанного evidence. HTTP использует
+  прежние импорты Catalog и Tokens на LAN, с отдельным evidence.
+- Phase 1 → Phase 2: 38 обычных + 8 HTTP. Сравнение полных JUnit совпало
+  после сопоставления трёх перенесённых имён Sheets с исходным файлом.
+  Тела перенесённых и оставшихся случаев сверены побайтно.
+- Тест с подстановкой других уникальных случаев при правильном количестве
+  упал на RED. После реализации прошли 49 служебных unittest. Покрыты
+  missing/failed/cancelled/skipped job, missing/duplicate/unknown evidence,
+  missing/duplicate/wrong testcase, подстановка в artifact, неправильные
+  SHA/run/attempt/candidate, Draft, stale head/base/test merge и ошибка API.
+  Manifest выявляет структурное нарушение покрытия в доверенном workflow.
+- Локально прошли actionlint 1.7.12, frontend typecheck, 25 frontend unit,
+  production build, все 46 браузерных случаев и проверка Markdown. В первом
+  запуске Scenes был timeout desktop Alt ping в неизменённом UI testcase.
+  Контроль UI на baseline и один диагностический прогон всей Scenes прошли.
+  Причина не изолирована. Тест, ожидание и timeout сохранены, автоматических
+  retries нет.
+- Ruleset, `CI required`, exact SHA, run ID, attempt, проверки текущего
+  PR и ветки, concurrency keys и Windows release workflow сохранены.
+  Два новых browser jobs входят в обязательную матрицу и reusable Full CI.
+
+## Измерения GitHub Actions
+
+SHA реализации — `b3515acf7b01ddff92d67f5024d6ddd5917baea7`.
+[Ручной Full CI](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45572886708),
+[Fast CI по push](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45572872791)
+и [Windows candidate](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45572903920)
+на этом SHA использовали attempt 1. Windows-колонка ниже охватывает
+Linux jobs от начала reusable resolve до конца gate, без упаковки.
+
+| Метрика | Phase 2 Full CI, dispatch | Phase 2 Full CI, reusable Windows |
+| --- | ---: | ---: |
+| Длительность, с | 226 | 202 |
+| Runner-минуты | 21,52 | 18,55 |
+| resolve, с | 5 | 6 |
+| backend, с | 61 | 49 |
+| frontend, с | 26 | 25 |
+| browser (sheets), с | 173 | 89 |
+| browser (sheet-layout), с | 174 | 187 |
+| browser (tokens), с | 135 | 174 |
+| browser (scenes), с | 202 | 173 |
+| browser (interaction), с | 149 | 128 |
+| browser (auth), с | 151 | 127 |
+| browser (http-uuid), с | 210 | 150 |
+| CI required, с | 5 | 5 |
+
+В самостоятельном запуске resolve стартовал через 3 с, остальные jobs через
+1–2 с после него. Параллельные jobs обоих workflow не отменили друг друга.
+В dispatch все 11 jobs и все семь evidence относятся к одной попытке и
+точному SHA. Мультимножество JUnit совпало с master Phase 1 для 38 обычных
+и восьми HTTP случаев с учётом трёх перемещений файлов. Backend на GitHub
+показал 762 passed и 1 skipped. Fast CI реализации завершился за 68 с
+(back/front 65/26 с, runner time 91 с), на 30,6% быстрее исходных 98 с.
+
+Dispatch дал 1,72× относительно 388 с и сократил время Phase 1 dispatch
+на 31 с. Reusable срез дал 1,92×, с другим событием и runner. Перекрытие
+запусков и разные runner делают сравнение наблюдательным. Цель 194 с не
+подтверждена. Оба результата уступают ей на 32 и 8 с. Максимальный browser
+job 210/187 с превышает цель 175 с на 35/12 с. Backend 61/49 с в Full CI
+и 65 с в Fast CI показывает непостоянное достижение цели 60 с. Оба Full CI
+укладываются в 22 runner-минуты. Ни один не достиг stretch в 18 минут.
+Результаты dispatch и reusable относятся к точному SHA кандидата.
+Разрешающим сигналом для merge остаётся Full CI актуального test merge.
+
+Самый длинный browser job в dispatch — HTTP UUID. Тесты и evidence занимали
+168 из 210 с. В Scenes — 162 из 202 с. На reusable критическим стал
+Sheet Layout, а HTTP занял 150 с. Ещё один обычный runner оставил бы HTTP
+на критическом пути части прогонов. Раздельный HTTP harness добавил бы
+runner и новый путь изоляции и мог бы выйти за 22 минуты при текущих
+накладных расходах. Сохранена конфигурация из семи групп для review.
+
+### Кэши
+
+В HTTP job dispatch первичные pip и npm ключи дали hit (32 и 53 МБ).
+Интервал от сообщения hit до restore составил 0,48 и 0,99 с.
+На первичных ключах save пропущен. Backend увидел miss нового точного
+ключа с requirements-ci и восстановил fallback pip за 0,69 с от сообщения
+hit. Установка backend заняла 8 с. Замера установки без кэша нет.
+Новый pip key учитывает оба manifest и Python/платформу. npm cache хранит
+пакеты по lockfile и платформе. Обе среды повторяют установку из manifest.
+
+Медиана шага установки Chromium в dispatch Phase 2 — 14 с (13–29 с),
+в Phase 1 dispatch — 18 с (17–32 с). Системные зависимости остаются частью
+этого шага. Замера cache hit для отдельного кэша Playwright нет.
+Headless-only исключает загрузку большого неиспользуемого браузера без
+добавления нового кэша. Повторное использование production build не
+измерялось, потому что suites проверяют dev Vite. Кэши venv/node_modules,
+общие test evidence и повторное использование SQLite не внедрены.
+
+### Модель параллельных PR
+
+Репозиторий публичный, тариф владельца через API не подтверждён.
+Сценарии 20 и 40 свободных стандартных слотов соответствуют публичным
+лимитам Free и Pro при отсутствии других задач. [Лимиты GitHub Actions](https://docs.github.com/en/actions/reference/limits)
+
+Модель одновременно освобождает jobs после resolve. Каждый PR выставляет
+свои jobs в FIFO, начиная с самых длинных по измеренному времени.
+Gate становится готов после завершения всех jobs его PR. Модель использует
+реальные durations Phase 1 master и Phase 2 dispatch, исключает
+диспетчеризацию, фоновые workflows, merge/rebase и изменение производительности
+runner. Значения «makespan / макс. очередь» в секундах обозначают время до
+завершения последнего PR и максимальное ожидание готового job.
+
+| PR | Browser / backend / peak jobs Phase 2 | Runner-мин Phase 2 | 20 слотов Phase 1 | 20 слотов Phase 2 | 40 слотов Phase 1 | 40 слотов Phase 2 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 7 / 1 / 9 | 21,52 | 238 / 0 | 220 / 0 | 238 / 0 | 220 / 0 |
+| 2 | 14 / 2 / 18 | 43,03 | 238 / 0 | 220 / 0 | 238 / 0 | 220 / 0 |
+| 3 | 21 / 3 / 27 | 64,55 | 238 / 29 | 280 / 149 | 238 / 0 | 220 / 0 |
+| 4 | 28 / 4 / 36 | 86,07 | 297 / 125 | 369 / 196 | 238 / 0 | 220 / 0 |
+
+При 20 свободных слотах пиковый спрос превышает лимит с трёх Phase 2 PR.
+Модель показывает возможное ухудшение общего времени при трёх-четырёх
+PR. При 40 слотах оно не наблюдается. Push Fast CI добавляет до двух
+одновременных jobs на ветку, а Draft может запустить отдельную проверку
+test merge. Это дополнительный источник насыщения, не включённый в таблицу.
+Ожидаемая ускоренная обратная связь подтверждена для одиночного Fast CI.
+Пропускная способность при 3–4 реальных PR остаётся непроверенной.
+На 20 слотах имеет смысл разводить момент Ready для тяжёлых PR и измерять
+очередь, прежде чем расширять browser matrix.
+
+Ключи concurrency продолжают отменять старые запуски одного PR без отмены
+соседних номеров. Артефакты разделены по workflow run, attempt и группе.
+После продвижения master требуется новый test merge с успешным gate.
+
+### Windows
+
+Candidate, все 11 jobs reusable Full CI и Windows packaging/smoke прошли
+с первой попытки. GitHub проверил candidate/tested/checkout SHA, а скачанный
+ZIP подтвердил тот же `SOURCE_COMMIT.txt` и совпадение SHA-256 с контрольной
+суммой. Запуск использовал `publish=false` и пустой тег. Job `publish`
+пропущен. [Windows candidate smoke](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45572903920)
