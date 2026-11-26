@@ -222,6 +222,67 @@ def test_mob_hp_visibility(sockets, player):
         recv_until(g, lambda m: m.get("type") == "character_deleted")
 
 
+def test_mob_sheet_edits_preserve_three_instances_hp_and_legacy_gear(client, gm, sockets, scene_id):
+    g, _ = sockets
+    character = run(g, "hp-create", "character.create", {
+        "name": "Тестовый гоблин", "system": "mob",
+    })["payload"]["character"]
+    character_id = character["id"]
+    token_ids = []
+
+    def update(command, payload):
+        g.send_text(json.dumps({"name": command, "payload": {"id": character_id, **payload}}))
+        return recv_until(g, lambda m: m.get("type") == "character"
+                          and m["character"]["id"] == character_id)["character"]
+
+    try:
+        recv_until(g, lambda m: m.get("type") == "character" and m["character"]["id"] == character_id)
+        assert update("character.update", {"set": {"hp.max": 7}})["data"]["hp"] == {"max": 7}
+        for index, hp in enumerate((2, 5, 7), start=1):
+            token = run(g, f"hp-token-{index}", "token.add", {
+                "character_id": character_id, "x": index * 70, "y": 70,
+            })["payload"]["token"]
+            token_ids.append(token["id"])
+            assert token["hp"] == 7
+            assert run(g, f"hp-edit-{index}", "token.update", {
+                "id": token["id"], "hp": hp,
+            })["payload"]["token"]["hp"] == hp
+        assert len(set(token_ids)) == 3
+
+        doc = {"type": "doc", "content": [{"type": "paragraph", "content": [
+            {"type": "text", "text": "Ручное правило снаряжения"},
+        ]}]}
+        gear = update("character.list", {
+            "path": "equipment", "op": "add", "item": {"name": "Сумка", "qty": 1, "doc": doc},
+        })["data"]["equipment"][0]
+        assert gear["doc"] == doc
+        traits = [{"id": "trait-a", "title": "Засада", "doc": doc}]
+        resources = [{"id": "resource-a", "name": "Заряды", "current": 1, "max": 2}]
+        saved = update("character.update", {"name": "Переименованный гоблин", "set": {
+            "traits": traits, "resources": resources,
+        }})
+        assert saved["name"] == "Переименованный гоблин"
+        assert saved["data"]["hp"] == {"max": 7}
+        assert saved["data"]["equipment"] == [gear]
+        assert saved["data"]["traits"] == traits
+        assert saved["data"]["resources"] == resources
+        edited = update("character.list", {
+            "path": "equipment", "op": "update", "item_id": gear["id"], "changes": {"qty": 2},
+        })
+        assert edited["data"]["equipment"] == [{**gear, "qty": 2}]
+        characters = client.get("/api/characters", headers=gm).json()
+        assert next(c for c in characters if c["id"] == character_id)["data"] == edited["data"]
+        tokens = client.get(f"/api/scenes/{scene_id}", headers=gm).json()["tokens"]
+        assert {t["id"]: t["hp"] for t in tokens if t["character_id"] == character_id} == dict(
+            zip(token_ids, (2, 5, 7), strict=True)
+        )
+    finally:
+        for index, token_id in enumerate(token_ids):
+            run(g, f"hp-remove-{index}", "token.remove", {"id": token_id})
+        g.send_text(json.dumps({"name": "character.delete", "payload": {"id": character_id}}))
+        recv_until(g, lambda m: m.get("type") == "character_deleted" and m["id"] == character_id)
+
+
 # --- конечные числа ---------------------------------------------------------
 
 
