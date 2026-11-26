@@ -1,6 +1,8 @@
 """Rebuild PB-20A JSON in memory from a user-supplied official SRD PDF."""
 
 import argparse
+from csv import DictReader
+from dataclasses import dataclass
 import difflib
 from hashlib import sha256
 from itertools import groupby
@@ -11,6 +13,7 @@ import subprocess
 from xml.etree import ElementTree
 
 DATA = Path(__file__).resolve().parents[1] / "server/app/bestiary"
+BOUNDARIES = Path(__file__).with_name("srd51-boundaries.tsv")
 ABILITY_KEYS = ("str", "dex", "con", "int", "wis", "cha")
 SECTIONS = {
     "Actions": "actions",
@@ -69,33 +72,63 @@ def page_headings(page):
     return sorted(labels, key=lambda label: (-len(label), label))
 
 
-def statblock_lines(pages, template):
-    source = template["provenance"]
-    first_page, last_page = source["first_page"], source["last_page"]
+@dataclass(frozen=True)
+class Boundary:
+    id: str
+    name: str
+    first_page: int
+    last_page: int
+    last_line: str
+    next_page: int
+    next_line: str
+
+    def provenance(self):
+        return {"first_page": self.first_page, "last_page": self.last_page, "last_line": self.last_line}
+
+
+def read_boundaries():
+    with BOUNDARIES.open(encoding="utf-8", newline="") as source:
+        boundaries = [
+            Boundary(row["id"], row["name"], int(row["first_page"]), int(row["last_page"]), row["last_line"],
+                     int(row["next_page"]), row["next_line"])
+            for row in DictReader(source, delimiter="\t")
+        ]
+    if not boundaries or len({boundary.id for boundary in boundaries}) != len(boundaries):
+        raise ValueError("Empty boundary index or duplicate boundary ID")
+    if len({(boundary.first_page, boundary.name) for boundary in boundaries}) != len(boundaries):
+        raise ValueError("Duplicate statblock title and page in boundary index")
+    return boundaries
+
+
+def statblock_lines(pages, boundary):
+    if not 1 <= boundary.first_page <= boundary.last_page <= boundary.next_page <= len(pages):
+        raise ValueError(f"Invalid boundary page range for {boundary.id}")
     lines = [
         (page, normalize(line))
-        for page in range(first_page, last_page + 1)
+        for page in range(boundary.first_page, boundary.next_page + 1)
         for line in pages[page - 1][1:] if line.strip()
     ]
     starts = [
         index for index, (page, text) in enumerate(lines[:-2])
-        if (page, text) == (first_page, template["statblock"]["name"])
+        if (page, text) == (boundary.first_page, boundary.name)
         and lines[index + 2][1].startswith("Armor Class ")
     ]
     if len(starts) != 1:
-        raise ValueError(f"Ambiguous title for {template['id']}: {starts}")
+        raise ValueError(f"Missing or ambiguous PDF title for {boundary.id}: {starts}")
+    start = starts[0]
     following = next(
-        (index - 2 for index in range(starts[0] + 3, len(lines))
+        (index - 2 for index in range(start + 3, len(lines))
          if lines[index][1].startswith("Armor Class ")),
         len(lines),
     )
+    anchors = [(boundary.last_page, boundary.last_line), (boundary.next_page, boundary.next_line)]
     ends = [
-        index for index in range(starts[0] + 1, following)
-        if lines[index] == (last_page, normalize(source["last_line"]))
+        index for index in range(start + 1, following)
+        if lines[index:index + 2] == anchors
     ]
     if len(ends) != 1:
-        raise ValueError(f"Ambiguous end for {template['id']}: {ends}")
-    return lines[starts[0] : ends[0] + 1]
+        raise ValueError(f"Missing or ambiguous adjacent PDF end markers for {boundary.id}: {ends}")
+    return lines[start : ends[0] + 1]
 
 
 def join_lines(lines):
@@ -251,7 +284,7 @@ def check_rules_coverage(lines, rules, name):
         raise ValueError(f"Rules text failed round-trip for {name}")
 
 
-def rebuild(pdf, manifest, templates):
+def rebuild(pdf, manifest):
     if sha256(pdf.read_bytes()).hexdigest() != manifest["document_sha256"]:
         raise ValueError("PDF does not match manifest SHA-256")
     pages, headings = read_pdf(pdf)
@@ -260,12 +293,12 @@ def rebuild(pdf, manifest, templates):
         raise ValueError("Attribution does not match the official PDF")
     return [
         {
-            "id": template["id"],
+            "id": boundary.id,
             "source": manifest["id"],
-            "provenance": template["provenance"],
-            "statblock": parse_statblock(statblock_lines(pages, template), headings),
+            "provenance": boundary.provenance(),
+            "statblock": parse_statblock(statblock_lines(pages, boundary), headings),
         }
-        for template in templates
+        for boundary in read_boundaries()
     ]
 
 
@@ -275,14 +308,26 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((DATA / "manifest.json").read_text(encoding="utf-8"))
     templates = json.loads((DATA / "srd51.json").read_text(encoding="utf-8"))
-    rebuilt = rebuild(args.pdf, manifest, templates)
-    if rebuilt != templates:
-        for old, new in zip(templates, rebuilt, strict=True):
+    try:
+        rebuilt = rebuild(args.pdf, manifest)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        parser.exit(1, f"{error}\n")
+    actual = {entry["id"]: entry for entry in templates}
+    expected = {entry["id"]: entry for entry in rebuilt}
+    if len(actual) != len(templates):
+        parser.exit(1, "Duplicate catalog template ID\n")
+    if actual.keys() != expected.keys():
+        missing = ", ".join(sorted(expected.keys() - actual.keys()))
+        unexpected = ", ".join(sorted(actual.keys() - expected.keys()))
+        parser.exit(1, f"Catalog IDs differ from the boundary index. Missing: {missing}; unexpected: {unexpected}\n")
+    if actual != expected:
+        for template_id, new in expected.items():
+            old = actual[template_id]
             if old != new:
                 print("\n".join(difflib.unified_diff(
                     json.dumps(old, ensure_ascii=False, indent=2).splitlines(),
                     json.dumps(new, ensure_ascii=False, indent=2).splitlines(),
-                    fromfile=old["id"], tofile=f"{new['id']} (PDF)", lineterm="",
+                    fromfile=template_id, tofile=f"{template_id} (PDF)", lineterm="",
                 )))
         parser.exit(1, "Catalog differs from the official PDF extraction\n")
     print(f"{len(rebuilt)} statblocks match the pinned SRD 5.1 PDF.")
