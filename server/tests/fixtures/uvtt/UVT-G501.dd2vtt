@@ -1,0 +1,15 @@
+{
+  "format": 0.2,
+  "resolution": {
+    "map_origin": {
+      "x": 0,
+      "y": 0
+    },
+    "map_size": {
+      "x": 4,
+      "y": 3
+    },
+    "pixels_per_grid": 4
+  },
+  "image": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAIAAADkharWAAAAGklEQVR4nGM0cAhgIAUwkaSaYVQDcWA4BCsA1UsA2LYFjdcAAAAASUVORK5CYII="
+}
