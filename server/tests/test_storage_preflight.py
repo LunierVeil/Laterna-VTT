@@ -292,3 +292,41 @@ os._exit(37)
     result = launch(install, no_init=True)
     assert result.returncode != 0 and "журнал или WAL" in result.stderr
     assert snapshot(home) == before
+
+
+@pytest.mark.parametrize("change", [False, True])
+def test_quiescent_sqlite_compares_windows_file_identity_and_descriptor_changes(tmp_path, monkeypatch, change):
+    from contextlib import closing, nullcontext
+    from types import SimpleNamespace
+
+    from app import storage_preflight as preflight
+
+    database = tmp_path / "fixture.db"
+    with closing(sqlite3.connect(database)) as conn:
+        conn.execute("CREATE TABLE fixture (id INTEGER PRIMARY KEY)")
+    before = database.read_bytes()
+
+    real_lstat = Path.lstat
+    inspected = False
+
+    def windows_metadata(info, ctime):
+        return SimpleNamespace(st_mode=info.st_mode, st_dev=info.st_dev, st_ino=info.st_ino,
+                               st_nlink=info.st_nlink, st_size=info.st_size, st_mtime_ns=info.st_mtime_ns,
+                               st_birthtime_ns=10, st_ctime_ns=ctime)
+
+    def lstat(path, *args, **kwargs):
+        result = real_lstat(path, *args, **kwargs)
+        return windows_metadata(result, 10) if path == database else result
+
+    def fstat(fd):
+        return windows_metadata(os.fstat(fd), 30 if change and inspected else 20)
+
+    windows_os = SimpleNamespace(name="nt", open=os.open, close=os.close, fstat=fstat,
+                                 O_RDONLY=os.O_RDONLY, O_NOFOLLOW=getattr(os, "O_NOFOLLOW", 0))
+    monkeypatch.setattr(preflight, "os", windows_os)
+    monkeypatch.setattr(Path, "lstat", lstat)
+    expected = pytest.raises(preflight.StorageError, match="изменилась во время проверки") if change else nullcontext()
+    with expected, preflight.open_quiescent_sqlite(database) as conn:
+        assert conn.execute("SELECT name FROM sqlite_schema").fetchall() == [("fixture",)]
+        inspected = True
+    assert database.read_bytes() == before

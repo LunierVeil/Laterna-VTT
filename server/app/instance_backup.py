@@ -24,6 +24,7 @@ from .data_home import StoragePaths
 from .schema_catalog import SchemaState, has_active_campaign_scene, identify_schema
 from .upload_files import UPLOAD_TEMP, upload_references
 from .storage_preflight import StorageError, _entry
+from .storage_preflight import _file_stamp as _stamp
 
 FORMAT = "laterna-instance"
 VERSION = 1
@@ -40,13 +41,6 @@ class BackupError(RuntimeError):
 def _deadline_check(deadline: float) -> None:
     if monotonic() >= deadline:
         raise BackupError("Истекло время подготовки резервной копии.")
-
-
-def _stamp(info: os.stat_result) -> tuple:
-    # On Windows Python 3.12, lstat exposes creation time as ctime but
-    # fstat exposes NTFS change time. Both expose the same birthtime.
-    identity_time = info.st_birthtime_ns if os.name == "nt" else info.st_ctime_ns
-    return (info.st_dev, info.st_ino, info.st_nlink, info.st_size, info.st_mtime_ns, identity_time)
 
 
 @contextmanager

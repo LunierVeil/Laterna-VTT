@@ -52,13 +52,20 @@ def _require_no_sqlite_sidecars(database: Path) -> None:
             raise StorageError(f"У SQLite есть журнал или WAL: {database}. Остановите прежний экземпляр и сохраните данные.")
 
 
+def _file_stamp(info: os.stat_result) -> tuple:
+    # On Windows Python 3.12, lstat exposes creation time as ctime but
+    # fstat exposes NTFS change time. Both expose the same birthtime.
+    identity_time = info.st_birthtime_ns if os.name == "nt" else info.st_ctime_ns
+    return (info.st_dev, info.st_ino, info.st_nlink, info.st_size, info.st_mtime_ns, identity_time)
+
+
 @contextmanager
 def open_quiescent_sqlite(database: Path, *, require_rollback_journal: bool = False):
     """Inspect an existing SQLite file under the caller's storage locks."""
     def stamp(info):
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
             raise StorageError(f"Некорректный файл SQLite: {database}")
-        return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+        return _file_stamp(info)
 
     if not _entry(database, directory=False):
         raise StorageError(f"SQLite отсутствует: {database}")
@@ -68,9 +75,10 @@ def open_quiescent_sqlite(database: Path, *, require_rollback_journal: bool = Fa
     # checks detect replacement during inspection. Storage locks exclude
     # cooperating writers; this is not protection from another OS principal
     # acting with the owner's permissions.
-    fd = os.open(database, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    fd = os.open(database, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
     try:
-        if stamp(os.fstat(fd)) != original:
+        opened = os.fstat(fd)
+        if stamp(opened) != original:
             raise StorageError(f"SQLite была заменена перед проверкой: {database}")
         _require_no_sqlite_sidecars(database)
         if require_rollback_journal:
@@ -84,7 +92,9 @@ def open_quiescent_sqlite(database: Path, *, require_rollback_journal: bool = Fa
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as conn:
             yield conn
         _require_no_sqlite_sidecars(database)
-        if stamp(database.lstat()) != original or stamp(os.fstat(fd)) != original:
+        after = os.fstat(fd)
+        if (stamp(database.lstat()) != original or stamp(after) != original
+                or after.st_ctime_ns != opened.st_ctime_ns):
             raise StorageError(f"SQLite изменилась во время проверки: {database}")
     finally:
         os.close(fd)
