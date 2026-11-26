@@ -1,5 +1,6 @@
 """Publish a verified backup as a new, isolated DataHome."""
 
+from collections.abc import Callable
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ from time import monotonic
 from .data_home import resolve_storage
 from .instance_backup import BackupError, _deadline_check, _measure, _publish, verify_backup
 from .storage_lock import own_storage
-from .storage_preflight import StorageError, _entry, check_storage
+from .storage_preflight import UPGRADE_STAGING_PREFIX, StorageError, _entry, check_storage
 
 # The current application does not set PRAGMA user_version.
 SUPPORTED_SQLITE_VERSION = 0
@@ -23,6 +24,15 @@ def _same_directory(path: Path, original: os.stat_result) -> bool:
 def restore_backup(backup_path: Path, destination_data_home: Path, schema: dict[str, set[str]], *,
                    external_gm_key: str | None = None) -> dict:
     """Restore into a nonexistent directory under an existing trusted parent."""
+    return _restore_backup(backup_path, destination_data_home, schema, external_gm_key=external_gm_key)
+
+
+def _restore_backup(
+    backup_path: Path, destination_data_home: Path, schema: dict[str, set[str]], *,
+    external_gm_key: str | None = None,
+    prepare_upgrade: Callable[[Path, dict, float], None] | None = None,
+    sync_publication: Callable[[], None] | None = None,
+) -> dict:
     deadline = monotonic() + 120
     if not backup_path.is_absolute() or not destination_data_home.is_absolute():
         raise BackupError("Для восстановления нужны абсолютные пути.")
@@ -50,7 +60,8 @@ def restore_backup(backup_path: Path, destination_data_home: Path, schema: dict[
                 raise BackupError("Целевой DataHome уже существует.")
             if not _same_directory(parent, parent_identity):
                 raise BackupError("Родительский каталог DataHome был заменён.")
-            temporary = Path(mkdtemp(prefix=".laterna-restore-", dir=parent))
+            prefix = UPGRADE_STAGING_PREFIX if prepare_upgrade else ".laterna-restore-"
+            temporary = Path(mkdtemp(prefix=prefix, dir=parent))
             temporary_identity = temporary.lstat()
             try:
                 staging = temporary / "data"
@@ -84,9 +95,13 @@ def restore_backup(backup_path: Path, destination_data_home: Path, schema: dict[
                     raise BackupError("Восстановленная копия не прошла startup preflight.")
                 check_staging()
                 staged_manifest.unlink()
+                if prepare_upgrade is not None:
+                    prepare_upgrade(staging, manifest, deadline)
                 _deadline_check(deadline)
                 check_staging()
                 _publish(staging, destination_data_home)
+                if sync_publication is not None:
+                    sync_publication()
             finally:
                 # Never clean up a path now pointing at another directory.
                 try:

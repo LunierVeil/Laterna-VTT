@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
-from sqlalchemy import inspect
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Connection, URL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from .config import DATABASE_URL
+from .schema_migrations import initialize_empty_database
 
 
 class Base(DeclarativeBase):
@@ -23,8 +27,16 @@ engine = create_async_engine(_engine_url, echo=False, future=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
+def initialize_file_db(database: Path, seed: Callable[[Connection], None]) -> None:
+    """Initialize a reserved, empty SQLite file while the caller owns storage."""
+    url = URL.create("sqlite", database=database.as_uri(), query={"uri": "true", "mode": "rw"})
+    writer = create_engine(url, poolclass=NullPool)
+    with writer.connect() as connection:
+        initialize_empty_database(connection, seed=seed)
+
+
 async def init_db() -> None:
-    # Миграций пока нет. Когда схема устаканится - alembic.
+    # Separate legacy path for development backends, memory and Windows first run.
     from . import models  # noqa: F401
 
     async with engine.begin() as conn:

@@ -1,7 +1,7 @@
 """Read-only classification of storage before startup may create any state."""
 
 from collections.abc import Mapping, Set
-from contextlib import closing
+from contextlib import closing, contextmanager
 import os
 from pathlib import Path
 import sqlite3
@@ -9,6 +9,7 @@ import stat
 from typing import Literal
 
 from .data_home import StoragePaths
+from .schema_catalog import SchemaState, inspect_schema
 
 
 class StorageError(RuntimeError):
@@ -16,6 +17,7 @@ class StorageError(RuntimeError):
 
 
 StorageState = Literal["first_run", "existing", "external"]
+UPGRADE_STAGING_PREFIX = ".laterna-upgrade-staging-"
 _SQLITE_SIDECARS = ("-journal", "-wal", "-shm")
 _LEGACY_NAMES = ("lanterna.db", "uploads", "gm_key.txt",
                  *("lanterna.db" + suffix for suffix in _SQLITE_SIDECARS))
@@ -44,12 +46,52 @@ def _writable(path: Path, *, directory: bool = False) -> None:
         raise StorageError(f"Нет доступа на чтение и запись: {path}")
 
 
-def _check_sqlite(database: Path, schema: Mapping[str, Set[str]]) -> None:
-    # immutable disables SQLite locking and recovery, so the caller first
-    # refuses journal/WAL/SHM files. Never let inspection create a journal.
+def _require_no_sqlite_sidecars(database: Path) -> None:
+    for suffix in _SQLITE_SIDECARS:
+        if _entry(database.with_name(database.name + suffix), directory=False):
+            raise StorageError(f"У SQLite есть журнал или WAL: {database}. Остановите прежний экземпляр и сохраните данные.")
+
+
+@contextmanager
+def open_quiescent_sqlite(database: Path):
+    """Inspect an existing SQLite file under the caller's storage locks."""
+    def stamp(info):
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise StorageError(f"Некорректный файл SQLite: {database}")
+        return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+
+    if not _entry(database, directory=False):
+        raise StorageError(f"SQLite отсутствует: {database}")
+    original = stamp(database.lstat())
+    _require_no_sqlite_sidecars(database)
+    # Immutable read-only SQLite cannot replay a hot journal. Identity
+    # checks detect replacement during inspection. Storage locks exclude
+    # cooperating writers; this is not protection from another OS principal
+    # acting with the owner's permissions.
+    fd = os.open(database, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     try:
+        if stamp(os.fstat(fd)) != original:
+            raise StorageError(f"SQLite была заменена перед проверкой: {database}")
+        _require_no_sqlite_sidecars(database)
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as conn:
-            if conn.execute("PRAGMA integrity_check(1)").fetchall() != [("ok",)]:
+            yield conn
+        _require_no_sqlite_sidecars(database)
+        if stamp(database.lstat()) != original or stamp(os.fstat(fd)) != original:
+            raise StorageError(f"SQLite изменилась во время проверки: {database}")
+    finally:
+        os.close(fd)
+
+
+def _check_sqlite(database: Path, schema: Mapping[str, Set[str]], *, require_supported_catalog: bool) -> None:
+    try:
+        with open_quiescent_sqlite(database) as conn:
+            if require_supported_catalog:
+                state = inspect_schema(conn)
+                if state is SchemaState.INVALID:
+                    raise StorageError(f"SQLite не читается или повреждена либо содержит нарушенные связи: {database}")
+                if state not in (SchemaState.ALPHA, SchemaState.CURRENT):
+                    raise StorageError(f"Несовместимая схема SQLite ({state}): {database}. Сохраните исходную базу.")
+            elif conn.execute("PRAGMA integrity_check(1)").fetchall() != [("ok",)]:
                 raise StorageError(f"Проверка целостности SQLite не пройдена: {database}")
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             for name, expected in schema.items():
@@ -66,9 +108,6 @@ def _check_sqlite(database: Path, schema: Mapping[str, Set[str]]) -> None:
                 "AND scenes.campaign_id = campaigns.id LIMIT 1"
             ).fetchone() is None:
                 raise StorageError(f"SQLite не содержит кампании с активной сценой: {database}")
-        # Opening without truncation checks OS write access without altering bytes.
-        with database.open("r+b"):
-            pass
     except sqlite3.Error as exc:
         raise StorageError(f"SQLite не читается или повреждена: {database}") from exc
 
@@ -76,10 +115,12 @@ def _check_sqlite(database: Path, schema: Mapping[str, Set[str]]) -> None:
 def check_storage(
     paths: StoragePaths, *, server_dir: Path, cwd: Path,
     env: Mapping[str, str], schema: Mapping[str, Set[str]],
+    require_supported_catalog: bool = False,
 ) -> StorageState:
     """Classify existing state. Failure leaves every persistent file untouched."""
     try:
-        return _check_storage(paths, server_dir=server_dir, cwd=cwd, env=env, schema=schema)
+        return _check_storage(paths, server_dir=server_dir, cwd=cwd, env=env, schema=schema,
+                              require_supported_catalog=require_supported_catalog)
     except (OSError, UnicodeError) as exc:
         raise StorageError(f"Не удалось прочитать или открыть хранилище Laterna: {exc}") from exc
 
@@ -87,11 +128,16 @@ def check_storage(
 def _check_storage(
     paths: StoragePaths, *, server_dir: Path, cwd: Path,
     env: Mapping[str, str], schema: Mapping[str, Set[str]],
+    require_supported_catalog: bool,
 ) -> StorageState:
     home = Path(paths.data_home) if paths.data_home is not None else None
     uploads, key = Path(paths.uploads), Path(paths.gm_key)
     url = paths.database_url
     database = Path(url.database) if url.get_backend_name() == "sqlite" and url.database != ":memory:" else None
+    if require_supported_catalog and database is not None and any(
+        part.startswith(UPGRADE_STAGING_PREFIX) for part in database.parent.parts
+    ):
+        raise StorageError("Нельзя запускать промежуточный DataHome обновления.")
     files = (key,) if database is None else (key, database)
     if len(set(files)) != len(files) or any(uploads == file or uploads in file.parents for file in files):
         raise StorageError("Пути базы, uploads и ключа ГМ должны быть раздельными.")
@@ -120,15 +166,13 @@ def _check_storage(
         return "external"
 
     exists = _entry(database, directory=False)
-    for suffix in _SQLITE_SIDECARS:
-        if _entry(database.with_name(database.name + suffix), directory=False):
-            raise StorageError(f"У SQLite есть журнал или WAL: {database}. Остановите прежний экземпляр и сохраните данные.")
+    _require_no_sqlite_sidecars(database)
 
     if exists:
         if not uploads_exists or not (key_exists or env_key):
             raise StorageError(f"Неполное хранилище: для {database} отсутствует uploads или ключ ГМ.")
         _writable(database)
-        _check_sqlite(database, schema)
+        _check_sqlite(database, schema, require_supported_catalog=require_supported_catalog)
         return "existing"
 
     # Explicitly isolated per-file fixtures may live alongside a checkout

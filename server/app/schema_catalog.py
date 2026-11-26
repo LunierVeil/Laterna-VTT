@@ -36,10 +36,11 @@ _VERSION_TABLE = (
 
 
 def inspect_schema(connection: sqlite3.Connection) -> SchemaState:
-    """Inspect an opened SQLite connection without writing or recovering journals.
+    """Classify schema and integrity without issuing write statements.
 
-    The caller owns storage locks and the policy for opening the file. This
-    function only classifies schema and integrity, independent of DataHome.
+    SQLite may recover a hot journal while reading a read-write connection.
+    The caller owns storage locks, sidecar checks and the policy for opening
+    the file. This function does not establish those guarantees.
     """
     try:
         if connection.execute("PRAGMA main.integrity_check(1)").fetchall() != [("ok",)]:

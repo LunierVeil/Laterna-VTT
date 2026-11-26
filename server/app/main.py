@@ -5,6 +5,8 @@ import ipaddress
 import json
 import logging
 import os
+from pathlib import Path
+import sys
 from urllib.parse import urlsplit
 from contextlib import asynccontextmanager
 
@@ -20,7 +22,8 @@ from starlette.websockets import WebSocketDisconnected
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Session, selectinload
 
 from . import auth, config, fog, protocol, roles, visual_lighting
 from .recipient_projection import command_target_visible, projection_session, read_snapshot, recipient, token_visible, visible_state
@@ -42,7 +45,7 @@ from .config import (
 )
 from .ratelimit import LoginLimiter
 from .previews import preview_file
-from .db import Base, SessionLocal, engine, get_session, init_db
+from .db import Base, SessionLocal, engine, get_session, init_db, initialize_file_db
 from .handlers import CAMPAIGN_HANDLERS, EPHEMERAL, HANDLERS, HIDDEN, CommandError, _mob_portrait
 from .hub import hub
 from .drag_preview import DragPreviews
@@ -69,14 +72,22 @@ async def lifespan(app: FastAPI):
             assert_no_pending_upgrade(config.STORAGE_PATHS)
             schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
             state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
-                                  cwd=config.STARTUP_CWD, env=os.environ, schema=schema)
+                                  cwd=config.STARTUP_CWD, env=os.environ, schema=schema,
+                                  require_supported_catalog=True)
             if os.getenv("LANTERNA_REQUIRE_EXISTING") == "1" and state != "existing":
                 raise StorageError("Указанный восстановленный DataHome не содержит готовый стол.")
             prepare_storage(config.STORAGE_PATHS, state)
-            if state != "existing":
-                await init_db()
-                await ensure_demo_scene()
-            initialize_gm_key(allow_create=state != "existing")
+            if state == "first_run" and sys.platform == "linux":
+                # The empty reserved database is not a usable DataHome.
+                # Prepare the key before committing version and seed together.
+                initialize_gm_key(allow_create=True)
+                database = Path(config.STORAGE_PATHS.database_url.database)
+                await anyio.to_thread.run_sync(initialize_file_db, database, _seed_file_db)
+            else:
+                if state != "existing":
+                    await init_db()
+                    await ensure_demo_scene()
+                initialize_gm_key(allow_create=state != "existing")
             print(f"\n  {gm_key_notice()}\n", flush=True)
             async def expire_previews():
                 while True:
@@ -143,19 +154,28 @@ app.add_middleware(
 )
 
 
+def _seed_demo_scene(db: Session) -> None:
+    """Prepare the initial campaign and its active scene in the caller's transaction."""
+    if db.execute(select(Scene).limit(1)).scalar_one_or_none():
+        return
+    campaign = Campaign(name="Песочница")
+    db.add(campaign)
+    db.flush()
+    scene = Scene(campaign_id=campaign.id, name="Первая сцена")
+    db.add(scene)
+    db.flush()
+    campaign.active_scene_id = scene.id
+    db.flush()
+
+
+def _seed_file_db(connection: Connection) -> None:
+    with Session(bind=connection, join_transaction_mode="rollback_only") as db:
+        _seed_demo_scene(db)
+
+
 async def ensure_demo_scene() -> None:
-    """Одна сцена из коробки, чтобы было куда зайти сразу после запуска."""
     async with SessionLocal() as db:
-        existing = (await db.execute(select(Scene).limit(1))).scalar_one_or_none()
-        if existing:
-            return
-        campaign = Campaign(name="Песочница")
-        db.add(campaign)
-        await db.flush()
-        scene = Scene(campaign_id=campaign.id, name="Первая сцена")
-        db.add(scene)
-        await db.flush()
-        campaign.active_scene_id = scene.id
+        await db.run_sync(_seed_demo_scene)
         await db.commit()
 
 
