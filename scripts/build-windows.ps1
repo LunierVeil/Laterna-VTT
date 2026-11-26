@@ -31,7 +31,7 @@ Copy-Item "$Root/server/app" "$Out/server/app" -Recurse
 Get-ChildItem "$Out/server/app" -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
 Copy-Item "$Root/web/dist" "$Out/web/dist" -Recurse
 Copy-Item "$Root/windows/laterna.bat", "$Root/windows/laterna.ps1" $Out
-Copy-Item "$Root/docs/FIRST_SESSION.md", "$Root/docs/PB05_DATAHOME.md", "$Root/docs/PB06_BACKUP.md", "$Root/docs/PB07_AUTOMATIC_BACKUP.md" "$Out/docs/"
+Copy-Item "$Root/docs/FIRST_SESSION.md", "$Root/docs/PB05_DATAHOME.md", "$Root/docs/PB06_BACKUP.md", "$Root/docs/PB07_AUTOMATIC_BACKUP.md", "$Root/docs/PB07_RECOVERY_RUNBOOK.md" "$Out/docs/"
 Copy-Item "$Root/LICENSE", "$Root/README.md" $Out
 if (Get-ChildItem "$Out/server", "$Out/web" -Force -Recurse |
         Where-Object { $_.Name -in @('lanterna.db','gm_key.txt','uploads','backup','.env','laterna-storage-mode.txt') }) {

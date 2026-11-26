@@ -11,7 +11,7 @@ $Process = $null
 try {
     Expand-Archive $ZipPath "$Temp/package"
     $App = Join-Path $Temp 'package'
-    foreach ($Required in @('python/python.exe','server/app/main.py','server/app/backup_cli.py','server/app/backup_control.py','docs/PB06_BACKUP.md','web/dist/index.html','laterna.bat','laterna.ps1','LICENSE','SOURCE_COMMIT.txt')) {
+    foreach ($Required in @('python/python.exe','server/app/main.py','server/app/backup_cli.py','server/app/backup_control.py','docs/PB06_BACKUP.md','docs/PB07_AUTOMATIC_BACKUP.md','docs/PB07_RECOVERY_RUNBOOK.md','web/dist/index.html','laterna.bat','laterna.ps1','LICENSE','SOURCE_COMMIT.txt')) {
         if (-not (Test-Path "$App/$Required")) { throw "Package missing $Required" }
     }
     foreach ($Private in @('server/lanterna.db','server/gm_key.txt','server/uploads','.env','data','Laterna Backups','laterna-storage-mode.txt')) {
