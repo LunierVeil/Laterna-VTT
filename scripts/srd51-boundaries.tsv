@@ -1,0 +1,59 @@
+id	name	first_page	last_page	last_line	next_page	next_line
+srd51:aboleth	Aboleth	261	261	the creature takes.	261	Angels
+srd51:deva	Deva	261	262	and lair actions) that the new form has but that it lacks.	262	Planetar
+srd51:solar	Solar	262	263	blindness.	263	Animated Objects
+srd51:animated-armor	Animated Armor	263	264	target. Hit: 5 (1d6 + 2) bludgeoning damage.	264	Flying Sword
+srd51:flying-sword	Flying Sword	264	264	one target. Hit: 5 (1d8 + 1) slashing damage.	264	Rug of Smothering
+srd51:ankheg	Ankheg	264	265	on a successful one.	265	Azer
+srd51:azer	Azer	265	265	hands to make a melee attack, plus 3 (1d6) fire damage.	265	Monsters (B)
+srd51:basilisk	Basilisk	265	265	poison damage.	265	Behir
+srd51:behir	Behir	265	266	exiting prone.	266	Bugbear
+srd51:bugbear	Bugbear	266	266	damage at range.	266	Bulette
+srd51:bulette	Bulette	266	267	bulette’s space.	267	Monsters (C)
+srd51:centaur	Centaur	267	267	damage.	267	Chimera
+srd51:chimera	Chimera	267	267	on a successful one.	267	Chuul
+srd51:chuul	Chuul	267	268	on itself on a success.	268	Cloaker
+srd51:cloaker	Cloaker	268	268	the duplicate disappears.	268	Cockatrice
+srd51:cockatrice	Cockatrice	268	269	failure, the creature is petrified for 24 hours.	269	Couatl
+srd51:couatl	Couatl	269	269	bite in that form.	269	Monsters (D)
+srd51:darkmantle	Darkmantle	269	270	the spell creating the light is dispelled.	270	Demons
+srd51:balor	Balor	270	270	an unoccupied space it can see.	270	Dretch
+srd51:marilith	Marilith	272	272	the attacker and be wielding a melee weapon.	272	Nalfeshnee
+srd51:imp	Imp	277	278	wears or carries is invisible with it.	278	Lemure
+srd51:pit-fiend	Pit Fiend	278	279	target. Hit: 24 (3d10 + 8) bludgeoning damage.	279	Dinosaurs
+srd51:triceratops	Triceratops	279	279	damage.	279	Tyrannosaurus Rex
+srd51:tyrannosaurus-rex	Tyrannosaurus Rex	279	279	target. Hit: 20 (3d8 + 7) bludgeoning damage.	279	Doppelganger
+srd51:doppelganger	Doppelganger	279	280	Intimidation, and Persuasion) checks against the target.	280	Dragons, Chromatic
+srd51:adult-black-dragon	Adult Black Dragon	281	281	flying speed.	281	Young Black Dragon
+srd51:ancient-red-dragon	Ancient Red Dragon	286	287	flying speed.	287	Adult Red Dragon
+srd51:gold-dragon-wyrmling	Gold Dragon Wyrmling	300	301	turns, ending the effect on itself on a success.	301	Silver Dragon
+srd51:dryad	Dryad	304	305	up to three beasts charmed at a time.	305	Duergar
+srd51:air-elemental	Air Elemental	305	306	knocked prone.	306	Earth Elemental
+srd51:fire-elemental	Fire Elemental	306	307	turns.	307	Water Elemental
+srd51:water-elemental	Water Elemental	307	307	a DC 14 Strength and succeeding.	307	Elf, Drow
+srd51:ettin	Ettin	308	308	ft., one target. Hit: 14 (2d8 + 5) piercing damage.	309	Monsters (F)
+srd51:shrieker	Shrieker	309	309	shrieker’s turns afterward.	309	Violet Fungus
+srd51:violet-fungus	Violet Fungus	309	309	10 ft., one creature. Hit: 4 (1d8) necrotic damage.	309	Monsters (G)
+srd51:ghost	Ghost	311	311	after the possession ends.	311	Ghouls
+srd51:goblin	Goblin	315	315	80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage.	315	Golems
+srd51:ogre	Ogre	336	336	+ 4) piercing damage.	336	Oni
+srd51:gelatinous-cube	Gelatinous Cube	337	338	within 5 feet of the cube.	338	Gray Ooze
+srd51:ochre-jelly	Ochre Jelly	338	339	jelly.	339	Orc
+srd51:orc	Orc	339	339	3) piercing damage.	339	Otyugh
+srd51:skeleton	Skeleton	346	346	80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage.	346	Minotaur Skeleton
+srd51:stirge	Stirge	349	349	stirge.	349	Succubus/Incubus
+srd51:tarrasque	Tarrasque	350	351	bite attack or uses its Swallow.	351	Treant
+srd51:treant	Treant	351	351	an inanimate tree. The tree then takes root if possible.	351	Troll
+srd51:troll	Troll	351	351	target. Hit: 11 (2d6 + 4) slashing damage.	351	Monsters (U)
+srd51:unicorn	Unicorn	351	352	regains 11 (2d8 + 2) hit points.	352	Monsters (V)
+srd51:vampire	Vampire	352	353	attack.	354	Vampire Spawn
+srd51:zombie	Zombie	356	357	target. Hit: 4 (1d6 + 1) bludgeoning damage.	357	Ogre Zombie
+srd51:cat	Cat	369	369	target. Hit: 1 slashing damage.	369	Constrictor Snake
+srd51:frog	Frog	372	372	represent a toad.	373	Giant Ape
+srd51:giant-spider	Giant Spider	379	379	psychic damage).	380	To snare its prey, a giant spider spins elaborate
+srd51:wolf	Wolf	393	393	throw or be knocked prone.	393	Worg
+srd51:acolyte	Acolyte	395	395	target. Hit: 2 (1d4) bludgeoning damage.	395	Acolytes are junior members of a clergy, usually
+srd51:archmage	Archmage	395	396	2) piercing damage.	396	Archmages are powerful (and usually quite old)
+srd51:commoner	Commoner	398	398	target. Hit: 2 (1d4) bludgeoning damage.	398	Commoners include peasants, serfs, slaves, servants,
+srd51:knight	Knight	400	400	the attacker and be wielding a melee weapon.	400	Knights are warriors who pledge service to rulers,
+srd51:mage	Mage	400	400	2) piercing damage.	400	Mages spend their lives in the study and practice of
