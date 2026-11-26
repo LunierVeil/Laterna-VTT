@@ -1,0 +1,4843 @@
+[
+  {
+    "id": "srd51:aboleth",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 261,
+      "last_page": 261,
+      "last_line": "the creature takes."
+    },
+    "statblock": {
+      "name": "Aboleth",
+      "size": "Large",
+      "creature_type": "aberration",
+      "alignment": "lawful evil",
+      "armor_class": 17,
+      "hit_points": 135,
+      "hit_dice": "18d10 + 36",
+      "movement": "10 ft., swim 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 21,
+          "modifier": 5
+        },
+        "dex": {
+          "score": 9,
+          "modifier": -1
+        },
+        "con": {
+          "score": 15,
+          "modifier": 2
+        },
+        "int": {
+          "score": 18,
+          "modifier": 4
+        },
+        "wis": {
+          "score": 15,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 18,
+          "modifier": 4
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Con",
+          "bonus": 6
+        },
+        {
+          "name": "Int",
+          "bonus": 8
+        },
+        {
+          "name": "Wis",
+          "bonus": 6
+        }
+      ],
+      "skills": [
+        {
+          "name": "History",
+          "bonus": 12
+        },
+        {
+          "name": "Perception",
+          "bonus": 10
+        }
+      ],
+      "senses": "darkvision 120 ft., passive Perception 20",
+      "languages": "Deep Speech, telepathy 120 ft.",
+      "challenge_rating": "10",
+      "xp": 5900,
+      "traits": [
+        {
+          "label": "Amphibious",
+          "text": "The aboleth can breathe air and water."
+        },
+        {
+          "label": "Mucous Cloud",
+          "text": "While underwater, the aboleth is surrounded by transformative mucus. A creature that touches the aboleth or that hits it with a melee attack while within 5 feet of it must make a DC 14 Constitution saving throw. On a failure, the creature is diseased for 1d4 hours. The diseased creature can breathe only underwater."
+        },
+        {
+          "label": "Probing Telepathy",
+          "text": "If a creature communicates telepathically with the aboleth, the aboleth learns the creature’s greatest desires if the aboleth can see the creature."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The aboleth makes three tentacle attacks."
+        },
+        {
+          "label": "Tentacle",
+          "text": "Melee Weapon Attack: +9 to hit, reach 10 ft., one target. Hit: 12 (2d6 + 5) bludgeoning damage. If the target is a creature, it must succeed on a DC 14 Constitution saving throw or become diseased. The disease has no effect for 1 minute and can be removed by any magic that cures disease. After 1 minute, the diseased creature’s skin becomes translucent and slimy, the creature can’t regain hit points unless it is underwater, and the disease can be removed only by heal or another disease-curing spell of 6th level or higher. When the creature is outside a body of water, it takes 6 (1d12) acid damage every 10 minutes unless moisture is applied to the skin before 10 minutes have passed."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +9 to hit, reach 10 ft. one target. Hit: 15 (3d6 + 5) bludgeoning damage."
+        },
+        {
+          "label": "Enslave (3/Day)",
+          "text": "The aboleth targets one creature it can see within 30 feet of it. The target must succeed on a DC 14 Wisdom saving throw or be magically charmed by the aboleth until the aboleth dies or until it is on a different plane of existence from the target. The charmed target is under the aboleth’s control and can’t take reactions, and the aboleth and the target can communicate telepathically with each other over any distance. Whenever the charmed target takes damage, the target can repeat the saving throw. On a success, the effect ends. No more than once every 24 hours, the target can also repeat the saving throw when it is at least 1 mile away from the aboleth."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Detect",
+          "text": "The aboleth makes a Wisdom (Perception) check."
+        },
+        {
+          "label": "Tail Swipe",
+          "text": "The aboleth makes one tail attack."
+        },
+        {
+          "label": "Psychic Drain (Costs 2 Actions)",
+          "text": "One creature charmed by the aboleth takes 10 (3d6) psychic damage, and the aboleth regains hit points equal to the damage the creature takes."
+        }
+      ],
+      "legendary_intro": "The aboleth can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The aboleth regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:deva",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 261,
+      "last_page": 262,
+      "last_line": "and lair actions) that the new form has but that it lacks."
+    },
+    "statblock": {
+      "name": "Deva",
+      "size": "Medium",
+      "creature_type": "celestial",
+      "alignment": "lawful good",
+      "armor_class": 17,
+      "hit_points": 136,
+      "hit_dice": "16d8 + 64",
+      "movement": "30 ft., fly 90 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 18,
+          "modifier": 4
+        },
+        "con": {
+          "score": 18,
+          "modifier": 4
+        },
+        "int": {
+          "score": 17,
+          "modifier": 3
+        },
+        "wis": {
+          "score": 20,
+          "modifier": 5
+        },
+        "cha": {
+          "score": 20,
+          "modifier": 5
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Wis",
+          "bonus": 9
+        },
+        {
+          "name": "Cha",
+          "bonus": 9
+        }
+      ],
+      "skills": [
+        {
+          "name": "Insight",
+          "bonus": 9
+        },
+        {
+          "name": "Perception",
+          "bonus": 9
+        }
+      ],
+      "damage_resistances": "radiant; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "condition_immunities": "charmed, exhaustion, frightened",
+      "senses": "darkvision 120 ft., passive Perception 19",
+      "languages": "all, telepathy 120 ft.",
+      "challenge_rating": "10",
+      "xp": 5900,
+      "traits": [
+        {
+          "label": "Angelic Weapons",
+          "text": "The deva’s weapon attacks are magical. When the deva hits with any weapon, the weapon deals an extra 4d8 radiant damage (included in the attack)."
+        },
+        {
+          "label": "Innate Spellcasting",
+          "text": "The deva’s spellcasting ability is Charisma (spell save DC 17). The deva can innately cast the following spells, requiring only verbal components:\nAt will: detect evil and good\n1/day each: commune, raise dead"
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The deva has advantage on saving throws against spells and other magical effects."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The deva makes two melee attacks."
+        },
+        {
+          "label": "Mace",
+          "text": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) bludgeoning damage plus 18 (4d8) radiant damage."
+        },
+        {
+          "label": "Healing Touch (3/Day)",
+          "text": "The deva touches another creature. The target magically regains 20 (4d8 + 2) hit points and is freed from any curse, disease, poison, blindness, or deafness."
+        },
+        {
+          "label": "Change Shape",
+          "text": "The deva magically polymorphs into a humanoid or beast that has a challenge rating equal to or less than its own, or back into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed or borne by the new form (the deva’s choice). In a new form, the deva retains its game statistics and ability to speak, but its AC, movement modes, Strength, Dexterity, and special senses are replaced by those of the new form, and it gains any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but that it lacks."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:solar",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 262,
+      "last_page": 263,
+      "last_line": "blindness."
+    },
+    "statblock": {
+      "name": "Solar",
+      "size": "Large",
+      "creature_type": "celestial",
+      "alignment": "lawful good",
+      "armor_class": 21,
+      "hit_points": 243,
+      "hit_dice": "18d10 + 144",
+      "movement": "50 ft., fly 150 ft.",
+      "abilities": {
+        "str": {
+          "score": 26,
+          "modifier": 8
+        },
+        "dex": {
+          "score": 22,
+          "modifier": 6
+        },
+        "con": {
+          "score": 26,
+          "modifier": 8
+        },
+        "int": {
+          "score": 25,
+          "modifier": 7
+        },
+        "wis": {
+          "score": 25,
+          "modifier": 7
+        },
+        "cha": {
+          "score": 30,
+          "modifier": 10
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Int",
+          "bonus": 14
+        },
+        {
+          "name": "Wis",
+          "bonus": 14
+        },
+        {
+          "name": "Cha",
+          "bonus": 17
+        }
+      ],
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 14
+        }
+      ],
+      "damage_resistances": "radiant; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "necrotic, poison",
+      "condition_immunities": "charmed, exhaustion, frightened, poisoned",
+      "senses": "truesight 120 ft., passive Perception 24",
+      "languages": "all, telepathy 120 ft.",
+      "challenge_rating": "21",
+      "xp": 33000,
+      "traits": [
+        {
+          "label": "Angelic Weapons",
+          "text": "The solar’s weapon attacks are magical. When the solar hits with any weapon, the weapon deals an extra 6d8 radiant damage (included in the attack)."
+        },
+        {
+          "label": "Divine Awareness",
+          "text": "The solar knows if it hears a lie."
+        },
+        {
+          "label": "Innate Spellcasting",
+          "text": "The solar’s spellcasting ability is Charisma (spell save DC 25). It can innately cast the following spells, requiring no material components:\nAt will: detect evil and good, invisibility (self only)\n3/day each: blade barrier, dispel evil and good, resurrection\n1/day each: commune, control weather"
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The solar has advantage on saving throws against spells and other magical effects."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The solar makes two greatsword attacks."
+        },
+        {
+          "label": "Greatsword",
+          "text": "Melee Weapon Attack: +15 to hit, reach 5 ft., one target. Hit: 22 (4d6 + 8) slashing damage plus 27 (6d8) radiant damage."
+        },
+        {
+          "label": "Slaying Longbow",
+          "text": "Ranged Weapon Attack: +13 to hit, range 150/600 ft., one target. Hit: 15 (2d8 + 6) piercing damage plus 27 (6d8) radiant damage. If the target is a creature that has 100 hit points or fewer, it must succeed on a DC 15 Constitution saving throw or die."
+        },
+        {
+          "label": "Flying Sword",
+          "text": "The solar releases its greatsword to hover magically in an unoccupied space within 5 feet of it. If the solar can see the sword, the solar can mentally command it as a bonus action to fly up to 50 feet and either make one attack against a target or return to the solar’s hands. If the hovering sword is targeted by any effect, the solar is considered to be holding it. The hovering sword falls if the solar dies."
+        },
+        {
+          "label": "Healing Touch (4/Day)",
+          "text": "The solar touches another creature. The target magically regains 40 (8d8 + 4) hit points and is freed from any curse, disease, poison, blindness, or deafness."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Teleport",
+          "text": "The solar magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied space it can see."
+        },
+        {
+          "label": "Searing Burst (Costs 2 Actions)",
+          "text": "The solar emits magical, divine energy. Each creature of its choice in a 10-foot radius must make a DC 23 Dexterity saving throw, taking 14 (4d6) fire damage plus 14 (4d6) radiant damage on a failed save, or half as much damage on a successful one."
+        },
+        {
+          "label": "Blinding Gaze (Costs 3 Actions)",
+          "text": "The solar targets one creature it can see within 30 feet of it. If the target can see it, the target must succeed on a DC 15 Constitution saving throw or be blinded until magic such as the lesser restoration spell removes the blindness."
+        }
+      ],
+      "legendary_intro": "The solar can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The solar regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:animated-armor",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 263,
+      "last_page": 264,
+      "last_line": "target. Hit: 5 (1d6 + 2) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Animated Armor",
+      "size": "Medium",
+      "creature_type": "construct",
+      "alignment": "unaligned",
+      "armor_class": 18,
+      "hit_points": 33,
+      "hit_dice": "6d8 + 6",
+      "movement": "25 ft.",
+      "abilities": {
+        "str": {
+          "score": 14,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 13,
+          "modifier": 1
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 3,
+          "modifier": -4
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "damage_immunities": "poison, psychic",
+      "condition_immunities": "blinded, charmed, deafened, exhaustion, frightened, paralyzed, petrified, poisoned",
+      "senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 6",
+      "languages": "—",
+      "challenge_rating": "1",
+      "xp": 200,
+      "traits": [
+        {
+          "label": "Antimagic Susceptibility",
+          "text": "The armor is incapacitated while in the area of an antimagic field. If targeted by dispel magic, the armor must succeed on a Constitution saving throw against the caster’s spell save DC or fall unconscious for 1 minute."
+        },
+        {
+          "label": "False Appearance",
+          "text": "While the armor remains motionless, it is indistinguishable from a normal suit of armor."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The armor makes two melee attacks."
+        },
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:flying-sword",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 264,
+      "last_page": 264,
+      "last_line": "one target. Hit: 5 (1d8 + 1) slashing damage."
+    },
+    "statblock": {
+      "name": "Flying Sword",
+      "size": "Small",
+      "creature_type": "construct",
+      "alignment": "unaligned",
+      "armor_class": 17,
+      "hit_points": 17,
+      "hit_dice": "5d6",
+      "movement": "0 ft., fly 50 ft. (hover)",
+      "abilities": {
+        "str": {
+          "score": 12,
+          "modifier": 1
+        },
+        "dex": {
+          "score": 15,
+          "modifier": 2
+        },
+        "con": {
+          "score": 11,
+          "modifier": 0
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 5,
+          "modifier": -3
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 4
+        }
+      ],
+      "damage_immunities": "poison, psychic",
+      "condition_immunities": "blinded, charmed, deafened, frightened, paralyzed, petrified, poisoned",
+      "senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 7",
+      "languages": "—",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "Antimagic Susceptibility",
+          "text": "The sword is incapacitated while in the area of an antimagic field. If targeted by dispel magic, the sword must succeed on a Constitution saving throw against the caster’s spell save DC or fall unconscious for 1 minute."
+        },
+        {
+          "label": "False Appearance",
+          "text": "While the sword remains motionless and isn’t flying, it is indistinguishable from a normal sword."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Longsword",
+          "text": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 5 (1d8 + 1) slashing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:ankheg",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 264,
+      "last_page": 265,
+      "last_line": "on a successful one."
+    },
+    "statblock": {
+      "name": "Ankheg",
+      "size": "Large",
+      "creature_type": "monstrosity",
+      "alignment": "unaligned",
+      "armor_class": 14,
+      "hit_points": 39,
+      "hit_dice": "6d10 + 6",
+      "movement": "30 ft., burrow 10 ft.",
+      "abilities": {
+        "str": {
+          "score": 17,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 13,
+          "modifier": 1
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 13,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 6,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(natural armor), 11 while prone",
+      "senses": "darkvision 60 ft., tremorsense 60 ft., passive Perception 11",
+      "languages": "—",
+      "challenge_rating": "2",
+      "xp": 450,
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage plus 3 (1d6) acid damage. If the target is a Large or smaller creature, it is grappled (escape DC 13). Until this grapple ends, the ankheg can bite only the grappled creature and has advantage on attack rolls to do so."
+        },
+        {
+          "label": "Acid Spray (Recharge 6)",
+          "text": "The ankheg spits acid in a line that is 30 feet long and 5 feet wide, provided that it has no creature grappled. Each creature in that line must make a DC 13 Dexterity saving throw, taking 10 (3d6) acid damage on a failed save, or half as much damage on a successful one."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:azer",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 265,
+      "last_page": 265,
+      "last_line": "hands to make a melee attack, plus 3 (1d6) fire damage."
+    },
+    "statblock": {
+      "name": "Azer",
+      "size": "Medium",
+      "creature_type": "elemental",
+      "alignment": "lawful neutral",
+      "armor_class": 17,
+      "hit_points": 39,
+      "hit_dice": "6d8 + 12",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 17,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 12,
+          "modifier": 1
+        },
+        "con": {
+          "score": 15,
+          "modifier": 2
+        },
+        "int": {
+          "score": 12,
+          "modifier": 1
+        },
+        "wis": {
+          "score": 13,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 10,
+          "modifier": 0
+        }
+      },
+      "armor_class_details": "(natural armor, shield)",
+      "saving_throws": [
+        {
+          "name": "Con",
+          "bonus": 4
+        }
+      ],
+      "damage_immunities": "fire, poison",
+      "condition_immunities": "poisoned",
+      "senses": "passive Perception 11",
+      "languages": "Ignan",
+      "challenge_rating": "2",
+      "xp": 450,
+      "traits": [
+        {
+          "label": "Heated Body",
+          "text": "A creature that touches the azer or hits it with a melee attack while within 5 feet of it takes 5 (1d10) fire damage."
+        },
+        {
+          "label": "Heated Weapons",
+          "text": "When the azer hits with a metal melee weapon, it deals an extra 3 (1d6) fire damage (included in the attack)."
+        },
+        {
+          "label": "Illumination",
+          "text": "The azer sheds bright light in a 10-foot radius and dim light for an additional 10 feet."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Warhammer",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8 + 3) bludgeoning damage, or 8 (1d10 + 3) bludgeoning damage if used with two hands to make a melee attack, plus 3 (1d6) fire damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:basilisk",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 265,
+      "last_page": 265,
+      "last_line": "poison damage."
+    },
+    "statblock": {
+      "name": "Basilisk",
+      "size": "Medium",
+      "creature_type": "monstrosity",
+      "alignment": "unaligned",
+      "armor_class": 15,
+      "hit_points": 52,
+      "hit_dice": "8d8 + 16",
+      "movement": "20 ft.",
+      "abilities": {
+        "str": {
+          "score": 16,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 8,
+          "modifier": -1
+        },
+        "con": {
+          "score": 15,
+          "modifier": 2
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 8,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 7,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "senses": "darkvision 60 ft., passive Perception 9",
+      "languages": "—",
+      "challenge_rating": "3",
+      "xp": 700,
+      "traits": [
+        {
+          "label": "Petrifying Gaze",
+          "text": "If a creature starts its turn within 30 feet of the basilisk and the two of them can see each other, the basilisk can force the creature to make a DC 12 Constitution saving throw if the basilisk isn’t incapacitated. On a failed save, the creature magically begins to turn to stone and is restrained. It must repeat the saving throw at the end of its next turn. On a success, the effect ends. On a failure, the creature is petrified until freed by the greater restoration spell or other magic. A creature that isn’t surprised can avert its eyes to avoid the saving throw at the start of its turn. If it does so, it can’t see the basilisk until the start of its next turn, when it can avert its eyes again. If it looks at the basilisk in the meantime, it must immediately make the save. If the basilisk sees its reflection within 30 feet of it in bright light, it mistakes itself for a rival and targets itself with its gaze."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) piercing damage plus 7 (2d6) poison damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:behir",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 265,
+      "last_page": 266,
+      "last_line": "exiting prone."
+    },
+    "statblock": {
+      "name": "Behir",
+      "size": "Huge",
+      "creature_type": "monstrosity",
+      "alignment": "neutral evil",
+      "armor_class": 17,
+      "hit_points": 168,
+      "hit_dice": "16d12 + 64",
+      "movement": "50 ft., climb 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 23,
+          "modifier": 6
+        },
+        "dex": {
+          "score": 16,
+          "modifier": 3
+        },
+        "con": {
+          "score": 18,
+          "modifier": 4
+        },
+        "int": {
+          "score": 7,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 14,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 12,
+          "modifier": 1
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 6
+        },
+        {
+          "name": "Stealth",
+          "bonus": 7
+        }
+      ],
+      "damage_immunities": "lightning",
+      "senses": "darkvision 90 ft., passive Perception 16",
+      "languages": "Draconic",
+      "challenge_rating": "11",
+      "xp": 7200,
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The behir makes two attacks: one with its bite and one to constrict."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 22 (3d10 + 6) piercing damage."
+        },
+        {
+          "label": "Constrict",
+          "text": "Melee Weapon Attack: +10 to hit, reach 5 ft., one Large or smaller creature. Hit: 17 (2d10 + 6) bludgeoning damage plus 17 (2d10 + 6) slashing damage. The target is grappled (escape DC 16) if the behir isn’t already constricting a creature, and the target is restrained until this grapple ends."
+        },
+        {
+          "label": "Lightning Breath (Recharge 5–6)",
+          "text": "The behir exhales a line of lightning that is 20 feet long and 5 feet wide. Each creature in that line must make a DC 16 Dexterity saving throw, taking 66 (12d10) lightning damage on a failed save, or half as much damage on a successful one."
+        },
+        {
+          "label": "Swallow",
+          "text": "The behir makes one bite attack against a Medium or smaller target it is grappling. If the attack hits, the target is also swallowed, and the grapple ends. While swallowed, the target is blinded and restrained, it has total cover against attacks and other effects outside the behir, and it takes 21 (6d6) acid damage at the start of each of the behir’s turns. A behir can have only one creature swallowed at a time. If the behir takes 30 damage or more on a single turn from the swallowed creature, the behir must succeed on a DC 14 Constitution saving throw at the end of that turn or regurgitate the creature, which falls prone in a space within 10 feet of the behir. If the behir dies, a swallowed creature is no longer restrained by it and can escape from the corpse by using 15 feet of movement, exiting prone."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:bugbear",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 266,
+      "last_page": 266,
+      "last_line": "damage at range."
+    },
+    "statblock": {
+      "name": "Bugbear",
+      "size": "Medium",
+      "creature_type": "humanoid (goblinoid)",
+      "alignment": "chaotic evil",
+      "armor_class": 16,
+      "hit_points": 27,
+      "hit_dice": "5d8 + 5",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 15,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 13,
+          "modifier": 1
+        },
+        "int": {
+          "score": 8,
+          "modifier": -1
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 9,
+          "modifier": -1
+        }
+      },
+      "armor_class_details": "(hide armor, shield)",
+      "skills": [
+        {
+          "name": "Stealth",
+          "bonus": 6
+        },
+        {
+          "name": "Survival",
+          "bonus": 2
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 10",
+      "languages": "Common, Goblin",
+      "challenge_rating": "1",
+      "xp": 200,
+      "traits": [
+        {
+          "label": "Brute",
+          "text": "A melee weapon deals one extra die of its damage when the bugbear hits with it (included in the attack)."
+        },
+        {
+          "label": "Surprise Attack",
+          "text": "If the bugbear surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 7 (2d6) damage from the attack."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Morningstar",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 11 (2d8 + 2) piercing damage."
+        },
+        {
+          "label": "Javelin",
+          "text": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 9 (2d6 + 2) piercing damage in melee or 5 (1d6 + 2) piercing damage at range."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:bulette",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 266,
+      "last_page": 267,
+      "last_line": "bulette’s space."
+    },
+    "statblock": {
+      "name": "Bulette",
+      "size": "Large",
+      "creature_type": "monstrosity",
+      "alignment": "unaligned",
+      "armor_class": 17,
+      "hit_points": 94,
+      "hit_dice": "9d10 + 45",
+      "movement": "40 ft., burrow 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 19,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 21,
+          "modifier": 5
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 6
+        }
+      ],
+      "senses": "darkvision 60 ft., tremorsense 60 ft., passive Perception 16",
+      "languages": "—",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Standing Leap",
+          "text": "The bulette’s long jump is up to 30 feet and its high jump is up to 15 feet, with or without a running start."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 30 (4d12 + 4) piercing damage."
+        },
+        {
+          "label": "Deadly Leap",
+          "text": "If the bulette jumps at least 15 feet as part of its movement, it can then use this action to land on its feet in a space that contains one or more other creatures. Each of those creatures must succeed on a DC 16 Strength or Dexterity saving throw (target’s choice) or be knocked prone and take 14 (3d6 + 4) bludgeoning damage plus 14 (3d6 + 4) slashing damage. On a successful save, the creature takes only half the damage, isn’t knocked prone, and is pushed 5 feet out of the bulette’s space into an unoccupied space of the creature’s choice. If no unoccupied space is within range, the creature instead falls prone in the bulette’s space."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:centaur",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 267,
+      "last_page": 267,
+      "last_line": "damage."
+    },
+    "statblock": {
+      "name": "Centaur",
+      "size": "Large",
+      "creature_type": "monstrosity",
+      "alignment": "neutral good",
+      "armor_class": 12,
+      "hit_points": 45,
+      "hit_dice": "6d10 + 12",
+      "movement": "50 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 14,
+          "modifier": 2
+        },
+        "int": {
+          "score": 9,
+          "modifier": -1
+        },
+        "wis": {
+          "score": 13,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 11,
+          "modifier": 0
+        }
+      },
+      "skills": [
+        {
+          "name": "Athletics",
+          "bonus": 6
+        },
+        {
+          "name": "Perception",
+          "bonus": 3
+        },
+        {
+          "name": "Survival",
+          "bonus": 3
+        }
+      ],
+      "senses": "passive Perception 13",
+      "languages": "Elvish, Sylvan",
+      "challenge_rating": "2",
+      "xp": 450,
+      "traits": [
+        {
+          "label": "Charge",
+          "text": "If the centaur moves at least 30 feet straight toward a target and then hits it with a pike attack on the same turn, the target takes an extra 10 (3d6) piercing damage."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The centaur makes two attacks: one with its pike and one with its hooves or two with its longbow."
+        },
+        {
+          "label": "Pike",
+          "text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 9 (1d10 + 4) piercing damage."
+        },
+        {
+          "label": "Hooves",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Longbow",
+          "text": "Ranged Weapon Attack: +4 to hit, range 150/600 ft., one target. Hit: 6 (1d8 + 2) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:chimera",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 267,
+      "last_page": 267,
+      "last_line": "on a successful one."
+    },
+    "statblock": {
+      "name": "Chimera",
+      "size": "Large",
+      "creature_type": "monstrosity",
+      "alignment": "chaotic evil",
+      "armor_class": 14,
+      "hit_points": 114,
+      "hit_dice": "12d10 + 48",
+      "movement": "30 ft., fly 60 ft.",
+      "abilities": {
+        "str": {
+          "score": 19,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 19,
+          "modifier": 4
+        },
+        "int": {
+          "score": 3,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 14,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 10,
+          "modifier": 0
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 8
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 18",
+      "languages": "understands Draconic but can’t speak",
+      "challenge_rating": "6",
+      "xp": 2300,
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The chimera makes three attacks: one with its bite, one with its horns, and one with its claws. When its fire breath is available, it can use the breath in place of its bite or horns."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) piercing damage."
+        },
+        {
+          "label": "Horns",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 10 (1d12 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Claws",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+        },
+        {
+          "label": "Fire Breath (Recharge 5–6)",
+          "text": "The dragon head exhales fire in a 15-foot cone. Each creature in that area must make a DC 15 Dexterity saving throw, taking 31 (7d8) fire damage on a failed save, or half as much damage on a successful one."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:chuul",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 267,
+      "last_page": 268,
+      "last_line": "on itself on a success."
+    },
+    "statblock": {
+      "name": "Chuul",
+      "size": "Large",
+      "creature_type": "aberration",
+      "alignment": "chaotic evil",
+      "armor_class": 16,
+      "hit_points": 93,
+      "hit_dice": "11d10 + 33",
+      "movement": "30 ft., swim 30 ft.",
+      "abilities": {
+        "str": {
+          "score": 19,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 10,
+          "modifier": 0
+        },
+        "con": {
+          "score": 16,
+          "modifier": 3
+        },
+        "int": {
+          "score": 5,
+          "modifier": -3
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 4
+        }
+      ],
+      "damage_immunities": "poison",
+      "condition_immunities": "poisoned",
+      "senses": "darkvision 60 ft., passive Perception 14",
+      "languages": "understands Deep Speech but can’t speak",
+      "challenge_rating": "4",
+      "xp": 1100,
+      "traits": [
+        {
+          "label": "Amphibious",
+          "text": "The chuul can breathe air and water."
+        },
+        {
+          "label": "Sense Magic",
+          "text": "The chuul senses magic within 120 feet of it at will. This trait otherwise works like the detect magic spell but isn’t itself magical."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The chuul makes two pincer attacks. If the chuul is grappling a creature, the chuul can also use its tentacles once."
+        },
+        {
+          "label": "Pincer",
+          "text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage. The target is grappled (escape DC 14) if it is a Large or smaller creature and the chuul doesn’t have two other creatures grappled."
+        },
+        {
+          "label": "Tentacles",
+          "text": "One creature grappled by the chuul must succeed on a DC 13 Constitution saving throw or be poisoned for 1 minute. Until this poison ends, the target is paralyzed. The target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:cloaker",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 268,
+      "last_page": 268,
+      "last_line": "the duplicate disappears."
+    },
+    "statblock": {
+      "name": "Cloaker",
+      "size": "Large",
+      "creature_type": "aberration",
+      "alignment": "chaotic neutral",
+      "armor_class": 14,
+      "hit_points": 78,
+      "hit_dice": "12d10 + 12",
+      "movement": "10 ft., fly 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 17,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 15,
+          "modifier": 2
+        },
+        "con": {
+          "score": 12,
+          "modifier": 1
+        },
+        "int": {
+          "score": 13,
+          "modifier": 1
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 14,
+          "modifier": 2
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Stealth",
+          "bonus": 5
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 11",
+      "languages": "Deep Speech, Undercommon",
+      "challenge_rating": "8",
+      "xp": 3900,
+      "traits": [
+        {
+          "label": "Damage Transfer",
+          "text": "While attached to a creature, the cloaker takes only half the damage dealt to it (rounded down), and that creature takes the other half."
+        },
+        {
+          "label": "False Appearance",
+          "text": "While the cloaker remains motionless without its underside exposed, it is indistinguishable from a dark leather cloak."
+        },
+        {
+          "label": "Light Sensitivity",
+          "text": "While in bright light, the cloaker has disadvantage on attack rolls and Wisdom (Perception) checks that rely on sight."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The cloaker makes two attacks: one with its bite and one with its tail."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one creature. Hit: 10 (2d6 + 3) piercing damage, and if the target is Large or smaller, the cloaker attaches to it. If the cloaker has advantage against the target, the cloaker attaches to the target’s head, and the target is blinded and unable to breathe while the cloaker is attached. While attached, the cloaker can make this attack only against the target and has advantage on the attack roll. The cloaker can detach itself by spending 5 feet of its movement. A creature, including the target, can take its action to detach the cloaker by succeeding on a DC 16 Strength check."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one creature. Hit: 7 (1d8 + 3) slashing damage."
+        },
+        {
+          "label": "Moan",
+          "text": "Each creature within 60 feet of the cloaker that can hear its moan and that isn’t an aberration must succeed on a DC 13 Wisdom saving throw or become frightened until the end of the cloaker’s next turn. If a creature’s saving throw is successful, the creature is immune to the cloaker’s moan for the next 24 hours"
+        },
+        {
+          "label": "Phantasms (Recharges after a Short or Long Rest)",
+          "text": "The cloaker magically creates three illusory duplicates of itself if it isn’t in bright light. The duplicates move with it and mimic its actions, shifting position so as to make it impossible to track which cloaker is the real one. If the cloaker is ever in an area of bright light, the duplicates disappear. Whenever any creature targets the cloaker with an attack or a harmful spell while a duplicate remains, that creature rolls randomly to determine whether it targets the cloaker or one of the duplicates. A creature is unaffected by this magical effect if it can’t see or if it relies on senses other than sight. A duplicate has the cloaker’s AC and uses its saving throws. If an attack hits a duplicate, or if a duplicate fails a saving throw against an effect that deals damage, the duplicate disappears."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:cockatrice",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 268,
+      "last_page": 269,
+      "last_line": "failure, the creature is petrified for 24 hours."
+    },
+    "statblock": {
+      "name": "Cockatrice",
+      "size": "Small",
+      "creature_type": "monstrosity",
+      "alignment": "unaligned",
+      "armor_class": 11,
+      "hit_points": 27,
+      "hit_dice": "6d6 + 6",
+      "movement": "20 ft., fly 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 6,
+          "modifier": -2
+        },
+        "dex": {
+          "score": 12,
+          "modifier": 1
+        },
+        "con": {
+          "score": 12,
+          "modifier": 1
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 13,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "senses": "darkvision 60 ft., passive Perception 11",
+      "languages": "—",
+      "challenge_rating": "1/2",
+      "xp": 100,
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +3 to hit, reach 5 ft., one creature. Hit: 3 (1d4 + 1) piercing damage, and the target must succeed on a DC 11 Constitution saving throw against being magically petrified. On a failed save, the creature begins to turn to stone and is restrained. It must repeat the saving throw at the end of its next turn. On a success, the effect ends. On a failure, the creature is petrified for 24 hours."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:couatl",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 269,
+      "last_page": 269,
+      "last_line": "bite in that form."
+    },
+    "statblock": {
+      "name": "Couatl",
+      "size": "Medium",
+      "creature_type": "celestial",
+      "alignment": "lawful good",
+      "armor_class": 19,
+      "hit_points": 97,
+      "hit_dice": "13d8 + 39",
+      "movement": "30 ft., fly 90 ft.",
+      "abilities": {
+        "str": {
+          "score": 16,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 20,
+          "modifier": 5
+        },
+        "con": {
+          "score": 17,
+          "modifier": 3
+        },
+        "int": {
+          "score": 18,
+          "modifier": 4
+        },
+        "wis": {
+          "score": 20,
+          "modifier": 5
+        },
+        "cha": {
+          "score": 18,
+          "modifier": 4
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Con",
+          "bonus": 5
+        },
+        {
+          "name": "Wis",
+          "bonus": 7
+        },
+        {
+          "name": "Cha",
+          "bonus": 6
+        }
+      ],
+      "damage_resistances": "radiant",
+      "damage_immunities": "psychic; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "senses": "truesight 120 ft., passive Perception 15",
+      "languages": "all, telepathy 120 ft.",
+      "challenge_rating": "4",
+      "xp": 1100,
+      "traits": [
+        {
+          "label": "Innate Spellcasting",
+          "text": "The couatl’s spellcasting ability is Charisma (spell save DC 14). It can innately cast the following spells, requiring only verbal components:\nAt will: detect evil and good, detect magic, detect thoughts\n3/day each: bless, create food and water, cure wounds, lesser restoration, protection from poison, sanctuary, shield\n1/day each: dream, greater restoration, scrying"
+        },
+        {
+          "label": "Magic Weapons",
+          "text": "The couatl’s weapon attacks are magical."
+        },
+        {
+          "label": "Shielded Mind",
+          "text": "The couatl is immune to scrying and to any effect that would sense its emotions, read its thoughts, or detect its location."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +8 to hit, reach 5 ft., one creature. Hit: 8 (1d6 + 5) piercing damage, and the target must succeed on a DC 13 Constitution saving throw or be poisoned for 24 hours. Until this poison ends, the target is unconscious. Another creature can use an action to shake the target awake."
+        },
+        {
+          "label": "Constrict",
+          "text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one Medium or smaller creature. Hit: 10 (2d6 + 3) bludgeoning damage, and the target is grappled (escape DC 15). Until this grapple ends, the target is restrained, and the couatl can’t constrict another target."
+        },
+        {
+          "label": "Change Shape",
+          "text": "The couatl magically polymorphs into a humanoid or beast that has a challenge rating equal to or less than its own, or back into its true form. It reverts to its true form if it dies. Any equipment it is wearing or carrying is absorbed or borne by the new form (the couatl’s choice). In a new form, the couatl retains its game statistics and ability to speak, but its AC, movement modes, Strength, Dexterity, and other actions are replaced by those of the new form, and it gains any statistics and capabilities (except class features, legendary actions, and lair actions) that the new form has but that it lacks. If the new form has a bite attack, the couatl can use its bite in that form."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:darkmantle",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 269,
+      "last_page": 270,
+      "last_line": "the spell creating the light is dispelled."
+    },
+    "statblock": {
+      "name": "Darkmantle",
+      "size": "Small",
+      "creature_type": "monstrosity",
+      "alignment": "unaligned",
+      "armor_class": 11,
+      "hit_points": 22,
+      "hit_dice": "5d6 + 5",
+      "movement": "10 ft., fly 30 ft.",
+      "abilities": {
+        "str": {
+          "score": 16,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 12,
+          "modifier": 1
+        },
+        "con": {
+          "score": 13,
+          "modifier": 1
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "skills": [
+        {
+          "name": "Stealth",
+          "bonus": 3
+        }
+      ],
+      "senses": "blindsight 60 ft., passive Perception 10",
+      "languages": "—",
+      "challenge_rating": "1/2",
+      "xp": 100,
+      "traits": [
+        {
+          "label": "Echolocation",
+          "text": "The darkmantle can’t use its blindsight while deafened."
+        },
+        {
+          "label": "False Appearance",
+          "text": "While the darkmantle remains motionless, it is indistinguishable from a cave formation such as a stalactite or stalagmite."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Crush",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 6 (1d6 + 3) bludgeoning damage, and the darkmantle attaches to the target. If the target is Medium or smaller and the darkmantle has advantage on the attack roll, it attaches by engulfing the target’s head, and the target is also blinded and unable to breathe while the darkmantle is attached in this way. While attached to the target, the darkmantle can attack no other creature except the target but has advantage on its attack rolls. The darkmantle’s speed also becomes 0, it can’t benefit from any bonus to its speed, and it moves with the target. A creature can detach the darkmantle by making a successful DC 13 Strength check as an action. On its turn, the darkmantle can detach itself from the target by using 5 feet of movement."
+        },
+        {
+          "label": "Darkness Aura (1/Day)",
+          "text": "A 15-foot radius of magical darkness extends out from the darkmantle, moves with it, and spreads around corners. The darkness lasts as long as the darkmantle maintains concentration, up to 10 minutes (as if concentrating on a spell). Darkvision can’t penetrate this darkness, and no natural light can illuminate it. If any of the darkness overlaps with an area of light created by a spell of 2nd level or lower, the spell creating the light is dispelled."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:balor",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 270,
+      "last_page": 270,
+      "last_line": "an unoccupied space it can see."
+    },
+    "statblock": {
+      "name": "Balor",
+      "size": "Huge",
+      "creature_type": "fiend (demon)",
+      "alignment": "chaotic evil",
+      "armor_class": 19,
+      "hit_points": 262,
+      "hit_dice": "21d12 + 126",
+      "movement": "40 ft., fly 80 ft.",
+      "abilities": {
+        "str": {
+          "score": 26,
+          "modifier": 8
+        },
+        "dex": {
+          "score": 15,
+          "modifier": 2
+        },
+        "con": {
+          "score": 22,
+          "modifier": 6
+        },
+        "int": {
+          "score": 20,
+          "modifier": 5
+        },
+        "wis": {
+          "score": 16,
+          "modifier": 3
+        },
+        "cha": {
+          "score": 22,
+          "modifier": 6
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Str",
+          "bonus": 14
+        },
+        {
+          "name": "Con",
+          "bonus": 12
+        },
+        {
+          "name": "Wis",
+          "bonus": 9
+        },
+        {
+          "name": "Cha",
+          "bonus": 12
+        }
+      ],
+      "damage_resistances": "cold, lightning; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "fire, poison",
+      "condition_immunities": "poisoned",
+      "senses": "truesight 120 ft., passive Perception 13",
+      "languages": "Abyssal, telepathy 120 ft.",
+      "challenge_rating": "19",
+      "xp": 22000,
+      "traits": [
+        {
+          "label": "Death Throes",
+          "text": "When the balor dies, it explodes, and each creature within 30 feet of it must make a DC 20 Dexterity saving throw, taking 70 (20d6) fire damage on a failed save, or half as much damage on a successful one. The explosion ignites flammable objects in that area that aren’t being worn or carried, and it destroys the balor’s weapons."
+        },
+        {
+          "label": "Fire Aura",
+          "text": "At the start of each of the balor’s turns, each creature within 5 feet of it takes 10 (3d6) fire damage, and flammable objects in the aura that aren’t being worn or carried ignite. A creature that touches the balor or hits it with a melee attack while within 5 feet of it takes 10 (3d6) fire damage."
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The balor has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Magic Weapons",
+          "text": "The balor’s weapon attacks are magical."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The balor makes two attacks: one with its longsword and one with its whip."
+        },
+        {
+          "label": "Longsword",
+          "text": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 21 (3d8 + 8) slashing damage plus 13 (3d8) lightning damage. If the balor scores a critical hit, it rolls damage dice three times, instead of twice."
+        },
+        {
+          "label": "Whip",
+          "text": "Melee Weapon Attack: +14 to hit, reach 30 ft., one target. Hit: 15 (2d6 + 8) slashing damage plus 10 (3d6) fire damage, and the target must succeed on a DC 20 Strength saving throw or be pulled up to 25 feet toward the balor."
+        },
+        {
+          "label": "Teleport",
+          "text": "The balor magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied space it can see."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:marilith",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 272,
+      "last_page": 272,
+      "last_line": "the attacker and be wielding a melee weapon."
+    },
+    "statblock": {
+      "name": "Marilith",
+      "size": "Large",
+      "creature_type": "fiend (demon)",
+      "alignment": "chaotic evil",
+      "armor_class": 18,
+      "hit_points": 189,
+      "hit_dice": "18d10 + 90",
+      "movement": "40 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 20,
+          "modifier": 5
+        },
+        "con": {
+          "score": 20,
+          "modifier": 5
+        },
+        "int": {
+          "score": 18,
+          "modifier": 4
+        },
+        "wis": {
+          "score": 16,
+          "modifier": 3
+        },
+        "cha": {
+          "score": 20,
+          "modifier": 5
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Str",
+          "bonus": 9
+        },
+        {
+          "name": "Con",
+          "bonus": 10
+        },
+        {
+          "name": "Wis",
+          "bonus": 8
+        },
+        {
+          "name": "Cha",
+          "bonus": 10
+        }
+      ],
+      "damage_resistances": "cold, fire, lightning; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "poison",
+      "condition_immunities": "poisoned",
+      "senses": "truesight 120 ft., passive Perception 13",
+      "languages": "Abyssal, telepathy 120 ft.",
+      "challenge_rating": "16",
+      "xp": 15000,
+      "traits": [
+        {
+          "label": "Magic Resistance",
+          "text": "The marilith has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Magic Weapons",
+          "text": "The marilith’s weapon attacks are magical."
+        },
+        {
+          "label": "Reactive",
+          "text": "The marilith can take one reaction on every turn in a combat."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The marilith makes seven attacks: six with its longswords and one with its tail."
+        },
+        {
+          "label": "Longsword",
+          "text": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) slashing damage."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +9 to hit, reach 10 ft., one creature. Hit: 15 (2d10 + 4) bludgeoning damage. If the target is Medium or smaller, it is grappled (escape DC 19). Until this grapple ends, the target is restrained, the marilith can automatically hit the target with its tail, and the marilith can’t make tail attacks against other targets."
+        },
+        {
+          "label": "Teleport",
+          "text": "The marilith magically teleports, along with any equipment it is wearing or carrying, up to 120 feet to an unoccupied space it can see."
+        }
+      ],
+      "reactions": [
+        {
+          "label": "Parry",
+          "text": "The marilith adds 5 to its AC against one melee attack that would hit it. To do so, the marilith must see the attacker and be wielding a melee weapon."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:imp",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 277,
+      "last_page": 278,
+      "last_line": "wears or carries is invisible with it."
+    },
+    "statblock": {
+      "name": "Imp",
+      "size": "Tiny",
+      "creature_type": "fiend (devil, shapechanger)",
+      "alignment": "lawful evil",
+      "armor_class": 13,
+      "hit_points": 10,
+      "hit_dice": "3d4 + 3",
+      "movement": "20 ft., fly 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 6,
+          "modifier": -2
+        },
+        "dex": {
+          "score": 17,
+          "modifier": 3
+        },
+        "con": {
+          "score": 13,
+          "modifier": 1
+        },
+        "int": {
+          "score": 11,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 14,
+          "modifier": 2
+        }
+      },
+      "skills": [
+        {
+          "name": "Deception",
+          "bonus": 4
+        },
+        {
+          "name": "Insight",
+          "bonus": 3
+        },
+        {
+          "name": "Persuasion",
+          "bonus": 4
+        },
+        {
+          "name": "Stealth",
+          "bonus": 5
+        }
+      ],
+      "damage_resistances": "cold; bludgeoning, piercing, and slashing from nonmagical attacks that aren’t silvered",
+      "damage_immunities": "fire, poison",
+      "condition_immunities": "poisoned",
+      "senses": "darkvision 120 ft., passive Perception 11",
+      "languages": "Infernal, Common",
+      "challenge_rating": "1",
+      "xp": 200,
+      "traits": [
+        {
+          "label": "Shapechanger",
+          "text": "The imp can use its action to polymorph into a beast form that resembles a rat (speed 20 ft.), a raven (20 ft., fly 60 ft.), or a spider (20 ft., climb 20 ft.), or back into its true form. Its statistics are the same in each form, except for the speed changes noted. Any equipment it is wearing or carrying isn’t transformed. It reverts to its true form if it dies."
+        },
+        {
+          "label": "Devil’s Sight",
+          "text": "Magical darkness doesn’t impede the imp’s darkvision."
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The imp has advantage on saving throws against spells and other magical effects."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Sting (Bite in Beast Form)",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 5 (1d4 + 3) piercing damage, and the target must make on a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one."
+        },
+        {
+          "label": "Invisibility",
+          "text": "The imp magically turns invisible until it attacks or until its concentration ends (as if concentrating on a spell). Any equipment the imp wears or carries is invisible with it."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:pit-fiend",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 278,
+      "last_page": 279,
+      "last_line": "target. Hit: 24 (3d10 + 8) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Pit Fiend",
+      "size": "Large",
+      "creature_type": "fiend (devil)",
+      "alignment": "lawful evil",
+      "armor_class": 19,
+      "hit_points": 300,
+      "hit_dice": "24d10 + 168",
+      "movement": "30 ft., fly 60 ft.",
+      "abilities": {
+        "str": {
+          "score": 26,
+          "modifier": 8
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 24,
+          "modifier": 7
+        },
+        "int": {
+          "score": 22,
+          "modifier": 6
+        },
+        "wis": {
+          "score": 18,
+          "modifier": 4
+        },
+        "cha": {
+          "score": 24,
+          "modifier": 7
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 8
+        },
+        {
+          "name": "Con",
+          "bonus": 13
+        },
+        {
+          "name": "Wis",
+          "bonus": 10
+        }
+      ],
+      "damage_resistances": "cold; bludgeoning, piercing, and slashing from nonmagical attacks that aren’t silvered",
+      "damage_immunities": "fire, poison",
+      "condition_immunities": "poisoned",
+      "senses": "truesight 120 ft., passive Perception 14",
+      "languages": "Infernal, telepathy 120 ft.",
+      "challenge_rating": "20",
+      "xp": 25000,
+      "traits": [
+        {
+          "label": "Fear Aura",
+          "text": "Any creature hostile to the pit fiend that starts its turn within 20 feet of the pit fiend must make a DC 21 Wisdom saving throw, unless the pit fiend is incapacitated. On a failed save, the creature is frightened until the start of its next turn. If a creature’s saving throw is successful, the creature is immune to the pit fiend’s Fear Aura for the next 24 hours."
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The pit fiend has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Magic Weapons",
+          "text": "The pit fiend’s weapon attacks are magical."
+        },
+        {
+          "label": "Innate Spellcasting",
+          "text": "The pit fiend’s spellcasting ability is Charisma (spell save DC 21). The pit fiend can innately cast the following spells, requiring no material components:\nAt will: detect magic, fireball\n3/day each: hold monster, wall of fire"
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The pit fiend makes four attacks: one with its bite, one with its claw, one with its mace, and one with its tail."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +14 to hit, reach 5 ft., one target. Hit: 22 (4d6 + 8) piercing damage. The target must succeed on a DC 21 Constitution saving throw or become poisoned. While poisoned in this way, the target can’t regain hit points, and it takes 21 (6d6) poison damage at the start of each of its turns. The poisoned target can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success."
+        },
+        {
+          "label": "Claw",
+          "text": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 17 (2d8 + 8) slashing damage."
+        },
+        {
+          "label": "Mace",
+          "text": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) bludgeoning damage plus 21 (6d6) fire damage."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +14 to hit, reach 10 ft., one target. Hit: 24 (3d10 + 8) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:triceratops",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 279,
+      "last_page": 279,
+      "last_line": "damage."
+    },
+    "statblock": {
+      "name": "Triceratops",
+      "size": "Huge",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 13,
+      "hit_points": 95,
+      "hit_dice": "10d12 + 30",
+      "movement": "50 ft.",
+      "abilities": {
+        "str": {
+          "score": 22,
+          "modifier": 6
+        },
+        "dex": {
+          "score": 9,
+          "modifier": -1
+        },
+        "con": {
+          "score": 17,
+          "modifier": 3
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "senses": "passive Perception 10",
+      "languages": "—",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Trampling Charge",
+          "text": "If the triceratops moves at least 20 feet straight toward a creature and then hits it with a gore attack on the same turn, that target must succeed on a DC 13 Strength saving throw or be knocked prone. If the target is prone, the triceratops can make one stomp attack against it as a bonus action."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Gore",
+          "text": "Melee Weapon Attack: +9 to hit, reach 5 ft., one target. Hit: 24 (4d8 + 6) piercing damage."
+        },
+        {
+          "label": "Stomp",
+          "text": "Melee Weapon Attack: +9 to hit, reach 5 ft., one prone creature. Hit: 22 (3d10 + 6) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:tyrannosaurus-rex",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 279,
+      "last_page": 279,
+      "last_line": "target. Hit: 20 (3d8 + 7) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Tyrannosaurus Rex",
+      "size": "Huge",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 13,
+      "hit_points": 136,
+      "hit_dice": "13d12 + 52",
+      "movement": "50 ft.",
+      "abilities": {
+        "str": {
+          "score": 25,
+          "modifier": 7
+        },
+        "dex": {
+          "score": 10,
+          "modifier": 0
+        },
+        "con": {
+          "score": 19,
+          "modifier": 4
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 9,
+          "modifier": -1
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 4
+        }
+      ],
+      "senses": "passive Perception 14",
+      "languages": "—",
+      "challenge_rating": "8",
+      "xp": 3900,
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The tyrannosaurus makes two attacks: one with its bite and one with its tail. It can’t make both attacks against the same target."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 33 (4d12 + 7) piercing damage. If the target is a Medium or smaller creature, it is grappled (escape DC 17). Until this grapple ends, the target is restrained, and the tyrannosaurus can’t bite another target."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 20 (3d8 + 7) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:doppelganger",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 279,
+      "last_page": 280,
+      "last_line": "Intimidation, and Persuasion) checks against the target."
+    },
+    "statblock": {
+      "name": "Doppelganger",
+      "size": "Medium",
+      "creature_type": "monstrosity (shapechanger)",
+      "alignment": "neutral",
+      "armor_class": 14,
+      "hit_points": 52,
+      "hit_dice": "8d8 + 16",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 11,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 18,
+          "modifier": 4
+        },
+        "con": {
+          "score": 14,
+          "modifier": 2
+        },
+        "int": {
+          "score": 11,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 14,
+          "modifier": 2
+        }
+      },
+      "skills": [
+        {
+          "name": "Deception",
+          "bonus": 6
+        },
+        {
+          "name": "Insight",
+          "bonus": 3
+        }
+      ],
+      "condition_immunities": "charmed",
+      "senses": "darkvision 60 ft., passive Perception 11",
+      "languages": "Common",
+      "challenge_rating": "3",
+      "xp": 700,
+      "traits": [
+        {
+          "label": "Shapechanger",
+          "text": "The doppelganger can use its action to polymorph into a Small or Medium humanoid it has seen, or back into its true form. Its statistics, other than its size, are the same in each form. Any equipment it is wearing or carrying isn’t transformed. It reverts to its true form if it dies."
+        },
+        {
+          "label": "Ambusher",
+          "text": "In the first round of a combat, the doppelganger has advantage on attack rolls against any creature it has surprised."
+        },
+        {
+          "label": "Surprise Attack",
+          "text": "If the doppelganger surprises a creature and hits it with an attack during the first round of combat, the target takes an extra 10 (3d6) damage from the attack."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The doppelganger makes two melee attacks."
+        },
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Read Thoughts",
+          "text": "The doppelganger magically reads the surface thoughts of one creature within 60 feet of it. The effect can penetrate barriers, but 3 feet of wood or dirt, 2 feet of stone, 2 inches of metal, or a thin sheet of lead blocks it. While the target is in range, the doppelganger can continue reading its thoughts, as long as the doppelganger’s concentration isn’t broken (as if concentrating on a spell). While reading the target’s mind, the doppelganger has advantage on Wisdom (Insight) and Charisma (Deception, Intimidation, and Persuasion) checks against the target."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:adult-black-dragon",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 281,
+      "last_page": 281,
+      "last_line": "flying speed."
+    },
+    "statblock": {
+      "name": "Adult Black Dragon",
+      "size": "Huge",
+      "creature_type": "dragon",
+      "alignment": "chaotic evil",
+      "armor_class": 19,
+      "hit_points": 195,
+      "hit_dice": "17d12 + 85",
+      "movement": "40 ft., fly 80 ft., swim 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 23,
+          "modifier": 6
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 21,
+          "modifier": 5
+        },
+        "int": {
+          "score": 14,
+          "modifier": 2
+        },
+        "wis": {
+          "score": 13,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 17,
+          "modifier": 3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 7
+        },
+        {
+          "name": "Con",
+          "bonus": 10
+        },
+        {
+          "name": "Wis",
+          "bonus": 6
+        },
+        {
+          "name": "Cha",
+          "bonus": 8
+        }
+      ],
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 11
+        },
+        {
+          "name": "Stealth",
+          "bonus": 7
+        }
+      ],
+      "damage_immunities": "acid",
+      "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 21",
+      "languages": "Common, Draconic",
+      "challenge_rating": "14",
+      "xp": 11500,
+      "traits": [
+        {
+          "label": "Amphibious",
+          "text": "The dragon can breathe air and water."
+        },
+        {
+          "label": "Legendary Resistance (3/Day)",
+          "text": "If the dragon fails a saving throw, it can choose to succeed instead."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +11 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing damage plus 4 (1d8) acid damage."
+        },
+        {
+          "label": "Claw",
+          "text": "Melee Weapon Attack: +11 to hit, reach 5 ft., one target. Hit: 13 (2d6 + 6) slashing damage."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +11 to hit, reach 15 ft., one target. Hit: 15 (2d8 + 6) bludgeoning damage."
+        },
+        {
+          "label": "Frightful Presence",
+          "text": "Each creature of the dragon’s choice that is within 120 feet of the dragon and aware of it must succeed on a DC 16 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature’s saving throw is successful or the effect ends for it, the creature is immune to the dragon’s Frightful Presence for the next 24 hours."
+        },
+        {
+          "label": "Acid Breath (Recharge 5–6)",
+          "text": "The dragon exhales acid in a 60-foot line that is 5 feet wide. Each creature in that line must make a DC 18 Dexterity saving throw, taking 54 (12d8) acid damage on a failed save, or half as much damage on a successful one."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Detect",
+          "text": "The dragon makes a Wisdom (Perception) check."
+        },
+        {
+          "label": "Tail Attack",
+          "text": "The dragon makes a tail attack."
+        },
+        {
+          "label": "Wing Attack (Costs 2 Actions)",
+          "text": "The dragon beats its wings. Each creature within 10 feet of the dragon must succeed on a DC 19 Dexterity saving throw or take 13 (2d6 + 6) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed."
+        }
+      ],
+      "legendary_intro": "The dragon can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The dragon regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:ancient-red-dragon",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 286,
+      "last_page": 287,
+      "last_line": "flying speed."
+    },
+    "statblock": {
+      "name": "Ancient Red Dragon",
+      "size": "Gargantuan",
+      "creature_type": "dragon",
+      "alignment": "chaotic evil",
+      "armor_class": 22,
+      "hit_points": 546,
+      "hit_dice": "28d20 + 252",
+      "movement": "40 ft., climb 40 ft., fly 80 ft.",
+      "abilities": {
+        "str": {
+          "score": 30,
+          "modifier": 10
+        },
+        "dex": {
+          "score": 10,
+          "modifier": 0
+        },
+        "con": {
+          "score": 29,
+          "modifier": 9
+        },
+        "int": {
+          "score": 18,
+          "modifier": 4
+        },
+        "wis": {
+          "score": 15,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 23,
+          "modifier": 6
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 7
+        },
+        {
+          "name": "Con",
+          "bonus": 16
+        },
+        {
+          "name": "Wis",
+          "bonus": 9
+        },
+        {
+          "name": "Cha",
+          "bonus": 13
+        }
+      ],
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 16
+        },
+        {
+          "name": "Stealth",
+          "bonus": 7
+        }
+      ],
+      "damage_immunities": "fire",
+      "senses": "blindsight 60 ft., darkvision 120 ft., passive Perception 26",
+      "languages": "Common, Draconic",
+      "challenge_rating": "24",
+      "xp": 62000,
+      "traits": [
+        {
+          "label": "Legendary Resistance (3/Day)",
+          "text": "If the dragon fails a saving throw, it can choose to succeed instead."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The dragon can use its Frightful Presence. It then makes three attacks: one with its bite and two with its claws."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +17 to hit, reach 15 ft., one target. Hit: 21 (2d10 + 10) piercing damage plus 14 (4d6) fire damage."
+        },
+        {
+          "label": "Claw",
+          "text": "Melee Weapon Attack: +17 to hit, reach 10 ft., one target. Hit: 17 (2d6 + 10) slashing damage."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +17 to hit, reach 20 ft., one target. Hit: 19 (2d8 + 10) bludgeoning damage."
+        },
+        {
+          "label": "Frightful Presence",
+          "text": "Each creature of the dragon’s choice that is within 120 feet of the dragon and aware of it must succeed on a DC 21 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature’s saving throw is successful or the effect ends for it, the creature is immune to the dragon’s Frightful Presence for the next 24 hours."
+        },
+        {
+          "label": "Fire Breath (Recharge 5–6)",
+          "text": "The dragon exhales fire in a 90-foot cone. Each creature in that area must make a DC 24 Dexterity saving throw, taking 91 (26d6) fire damage on a failed save, or half as much damage on a successful one."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Detect",
+          "text": "The dragon makes a Wisdom (Perception) check."
+        },
+        {
+          "label": "Tail Attack",
+          "text": "The dragon makes a tail attack."
+        },
+        {
+          "label": "Wing Attack (Costs 2 Actions)",
+          "text": "The dragon beats its wings. Each creature within 15 feet of the dragon must succeed on a DC 25 Dexterity saving throw or take 17 (2d6 + 10) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed."
+        }
+      ],
+      "legendary_intro": "The dragon can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The dragon regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:gold-dragon-wyrmling",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 300,
+      "last_page": 301,
+      "last_line": "turns, ending the effect on itself on a success."
+    },
+    "statblock": {
+      "name": "Gold Dragon Wyrmling",
+      "size": "Medium",
+      "creature_type": "dragon",
+      "alignment": "lawful good",
+      "armor_class": 17,
+      "hit_points": 60,
+      "hit_dice": "8d8 + 24",
+      "movement": "30 ft., fly 60 ft., swim 30 ft.",
+      "abilities": {
+        "str": {
+          "score": 19,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 17,
+          "modifier": 3
+        },
+        "int": {
+          "score": 14,
+          "modifier": 2
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 16,
+          "modifier": 3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 4
+        },
+        {
+          "name": "Con",
+          "bonus": 5
+        },
+        {
+          "name": "Wis",
+          "bonus": 2
+        },
+        {
+          "name": "Cha",
+          "bonus": 5
+        }
+      ],
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 4
+        },
+        {
+          "name": "Stealth",
+          "bonus": 4
+        }
+      ],
+      "damage_immunities": "fire",
+      "senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 14",
+      "languages": "Draconic",
+      "challenge_rating": "3",
+      "xp": 700,
+      "traits": [
+        {
+          "label": "Amphibious",
+          "text": "The dragon can breathe air and water."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 9 (1d10 + 4) piercing damage."
+        },
+        {
+          "label": "Breath Weapons (Recharge 5–6)",
+          "text": "The dragon uses one of the following breath weapons.\nFire Breath. The dragon exhales fire in a 15-foot cone. Each creature in that area must make a DC 13 Dexterity saving throw, taking 22 (4d10) fire damage on a failed save, or half as much damage on a successful one.\nWeakening Breath. The dragon exhales gas in a 15-foot cone. Each creature in that area must succeed on a DC 13 Strength saving throw or have disadvantage on Strength-based attack rolls, Strength checks, and Strength saving throws for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:dryad",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 304,
+      "last_page": 305,
+      "last_line": "up to three beasts charmed at a time."
+    },
+    "statblock": {
+      "name": "Dryad",
+      "size": "Medium",
+      "creature_type": "fey",
+      "alignment": "neutral",
+      "armor_class": 11,
+      "hit_points": 22,
+      "hit_dice": "5d8",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 12,
+          "modifier": 1
+        },
+        "con": {
+          "score": 11,
+          "modifier": 0
+        },
+        "int": {
+          "score": 14,
+          "modifier": 2
+        },
+        "wis": {
+          "score": 15,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 18,
+          "modifier": 4
+        }
+      },
+      "armor_class_details": "(16 with barkskin)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 4
+        },
+        {
+          "name": "Stealth",
+          "bonus": 5
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 14",
+      "languages": "Elvish, Sylvan",
+      "challenge_rating": "1",
+      "xp": 200,
+      "traits": [
+        {
+          "label": "Innate Spellcasting",
+          "text": "The dryad’s innate spellcasting ability is Charisma (spell save DC 14). The dryad can innately cast the following spells, requiring no material components:\nAt will: druidcraft\n3/day each: entangle, goodberry\n1/day each: barkskin, pass without trace, shillelagh"
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The dryad has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Speak with Beasts and Plants",
+          "text": "The dryad can communicate with beasts and plants as if they shared a language."
+        },
+        {
+          "label": "Tree Stride",
+          "text": "Once on her turn, the dryad can use 10 feet of her movement to step magically into one living tree within her reach and emerge from a second living tree within 60 feet of the first tree, appearing in an unoccupied space within 5 feet of the second tree. Both trees must be Large or bigger."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Club",
+          "text": "Melee Weapon Attack: +2 to hit (+6 to hit with shillelagh), reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage, or 8 (1d8 + 4) bludgeoning damage with shillelagh."
+        },
+        {
+          "label": "Fey Charm",
+          "text": "The dryad targets one humanoid or beast that she can see within 30 feet of her. If the target can see the dryad, it must succeed on a DC 14 Wisdom saving throw or be magically charmed. The charmed creature regards the dryad as a trusted friend to be heeded and protected. Although the target isn’t under the dryad’s control, it takes the dryad’s requests or actions in the most favorable way it can. Each time the dryad or its allies do anything harmful to the target, it can repeat the saving throw, ending the effect on itself on a success. Otherwise, the effect lasts 24 hours or until the dryad dies, is on a different plane of existence from the target, or ends the effect as a bonus action. If a target’s saving throw is successful, the target is immune to the dryad’s Fey Charm for the next 24 hours. The dryad can have no more than one humanoid and up to three beasts charmed at a time."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:air-elemental",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 305,
+      "last_page": 306,
+      "last_line": "knocked prone."
+    },
+    "statblock": {
+      "name": "Air Elemental",
+      "size": "Large",
+      "creature_type": "elemental",
+      "alignment": "neutral",
+      "armor_class": 15,
+      "hit_points": 90,
+      "hit_dice": "12d10 + 24",
+      "movement": "0 ft., fly 90 ft. (hover)",
+      "abilities": {
+        "str": {
+          "score": 14,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 20,
+          "modifier": 5
+        },
+        "con": {
+          "score": 14,
+          "modifier": 2
+        },
+        "int": {
+          "score": 6,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 6,
+          "modifier": -2
+        }
+      },
+      "damage_resistances": "lightning, thunder; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "poison",
+      "condition_immunities": "exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
+      "senses": "darkvision 60 ft., passive Perception 10",
+      "languages": "Auran",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Air Form",
+          "text": "The elemental can enter a hostile creature’s space and stop there. It can move through a space as narrow as 1 inch wide without squeezing."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The elemental makes two slam attacks."
+        },
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +8 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) bludgeoning damage."
+        },
+        {
+          "label": "Whirlwind (Recharge 4–6)",
+          "text": "Each creature in the elemental’s space must make a DC 13 Strength saving throw. On a failure, a target takes 15 (3d8 + 2) bludgeoning damage and is flung up 20 feet away from the elemental in a random direction and knocked prone. If a thrown target strikes an object, such as a wall or floor, the target takes 3 (1d6) bludgeoning damage for every 10 feet it was thrown. If the target is thrown at another creature, that creature must succeed on a DC 13 Dexterity saving throw or take the same damage and be knocked prone. If the saving throw is successful, the target takes half the bludgeoning damage and isn’t flung away or knocked prone."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:fire-elemental",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 306,
+      "last_page": 307,
+      "last_line": "turns."
+    },
+    "statblock": {
+      "name": "Fire Elemental",
+      "size": "Large",
+      "creature_type": "elemental",
+      "alignment": "neutral",
+      "armor_class": 13,
+      "hit_points": 102,
+      "hit_dice": "12d10 + 36",
+      "movement": "50 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 17,
+          "modifier": 3
+        },
+        "con": {
+          "score": 16,
+          "modifier": 3
+        },
+        "int": {
+          "score": 6,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 7,
+          "modifier": -2
+        }
+      },
+      "damage_resistances": "bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "fire, poison",
+      "condition_immunities": "exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
+      "senses": "darkvision 60 ft., passive Perception 10",
+      "languages": "Ignan",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Fire Form",
+          "text": "The elemental can move through a space as narrow as 1 inch wide without squeezing. A creature that touches the elemental or hits it with a melee attack while within 5 feet of it takes 5 (1d10) fire damage. In addition, the elemental can enter a hostile creature’s space and stop there. The first time it enters a creature’s space on a turn, that creature takes 5 (1d10) fire damage and catches fire; until someone takes an action to douse the fire, the creature takes 5 (1d10) fire damage at the start of each of its turns."
+        },
+        {
+          "label": "Illumination",
+          "text": "The elemental sheds bright light in a 30-foot radius and dim light in an additional 30 feet."
+        },
+        {
+          "label": "Water Susceptibility",
+          "text": "For every 5 feet the elemental moves in water, or for every gallon of water splashed on it, it takes 1 cold damage."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The elemental makes two touch attacks."
+        },
+        {
+          "label": "Touch",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) fire damage. If the target is a creature or a flammable object, it ignites. Until a creature takes an action to douse the fire, the target takes 5 (1d10) fire damage at the start of each of its turns."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:water-elemental",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 307,
+      "last_page": 307,
+      "last_line": "a DC 14 Strength and succeeding."
+    },
+    "statblock": {
+      "name": "Water Elemental",
+      "size": "Large",
+      "creature_type": "elemental",
+      "alignment": "neutral",
+      "armor_class": 14,
+      "hit_points": 114,
+      "hit_dice": "12d10 + 48",
+      "movement": "30 ft., swim 90 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 18,
+          "modifier": 4
+        },
+        "int": {
+          "score": 5,
+          "modifier": -3
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 8,
+          "modifier": -1
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "damage_resistances": "acid; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "poison",
+      "condition_immunities": "exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
+      "senses": "darkvision 60 ft., passive Perception 10",
+      "languages": "Aquan",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Water Form",
+          "text": "The elemental can enter a hostile creature’s space and stop there. It can move through a space as narrow as 1 inch wide without squeezing."
+        },
+        {
+          "label": "Freeze",
+          "text": "If the elemental takes cold damage, it partially freezes; its speed is reduced by 20 feet until the end of its next turn."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The elemental makes two slam attacks."
+        },
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Whelm (Recharge 4–6)",
+          "text": "Each creature in the elemental’s space must make a DC 15 Strength saving throw. On a failure, a target takes 13 (2d8 + 4) bludgeoning damage. If it is Large or smaller, it is also grappled (escape DC 14). Until this grapple ends, the target is restrained and unable to breathe unless it can breathe water. If the saving throw is successful, the target is pushed out of the elemental’s space. The elemental can grapple one Large creature or up to two Medium or smaller creatures at one time. At the start of each of the elemental’s turns, each target grappled by it takes 13 (2d8 + 4) bludgeoning damage. A creature within 5 feet of the elemental can pull a creature or object out of it by taking an action to make a DC 14 Strength and succeeding."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:ettin",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 308,
+      "last_page": 308,
+      "last_line": "ft., one target. Hit: 14 (2d8 + 5) piercing damage."
+    },
+    "statblock": {
+      "name": "Ettin",
+      "size": "Large",
+      "creature_type": "giant",
+      "alignment": "chaotic evil",
+      "armor_class": 12,
+      "hit_points": 85,
+      "hit_dice": "10d10 + 30",
+      "movement": "40 ft.",
+      "abilities": {
+        "str": {
+          "score": 21,
+          "modifier": 5
+        },
+        "dex": {
+          "score": 8,
+          "modifier": -1
+        },
+        "con": {
+          "score": 17,
+          "modifier": 3
+        },
+        "int": {
+          "score": 6,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 8,
+          "modifier": -1
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 4
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 14",
+      "languages": "Giant, Orc",
+      "challenge_rating": "4",
+      "xp": 1100,
+      "traits": [
+        {
+          "label": "Two Heads",
+          "text": "The ettin has advantage on Wisdom (Perception) checks and on saving throws against being blinded, charmed, deafened, frightened, stunned, and knocked unconscious."
+        },
+        {
+          "label": "Wakeful",
+          "text": "When one of the ettin’s heads is asleep, its other head is awake."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The ettin makes two attacks: one with its battleaxe and one with its morningstar."
+        },
+        {
+          "label": "Battleaxe",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) slashing damage."
+        },
+        {
+          "label": "Morningstar",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 14 (2d8 + 5) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:shrieker",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 309,
+      "last_page": 309,
+      "last_line": "shrieker’s turns afterward."
+    },
+    "statblock": {
+      "name": "Shrieker",
+      "size": "Medium",
+      "creature_type": "plant",
+      "alignment": "unaligned",
+      "armor_class": 5,
+      "hit_points": 13,
+      "hit_dice": "3d8",
+      "movement": "0 ft.",
+      "abilities": {
+        "str": {
+          "score": 1,
+          "modifier": -5
+        },
+        "dex": {
+          "score": 1,
+          "modifier": -5
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 3,
+          "modifier": -4
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "condition_immunities": "blinded, deafened, frightened",
+      "senses": "blindsight 30 ft. (blind beyond this radius), passive Perception 6",
+      "languages": "—",
+      "challenge_rating": "0",
+      "xp": 10,
+      "traits": [
+        {
+          "label": "False Appearance",
+          "text": "While the shrieker remains motionless, it is indistinguishable from an ordinary fungus."
+        }
+      ],
+      "reactions": [
+        {
+          "label": "Shriek",
+          "text": "When bright light or a creature is within 30 feet of the shrieker, it emits a shriek audible within 300 feet of it. The shrieker continues to shriek until the disturbance moves out of range and for 1d4 of the shrieker’s turns afterward."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:violet-fungus",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 309,
+      "last_page": 309,
+      "last_line": "10 ft., one creature. Hit: 4 (1d8) necrotic damage."
+    },
+    "statblock": {
+      "name": "Violet Fungus",
+      "size": "Medium",
+      "creature_type": "plant",
+      "alignment": "unaligned",
+      "armor_class": 5,
+      "hit_points": 18,
+      "hit_dice": "4d8",
+      "movement": "5 ft.",
+      "abilities": {
+        "str": {
+          "score": 3,
+          "modifier": -4
+        },
+        "dex": {
+          "score": 1,
+          "modifier": -5
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 3,
+          "modifier": -4
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "condition_immunities": "blinded, deafened, frightened",
+      "senses": "blindsight 30 ft. (blind beyond this radius), passive Perception 6",
+      "languages": "—",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "False Appearance",
+          "text": "While the violet fungus remains motionless, it is indistinguishable from an ordinary fungus."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The fungus makes 1d4 Rotting Touch attacks."
+        },
+        {
+          "label": "Rotting Touch",
+          "text": "Melee Weapon Attack: +2 to hit, reach 10 ft., one creature. Hit: 4 (1d8) necrotic damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:ghost",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 311,
+      "last_page": 311,
+      "last_line": "after the possession ends."
+    },
+    "statblock": {
+      "name": "Ghost",
+      "size": "Medium",
+      "creature_type": "undead",
+      "alignment": "any alignment",
+      "armor_class": 11,
+      "hit_points": 45,
+      "hit_dice": "10d8",
+      "movement": "0 ft., fly 40 ft. (hover)",
+      "abilities": {
+        "str": {
+          "score": 7,
+          "modifier": -2
+        },
+        "dex": {
+          "score": 13,
+          "modifier": 1
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 10,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 17,
+          "modifier": 3
+        }
+      },
+      "damage_resistances": "acid, fire, lightning, thunder; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "damage_immunities": "cold, necrotic, poison",
+      "condition_immunities": "charmed, exhaustion, frightened, grappled, paralyzed, petrified, poisoned, prone, restrained",
+      "senses": "darkvision 60 ft., passive Perception 11",
+      "languages": "any languages it knew in life",
+      "challenge_rating": "4",
+      "xp": 1100,
+      "traits": [
+        {
+          "label": "Ethereal Sight",
+          "text": "The ghost can see 60 feet into the Ethereal Plane when it is on the Material Plane, and vice versa."
+        },
+        {
+          "label": "Incorporeal Movement",
+          "text": "The ghost can move through other creatures and objects as if they were difficult terrain. It takes 5 (1d10) force damage if it ends its turn inside an object."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Withering Touch",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 17 (4d6 + 3) necrotic damage."
+        },
+        {
+          "label": "Etherealness",
+          "text": "The ghost enters the Ethereal Plane from the Material Plane, or vice versa. It is visible on the Material Plane while it is in the Border Ethereal, and vice versa, yet it can’t affect or be affected by anything on the other plane."
+        },
+        {
+          "label": "Horrifying Visage",
+          "text": "Each non-undead creature within 60 feet of the ghost that can see it must succeed on a DC 13 Wisdom saving throw or be frightened for 1 minute. If the save fails by 5 or more, the target also ages 1d4 × 10 years. A frightened target can repeat the saving throw at the end of each of its turns, ending the frightened condition on itself on a success. If a target’s saving throw is successful or the effect ends for it, the target is immune to this ghost’s Horrifying Visage for the next 24 hours. The aging effect can be reversed with a greater restoration spell, but only within 24 hours of it occurring."
+        },
+        {
+          "label": "Possession (Recharge 6)",
+          "text": "One humanoid that the ghost can see within 5 feet of it must succeed on a DC 13 Charisma saving throw or be possessed by the ghost; the ghost then disappears, and the target is incapacitated and loses control of its body. The ghost now controls the body but doesn’t deprive the target of awareness. The ghost can’t be targeted by any attack, spell, or other effect, except ones that turn undead, and it retains its alignment, Intelligence, Wisdom, Charisma, and immunity to being charmed and frightened. It otherwise uses the possessed target’s statistics, but doesn’t gain access to the target’s knowledge, class features, or proficiencies. The possession lasts until the body drops to 0 hit points, the ghost ends it as a bonus action, or the ghost is turned or forced out by an effect like the dispel evil and good spell. When the possession ends, the ghost reappears in an unoccupied space within 5 feet of the body. The target is immune to this ghost’s Possession for 24 hours after succeeding on the saving throw or after the possession ends."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:goblin",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 315,
+      "last_page": 315,
+      "last_line": "80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+    },
+    "statblock": {
+      "name": "Goblin",
+      "size": "Small",
+      "creature_type": "humanoid (goblinoid)",
+      "alignment": "neutral evil",
+      "armor_class": 15,
+      "hit_points": 7,
+      "hit_dice": "2d6",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 8,
+          "modifier": -1
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 10,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 8,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 8,
+          "modifier": -1
+        }
+      },
+      "armor_class_details": "(leather armor, shield)",
+      "skills": [
+        {
+          "name": "Stealth",
+          "bonus": 6
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 9",
+      "languages": "Common, Goblin",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "Nimble Escape",
+          "text": "The goblin can take the Disengage or Hide action as a bonus action on each of its turns."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Scimitar",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage."
+        },
+        {
+          "label": "Shortbow",
+          "text": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:ogre",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 336,
+      "last_page": 336,
+      "last_line": "+ 4) piercing damage."
+    },
+    "statblock": {
+      "name": "Ogre",
+      "size": "Large",
+      "creature_type": "giant",
+      "alignment": "chaotic evil",
+      "armor_class": 11,
+      "hit_points": 59,
+      "hit_dice": "7d10 + 21",
+      "movement": "40 ft.",
+      "abilities": {
+        "str": {
+          "score": 19,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 8,
+          "modifier": -1
+        },
+        "con": {
+          "score": 16,
+          "modifier": 3
+        },
+        "int": {
+          "score": 5,
+          "modifier": -3
+        },
+        "wis": {
+          "score": 7,
+          "modifier": -2
+        },
+        "cha": {
+          "score": 7,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(hide armor)",
+      "senses": "darkvision 60 ft., passive Perception 8",
+      "languages": "Common, Giant",
+      "challenge_rating": "2",
+      "xp": 450,
+      "actions": [
+        {
+          "label": "Greatclub",
+          "text": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Javelin",
+          "text": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 11 (2d6 + 4) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:gelatinous-cube",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 337,
+      "last_page": 338,
+      "last_line": "within 5 feet of the cube."
+    },
+    "statblock": {
+      "name": "Gelatinous Cube",
+      "size": "Large",
+      "creature_type": "ooze",
+      "alignment": "unaligned",
+      "armor_class": 6,
+      "hit_points": 84,
+      "hit_dice": "8d10 + 40",
+      "movement": "15 ft.",
+      "abilities": {
+        "str": {
+          "score": 14,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 3,
+          "modifier": -4
+        },
+        "con": {
+          "score": 20,
+          "modifier": 5
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 6,
+          "modifier": -2
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "condition_immunities": "blinded, charmed, deafened, exhaustion, frightened, prone",
+      "senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 8",
+      "languages": "—",
+      "challenge_rating": "2",
+      "xp": 450,
+      "traits": [
+        {
+          "label": "Ooze Cube",
+          "text": "The cube takes up its entire space. Other creatures can enter the space, but a creature that does so is subjected to the cube’s Engulf and has disadvantage on the saving throw. Creatures inside the cube can be seen but have total cover. A creature within 5 feet of the cube can take an action to pull a creature or object out of the cube. Doing so requires a successful DC 12 Strength check, and the creature making the attempt takes 10 (3d6) acid damage. The cube can hold only one Large creature or up to four Medium or smaller creatures inside it at a time."
+        },
+        {
+          "label": "Transparent",
+          "text": "Even when the cube is in plain sight, it takes a successful DC 15 Wisdom (Perception) check to spot a cube that has neither moved nor attacked. A creature that tries to enter the cube’s space while unaware of the cube is surprised by the cube."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Pseudopod",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 10 (3d6) acid damage."
+        },
+        {
+          "label": "Engulf",
+          "text": "The cube moves up to its speed. While doing so, it can enter Large or smaller creatures’ spaces. Whenever the cube enters a creature’s space, the creature must make a DC 12 Dexterity saving throw. On a successful save, the creature can choose to be pushed 5 feet back or to the side of the cube. A creature that chooses not to be pushed suffers the consequences of a failed saving throw. On a failed save, the cube enters the creature’s space, and the creature takes 10 (3d6) acid damage and is engulfed. The engulfed creature can’t breathe, is restrained, and takes 21 (6d6) acid damage at the start of each of the cube’s turns. When the cube moves, the engulfed creature moves with it. An engulfed creature can try to escape by taking an action to make a DC 12 Strength check. On a success, the creature escapes and enters a space of its choice within 5 feet of the cube."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:ochre-jelly",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 338,
+      "last_page": 339,
+      "last_line": "jelly."
+    },
+    "statblock": {
+      "name": "Ochre Jelly",
+      "size": "Large",
+      "creature_type": "ooze",
+      "alignment": "unaligned",
+      "armor_class": 8,
+      "hit_points": 45,
+      "hit_dice": "6d10 + 12",
+      "movement": "10 ft., climb 10 ft.",
+      "abilities": {
+        "str": {
+          "score": 15,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 6,
+          "modifier": -2
+        },
+        "con": {
+          "score": 14,
+          "modifier": 2
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 6,
+          "modifier": -2
+        },
+        "cha": {
+          "score": 1,
+          "modifier": -5
+        }
+      },
+      "damage_resistances": "acid",
+      "damage_immunities": "lightning, slashing",
+      "condition_immunities": "blinded, charmed, deafened, exhaustion, frightened, prone",
+      "senses": "blindsight 60 ft. (blind beyond this radius), passive Perception 8",
+      "languages": "—",
+      "challenge_rating": "2",
+      "xp": 450,
+      "traits": [
+        {
+          "label": "Amorphous",
+          "text": "The jelly can move through a space as narrow as 1 inch wide without squeezing."
+        },
+        {
+          "label": "Spider Climb",
+          "text": "The jelly can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Pseudopod",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 9 (2d6 + 2) bludgeoning damage plus 3 (1d6) acid damage."
+        }
+      ],
+      "reactions": [
+        {
+          "label": "Split",
+          "text": "When a jelly that is Medium or larger is subjected to lightning or slashing damage, it splits into two new jellies if it has at least 10 hit points. Each new jelly has hit points equal to half the original jelly’s, rounded down. New jellies are one size smaller than the original jelly."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:orc",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 339,
+      "last_page": 339,
+      "last_line": "3) piercing damage."
+    },
+    "statblock": {
+      "name": "Orc",
+      "size": "Medium",
+      "creature_type": "humanoid (orc)",
+      "alignment": "chaotic evil",
+      "armor_class": 13,
+      "hit_points": 15,
+      "hit_dice": "2d8 + 6",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 16,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 12,
+          "modifier": 1
+        },
+        "con": {
+          "score": 16,
+          "modifier": 3
+        },
+        "int": {
+          "score": 7,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 10,
+          "modifier": 0
+        }
+      },
+      "armor_class_details": "(hide armor)",
+      "skills": [
+        {
+          "name": "Intimidation",
+          "bonus": 2
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 10",
+      "languages": "Common, Orc",
+      "challenge_rating": "1/2",
+      "xp": 100,
+      "traits": [
+        {
+          "label": "Aggressive",
+          "text": "As a bonus action, the orc can move up to its speed toward a hostile creature that it can see."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Greataxe",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 9 (1d12 + 3) slashing damage."
+        },
+        {
+          "label": "Javelin",
+          "text": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:skeleton",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 346,
+      "last_page": 346,
+      "last_line": "80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+    },
+    "statblock": {
+      "name": "Skeleton",
+      "size": "Medium",
+      "creature_type": "undead",
+      "alignment": "lawful evil",
+      "armor_class": 13,
+      "hit_points": 13,
+      "hit_dice": "2d8 + 4",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 15,
+          "modifier": 2
+        },
+        "int": {
+          "score": 6,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 8,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "armor_class_details": "(armor scraps)",
+      "damage_vulnerabilities": "bludgeoning",
+      "damage_immunities": "poison",
+      "condition_immunities": "exhaustion, poisoned",
+      "senses": "darkvision 60 ft., passive Perception 9",
+      "languages": "understands all languages it knew in life but can’t speak",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "actions": [
+        {
+          "label": "Shortsword",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+        },
+        {
+          "label": "Shortbow",
+          "text": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:stirge",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 349,
+      "last_page": 349,
+      "last_line": "stirge."
+    },
+    "statblock": {
+      "name": "Stirge",
+      "size": "Tiny",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 14,
+      "hit_points": 2,
+      "hit_dice": "1d4",
+      "movement": "10 ft., fly 40 ft.",
+      "abilities": {
+        "str": {
+          "score": 4,
+          "modifier": -3
+        },
+        "dex": {
+          "score": 16,
+          "modifier": 3
+        },
+        "con": {
+          "score": 11,
+          "modifier": 0
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 8,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 6,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "senses": "darkvision 60 ft., passive Perception 9",
+      "languages": "—",
+      "challenge_rating": "1/8",
+      "xp": 25,
+      "actions": [
+        {
+          "label": "Blood Drain",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 5 (1d4 + 3) piercing damage, and the stirge attaches to the target. While attached, the stirge doesn’t attack. Instead, at the start of each of the stirge’s turns, the target loses 5 (1d4 + 3) hit points due to blood loss. The stirge can detach itself by spending 5 feet of its movement. It does so after it drains 10 hit points of blood from the target or the target dies. A creature, including the target, can use its action to detach the stirge."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:tarrasque",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 350,
+      "last_page": 351,
+      "last_line": "bite attack or uses its Swallow."
+    },
+    "statblock": {
+      "name": "Tarrasque",
+      "size": "Gargantuan",
+      "creature_type": "monstrosity (titan)",
+      "alignment": "unaligned",
+      "armor_class": 25,
+      "hit_points": 676,
+      "hit_dice": "33d20 + 330",
+      "movement": "40 ft.",
+      "abilities": {
+        "str": {
+          "score": 30,
+          "modifier": 10
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 30,
+          "modifier": 10
+        },
+        "int": {
+          "score": 3,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 11,
+          "modifier": 0
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Int",
+          "bonus": 5
+        },
+        {
+          "name": "Wis",
+          "bonus": 9
+        },
+        {
+          "name": "Cha",
+          "bonus": 9
+        }
+      ],
+      "damage_immunities": "fire, poison; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "condition_immunities": "charmed, frightened, paralyzed, poisoned",
+      "senses": "blindsight 120 ft., passive Perception 10",
+      "languages": "—",
+      "challenge_rating": "30",
+      "xp": 155000,
+      "traits": [
+        {
+          "label": "Legendary Resistance (3/Day)",
+          "text": "If the tarrasque fails a saving throw, it can choose to succeed instead."
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The tarrasque has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Reflective Carapace",
+          "text": "Any time the tarrasque is targeted by a magic missile spell, a line spell, or a spell that requires a ranged attack roll, roll a d6. On a 1 to 5, the tarrasque is unaffected. On a 6, the tarrasque is unaffected, and the effect is reflected back at the caster as though it originated from the tarrasque, turning the caster into the target."
+        },
+        {
+          "label": "Siege Monster",
+          "text": "The tarrasque deals double damage to objects and structures."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The tarrasque can use its Frightful Presence. It then makes five attacks: one with its bite, two with its claws, one with its horns, and one with its tail. It can use its Swallow instead of its bite."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +19 to hit, reach 10 ft., one target. Hit: 36 (4d12 + 10) piercing damage. If the target is a creature, it is grappled (escape DC 20). Until this grapple ends, the target is restrained, and the tarrasque can’t bite another target."
+        },
+        {
+          "label": "Claw",
+          "text": "Melee Weapon Attack: +19 to hit, reach 15 ft., one target. Hit: 28 (4d8 + 10) slashing damage."
+        },
+        {
+          "label": "Horns",
+          "text": "Melee Weapon Attack: +19 to hit, reach 10 ft., one target. Hit: 32 (4d10 + 10) piercing damage."
+        },
+        {
+          "label": "Tail",
+          "text": "Melee Weapon Attack: +19 to hit, reach 20 ft., one target. Hit: 24 (4d6 + 10) bludgeoning damage. If the target is a creature, it must succeed on a DC 20 Strength saving throw or be knocked prone."
+        },
+        {
+          "label": "Frightful Presence",
+          "text": "Each creature of the tarrasque’s choice within 120 feet of it and aware of it must succeed on a DC 17 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, with disadvantage if the tarrasque is within line of sight, ending the effect on itself on a success. If a creature’s saving throw is successful or the effect ends for it, the creature is immune to the tarrasque’s Frightful Presence for the next 24 hours."
+        },
+        {
+          "label": "Swallow",
+          "text": "The tarrasque makes one bite attack against a Large or smaller creature it is grappling. If the attack hits, the target takes the bite’s damage, the target is swallowed, and the grapple ends. While swallowed, the creature is blinded and restrained, it has total cover against attacks and other effects outside the tarrasque, and it takes 56 (16d6) acid damage at the start of each of the tarrasque’s turns. If the tarrasque takes 60 damage or more on a single turn from a creature inside it, the tarrasque must succeed on a DC 20 Constitution saving throw at the end of that turn or regurgitate all swallowed creatures, which fall prone in a space within 10 feet of the tarrasque. If the tarrasque dies, a swallowed creature is no longer restrained by it and can escape from the corpse by using 30 feet of movement, exiting prone."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Attack",
+          "text": "The tarrasque makes one claw attack or tail attack."
+        },
+        {
+          "label": "Move",
+          "text": "The tarrasque moves up to half its speed."
+        },
+        {
+          "label": "Chomp (Costs 2 Actions)",
+          "text": "The tarrasque makes one bite attack or uses its Swallow."
+        }
+      ],
+      "legendary_intro": "The tarrasque can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The tarrasque regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:treant",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 351,
+      "last_page": 351,
+      "last_line": "an inanimate tree. The tree then takes root if possible."
+    },
+    "statblock": {
+      "name": "Treant",
+      "size": "Huge",
+      "creature_type": "plant",
+      "alignment": "chaotic good",
+      "armor_class": 16,
+      "hit_points": 138,
+      "hit_dice": "12d12 + 60",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 23,
+          "modifier": 6
+        },
+        "dex": {
+          "score": 8,
+          "modifier": -1
+        },
+        "con": {
+          "score": 21,
+          "modifier": 5
+        },
+        "int": {
+          "score": 12,
+          "modifier": 1
+        },
+        "wis": {
+          "score": 16,
+          "modifier": 3
+        },
+        "cha": {
+          "score": 12,
+          "modifier": 1
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "damage_resistances": "bludgeoning, piercing",
+      "damage_vulnerabilities": "fire",
+      "senses": "passive Perception 13",
+      "languages": "Common, Druidic, Elvish, Sylvan",
+      "challenge_rating": "9",
+      "xp": 5000,
+      "traits": [
+        {
+          "label": "False Appearance",
+          "text": "While the treant remains motionless, it is indistinguishable from a normal tree."
+        },
+        {
+          "label": "Siege Monster",
+          "text": "The treant deals double damage to objects and structures."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The treant makes two slam attacks."
+        },
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +10 to hit, reach 5 ft., one target. Hit: 16 (3d6 + 6) bludgeoning damage."
+        },
+        {
+          "label": "Rock",
+          "text": "Ranged Weapon Attack: +10 to hit, range 60/180 ft., one target. Hit: 28 (4d10 + 6) bludgeoning damage."
+        },
+        {
+          "label": "Animate Trees (1/Day)",
+          "text": "The treant magically animates one or two trees it can see within 60 feet of it. These trees have the same statistics as a treant, except they have Intelligence and Charisma scores of 1, they can’t speak, and they have only the Slam action option. An animated tree acts as an ally of the treant. The tree remains animate for 1 day or until it dies; until the treant dies or is more than 120 feet from the tree; or until the treant takes a bonus action to turn it back into an inanimate tree. The tree then takes root if possible."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:troll",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 351,
+      "last_page": 351,
+      "last_line": "target. Hit: 11 (2d6 + 4) slashing damage."
+    },
+    "statblock": {
+      "name": "Troll",
+      "size": "Large",
+      "creature_type": "giant",
+      "alignment": "chaotic evil",
+      "armor_class": 15,
+      "hit_points": 84,
+      "hit_dice": "8d10 + 40",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 13,
+          "modifier": 1
+        },
+        "con": {
+          "score": 20,
+          "modifier": 5
+        },
+        "int": {
+          "score": 7,
+          "modifier": -2
+        },
+        "wis": {
+          "score": 9,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 7,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 2
+        }
+      ],
+      "senses": "darkvision 60 ft., passive Perception 12",
+      "languages": "Giant",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Keen Smell",
+          "text": "The troll has advantage on Wisdom (Perception) checks that rely on smell."
+        },
+        {
+          "label": "Regeneration",
+          "text": "The troll regains 10 hit points at the start of its turn. If the troll takes acid or fire damage, this trait doesn’t function at the start of the troll’s next turn. The troll dies only if it starts its turn with 0 hit points and doesn’t regenerate."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The troll makes three attacks: one with its bite and two with its claws."
+        },
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 7 (1d6 + 4) piercing damage."
+        },
+        {
+          "label": "Claw",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:unicorn",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 351,
+      "last_page": 352,
+      "last_line": "regains 11 (2d8 + 2) hit points."
+    },
+    "statblock": {
+      "name": "Unicorn",
+      "size": "Large",
+      "creature_type": "celestial",
+      "alignment": "lawful good",
+      "armor_class": 12,
+      "hit_points": 67,
+      "hit_dice": "9d10 + 18",
+      "movement": "50 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 15,
+          "modifier": 2
+        },
+        "int": {
+          "score": 11,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 17,
+          "modifier": 3
+        },
+        "cha": {
+          "score": 16,
+          "modifier": 3
+        }
+      },
+      "damage_immunities": "poison",
+      "condition_immunities": "charmed, paralyzed, poisoned",
+      "senses": "darkvision 60 ft., passive Perception 13",
+      "languages": "Celestial, Elvish, Sylvan, telepathy 60 ft.",
+      "challenge_rating": "5",
+      "xp": 1800,
+      "traits": [
+        {
+          "label": "Charge",
+          "text": "If the unicorn moves at least 20 feet straight toward a target and then hits it with a horn attack on the same turn, the target takes an extra 9 (2d8) piercing damage. If the target is a creature, it must succeed on a DC 15 Strength saving throw or be knocked prone."
+        },
+        {
+          "label": "Innate Spellcasting",
+          "text": "The unicorn’s innate spellcasting ability is Charisma (spell save DC 14). The unicorn can innately cast the following spells, requiring no components:\nAt will: detect evil and good, druidcraft, pass without trace\n1/day each: calm emotions, dispel evil and good, entangle"
+        },
+        {
+          "label": "Magic Resistance",
+          "text": "The unicorn has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Magic Weapons",
+          "text": "The unicorn’s weapon attacks are magical."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The unicorn makes two attacks: one with its hooves and one with its horn."
+        },
+        {
+          "label": "Hooves",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) bludgeoning damage."
+        },
+        {
+          "label": "Horn",
+          "text": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) piercing damage."
+        },
+        {
+          "label": "Healing Touch (3/Day)",
+          "text": "The unicorn touches another creature with its horn. The target magically regains 11 (2d8 + 2) hit points. In addition, the touch removes all diseases and neutralizes all poisons afflicting the target."
+        },
+        {
+          "label": "Teleport (1/Day)",
+          "text": "The unicorn magically teleports itself and up to three willing creatures it can see within 5 feet of it, along with any equipment they are wearing or carrying, to a location the unicorn is familiar with, up to 1 mile away."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Hooves",
+          "text": "The unicorn makes one attack with its hooves."
+        },
+        {
+          "label": "Shimmering Shield (Costs 2 Actions)",
+          "text": "The unicorn creates a shimmering, magical field around itself or another creature it can see within 60 feet of it. The target gains a +2 bonus to AC until the end of the unicorn’s next turn."
+        },
+        {
+          "label": "Heal Self (Costs 3 Actions)",
+          "text": "The unicorn magically regains 11 (2d8 + 2) hit points."
+        }
+      ],
+      "legendary_intro": "The unicorn can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The unicorn regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:vampire",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 352,
+      "last_page": 353,
+      "last_line": "attack."
+    },
+    "statblock": {
+      "name": "Vampire",
+      "size": "Medium",
+      "creature_type": "undead (shapechanger)",
+      "alignment": "lawful evil",
+      "armor_class": 16,
+      "hit_points": 144,
+      "hit_dice": "17d8 + 68",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 18,
+          "modifier": 4
+        },
+        "dex": {
+          "score": 18,
+          "modifier": 4
+        },
+        "con": {
+          "score": 18,
+          "modifier": 4
+        },
+        "int": {
+          "score": 17,
+          "modifier": 3
+        },
+        "wis": {
+          "score": 15,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 18,
+          "modifier": 4
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "saving_throws": [
+        {
+          "name": "Dex",
+          "bonus": 9
+        },
+        {
+          "name": "Wis",
+          "bonus": 7
+        },
+        {
+          "name": "Cha",
+          "bonus": 9
+        }
+      ],
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 7
+        },
+        {
+          "name": "Stealth",
+          "bonus": 9
+        }
+      ],
+      "damage_resistances": "necrotic; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "senses": "darkvision 120 ft., passive Perception 17",
+      "languages": "the languages it knew in life",
+      "challenge_rating": "13",
+      "xp": 10000,
+      "traits": [
+        {
+          "label": "Shapechanger",
+          "text": "If the vampire isn’t in sunlight or running water, it can use its action to polymorph into a Tiny bat or a Medium cloud of mist, or back into its true form. While in bat form, the vampire can’t speak, its walking speed is 5 feet, and it has a flying speed of 30 feet. Its statistics, other than its size and speed, are unchanged. Anything it is wearing transforms with it, but nothing it is carrying does. It reverts to its true form if it dies. While in mist form, the vampire can’t take any actions, speak, or manipulate objects. It is weightless, has a flying speed of 20 feet, can hover, and can enter a hostile creature’s space and stop there. In addition, if air can pass through a space, the mist can do so without squeezing, and it can’t pass through water. It has advantage on Strength, Dexterity, and Constitution saving throws, and it is immune to all nonmagical damage, except the damage it takes from sunlight."
+        },
+        {
+          "label": "Legendary Resistance (3/Day)",
+          "text": "If the vampire fails a saving throw, it can choose to succeed instead."
+        },
+        {
+          "label": "Misty Escape",
+          "text": "When it drops to 0 hit points outside its resting place, the vampire transforms into a cloud of mist (as in the Shapechanger trait) instead of falling unconscious, provided that it isn’t in sunlight or running water. If it can’t transform, it is destroyed. While it has 0 hit points in mist form, it can’t revert to its vampire form, and it must reach its resting place within 2 hours or be destroyed. Once in its resting place, it reverts to its vampire form. It is then paralyzed until it regains at least 1 hit point. After spending 1 hour in its resting place with 0 hit points, it regains 1 hit point."
+        },
+        {
+          "label": "Regeneration",
+          "text": "The vampire regains 20 hit points at the start of its turn if it has at least 1 hit point and isn’t in sunlight or running water. If the vampire takes radiant damage or damage from holy water, this trait doesn’t function at the start of the vampire’s next turn."
+        },
+        {
+          "label": "Spider Climb",
+          "text": "The vampire can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."
+        },
+        {
+          "label": "Vampire Weaknesses",
+          "text": "The vampire has the following flaws:\nForbiddance. The vampire can’t enter a residence without an invitation from one of the occupants.\nHarmed by Running Water. The vampire takes 20 acid damage if it ends its turn in running water.\nStake to the Heart. If a piercing weapon made of wood is driven into the vampire’s heart while the vampire is incapacitated in its resting place, the vampire is paralyzed until the stake is removed.\nSunlight Hypersensitivity. The vampire takes 20 radiant damage when it starts its turn in sunlight. While in sunlight, it has disadvantage on attack rolls and ability checks."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack (Vampire Form Only)",
+          "text": "The vampire makes two attacks, only one of which can be a bite attack."
+        },
+        {
+          "label": "Unarmed Strike (Vampire Form Only)",
+          "text": "Melee Weapon Attack: +9 to hit, reach 5 ft., one creature. Hit: 8 (1d8 + 4) bludgeoning damage. Instead of dealing damage, the vampire can grapple the target (escape DC 18)."
+        },
+        {
+          "label": "Bite (Bat or Vampire Form Only)",
+          "text": "Melee Weapon Attack: +9 to hit, reach 5 ft., one willing creature, or a creature that is grappled by the vampire, incapacitated, or restrained. Hit: 7 (1d6 + 4) piercing damage plus 10 (3d6) necrotic damage. The target’s hit point maximum is reduced by an amount equal to the necrotic damage taken, and the vampire regains hit points equal to that amount. The reduction lasts until the target finishes a long rest. The target dies if this effect reduces its hit point maximum to 0. A humanoid slain in this way and then buried in the ground rises the following night as a vampire spawn under the vampire’s control."
+        },
+        {
+          "label": "Charm",
+          "text": "The vampire targets one humanoid it can see within 30 feet of it. If the target can see the vampire, the target must succeed on a DC 17 Wisdom saving throw against this magic or be charmed by the vampire. The charmed target regards the vampire as a trusted friend to be heeded and protected. Although the target isn’t under the vampire’s control, it takes the vampire’s requests or actions in the most favorable way it can, and it is a willing target for the vampire’s bite attack. Each time the vampire or the vampire’s companions do anything harmful to the target, it can repeat the saving throw, ending the effect on itself on a success. Otherwise, the effect lasts 24 hours or until the vampire is destroyed, is on a different plane of existence than the target, or takes a bonus action to end the effect."
+        },
+        {
+          "label": "Children of the Night (1/Day)",
+          "text": "The vampire magically calls 2d4 swarms of bats or rats, provided that the sun isn’t up. While outdoors, the vampire can call 3d6 wolves instead. The called creatures arrive in 1d4 rounds, acting as allies of the vampire and obeying its spoken commands. The beasts remain for 1 hour, until the vampire dies, or until the vampire dismisses them as a bonus action."
+        }
+      ],
+      "legendary_actions": [
+        {
+          "label": "Move",
+          "text": "The vampire moves up to its speed without provoking opportunity attacks."
+        },
+        {
+          "label": "Unarmed Strike",
+          "text": "The vampire makes one unarmed strike."
+        },
+        {
+          "label": "Bite (Costs 2 Actions)",
+          "text": "The vampire makes one bite attack."
+        }
+      ],
+      "legendary_intro": "The vampire can take 3 legendary actions, choosing from the options below. Only one legendary action option can be used at a time and only at the end of another creature’s turn. The vampire regains spent legendary actions at the start of its turn."
+    }
+  },
+  {
+    "id": "srd51:zombie",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 356,
+      "last_page": 357,
+      "last_line": "target. Hit: 4 (1d6 + 1) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Zombie",
+      "size": "Medium",
+      "creature_type": "undead",
+      "alignment": "neutral evil",
+      "armor_class": 8,
+      "hit_points": 22,
+      "hit_dice": "3d8 + 9",
+      "movement": "20 ft.",
+      "abilities": {
+        "str": {
+          "score": 13,
+          "modifier": 1
+        },
+        "dex": {
+          "score": 6,
+          "modifier": -2
+        },
+        "con": {
+          "score": 16,
+          "modifier": 3
+        },
+        "int": {
+          "score": 3,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 6,
+          "modifier": -2
+        },
+        "cha": {
+          "score": 5,
+          "modifier": -3
+        }
+      },
+      "saving_throws": [
+        {
+          "name": "Wis",
+          "bonus": 0
+        }
+      ],
+      "damage_immunities": "poison",
+      "condition_immunities": "poisoned",
+      "senses": "darkvision 60 ft., passive Perception 8",
+      "languages": "understands the languages it knew in life but can’t speak",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "Undead Fortitude",
+          "text": "If damage reduces the zombie to 0 hit points, it must make a Constitution saving throw with a DC of 5 + the damage taken, unless the damage is radiant or from a critical hit. On a success, the zombie drops to 1 hit point instead."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Slam",
+          "text": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:cat",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 369,
+      "last_page": 369,
+      "last_line": "target. Hit: 1 slashing damage."
+    },
+    "statblock": {
+      "name": "Cat",
+      "size": "Tiny",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 12,
+      "hit_points": 2,
+      "hit_dice": "1d4",
+      "movement": "40 ft., climb 30 ft.",
+      "abilities": {
+        "str": {
+          "score": 3,
+          "modifier": -4
+        },
+        "dex": {
+          "score": 15,
+          "modifier": 2
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 3,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 7,
+          "modifier": -2
+        }
+      },
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 3
+        },
+        {
+          "name": "Stealth",
+          "bonus": 4
+        }
+      ],
+      "senses": "passive Perception 13",
+      "languages": "—",
+      "challenge_rating": "0",
+      "xp": 10,
+      "traits": [
+        {
+          "label": "Keen Smell",
+          "text": "The cat has advantage on Wisdom (Perception) checks that rely on smell."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Claws",
+          "text": "Melee Weapon Attack: +0 to hit, reach 5 ft., one target. Hit: 1 slashing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:frog",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 372,
+      "last_page": 372,
+      "last_line": "represent a toad."
+    },
+    "statblock": {
+      "name": "Frog",
+      "size": "Tiny",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 11,
+      "hit_points": 1,
+      "hit_dice": "1d4 − 1",
+      "movement": "20 ft., swim 20 ft.",
+      "abilities": {
+        "str": {
+          "score": 1,
+          "modifier": -5
+        },
+        "dex": {
+          "score": 13,
+          "modifier": 1
+        },
+        "con": {
+          "score": 8,
+          "modifier": -1
+        },
+        "int": {
+          "score": 1,
+          "modifier": -5
+        },
+        "wis": {
+          "score": 8,
+          "modifier": -1
+        },
+        "cha": {
+          "score": 3,
+          "modifier": -4
+        }
+      },
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 1
+        },
+        {
+          "name": "Stealth",
+          "bonus": 3
+        }
+      ],
+      "senses": "darkvision 30 ft., passive Perception 11",
+      "languages": "—",
+      "challenge_rating": "0",
+      "xp": 0,
+      "traits": [
+        {
+          "label": "Amphibious",
+          "text": "The frog can breathe air and water."
+        },
+        {
+          "label": "Standing Leap",
+          "text": "The frog’s long jump is up to 10 feet and its high jump is up to 5 feet, with or without a running start."
+        }
+      ],
+      "source_note": "A frog has no effective attacks. It feeds on small insects and typically dwells near water, in trees, or underground. The frog’s statistics can also be used to represent a toad."
+    }
+  },
+  {
+    "id": "srd51:giant-spider",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 379,
+      "last_page": 379,
+      "last_line": "psychic damage)."
+    },
+    "statblock": {
+      "name": "Giant Spider",
+      "size": "Large",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 14,
+      "hit_points": 26,
+      "hit_dice": "4d10 + 4",
+      "movement": "30 ft., climb 30 ft.",
+      "abilities": {
+        "str": {
+          "score": 14,
+          "modifier": 2
+        },
+        "dex": {
+          "score": 16,
+          "modifier": 3
+        },
+        "con": {
+          "score": 12,
+          "modifier": 1
+        },
+        "int": {
+          "score": 2,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 4,
+          "modifier": -3
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Stealth",
+          "bonus": 7
+        }
+      ],
+      "senses": "blindsight 10 ft., darkvision 60 ft., passive Perception 10",
+      "languages": "—",
+      "challenge_rating": "1",
+      "xp": 200,
+      "traits": [
+        {
+          "label": "Spider Climb",
+          "text": "The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."
+        },
+        {
+          "label": "Web Sense",
+          "text": "While in contact with a web, the spider knows the exact location of any other creature in contact with the same web."
+        },
+        {
+          "label": "Web Walker",
+          "text": "The spider ignores movement restrictions caused by webbing."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one creature. Hit: 7 (1d8 + 3) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 9 (2d8) poison damage on a failed save, or half as much damage on a successful one. If the poison damage reduces the target to 0 hit points, the target is stable but poisoned for 1 hour, even after regaining hit points, and is paralyzed while poisoned in this way."
+        },
+        {
+          "label": "Web (Recharge 5–6)",
+          "text": "Ranged Weapon Attack: +5 to hit, range 30/60 ft., one creature. Hit: The target is restrained by webbing. As an action, the restrained target can make a DC 12 Strength check, bursting the webbing on a success. The webbing can also be attacked and destroyed (AC 10; hp 5; vulnerability to fire damage; immunity to bludgeoning, poison, and psychic damage)."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:wolf",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 393,
+      "last_page": 393,
+      "last_line": "throw or be knocked prone."
+    },
+    "statblock": {
+      "name": "Wolf",
+      "size": "Medium",
+      "creature_type": "beast",
+      "alignment": "unaligned",
+      "armor_class": 13,
+      "hit_points": 11,
+      "hit_dice": "2d8 + 2",
+      "movement": "40 ft.",
+      "abilities": {
+        "str": {
+          "score": 12,
+          "modifier": 1
+        },
+        "dex": {
+          "score": 15,
+          "modifier": 2
+        },
+        "con": {
+          "score": 12,
+          "modifier": 1
+        },
+        "int": {
+          "score": 3,
+          "modifier": -4
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 6,
+          "modifier": -2
+        }
+      },
+      "armor_class_details": "(natural armor)",
+      "skills": [
+        {
+          "name": "Perception",
+          "bonus": 3
+        },
+        {
+          "name": "Stealth",
+          "bonus": 4
+        }
+      ],
+      "senses": "passive Perception 13",
+      "languages": "—",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "Keen Hearing and Smell",
+          "text": "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."
+        },
+        {
+          "label": "Pack Tactics",
+          "text": "The wolf has advantage on attack rolls against a creature if at least one of the wolf’s allies is within 5 feet of the creature and the ally isn’t incapacitated."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Bite",
+          "text": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:acolyte",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 395,
+      "last_page": 395,
+      "last_line": "target. Hit: 2 (1d4) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Acolyte",
+      "size": "Medium",
+      "creature_type": "humanoid (any race)",
+      "alignment": "any alignment",
+      "armor_class": 10,
+      "hit_points": 9,
+      "hit_dice": "2d8",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 10,
+          "modifier": 0
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 10,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 14,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 11,
+          "modifier": 0
+        }
+      },
+      "skills": [
+        {
+          "name": "Medicine",
+          "bonus": 4
+        },
+        {
+          "name": "Religion",
+          "bonus": 2
+        }
+      ],
+      "senses": "passive Perception 12",
+      "languages": "any one language (usually Common)",
+      "challenge_rating": "1/4",
+      "xp": 50,
+      "traits": [
+        {
+          "label": "Spellcasting",
+          "text": "The acolyte is a 1st-level spellcaster. Its spellcasting ability is Wisdom (spell save DC 12, +4 to hit with spell attacks). The acolyte has following cleric spells prepared:\nCantrips (at will): light, sacred flame, thaumaturgy\n1st level (3 slots): bless, cure wounds, sanctuary"
+        }
+      ],
+      "actions": [
+        {
+          "label": "Club",
+          "text": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:archmage",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 395,
+      "last_page": 396,
+      "last_line": "2) piercing damage."
+    },
+    "statblock": {
+      "name": "Archmage",
+      "size": "Medium",
+      "creature_type": "humanoid (any race)",
+      "alignment": "any alignment",
+      "armor_class": 12,
+      "hit_points": 99,
+      "hit_dice": "18d8 + 18",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 12,
+          "modifier": 1
+        },
+        "int": {
+          "score": 20,
+          "modifier": 5
+        },
+        "wis": {
+          "score": 15,
+          "modifier": 2
+        },
+        "cha": {
+          "score": 16,
+          "modifier": 3
+        }
+      },
+      "armor_class_details": "(15 with mage armor)",
+      "saving_throws": [
+        {
+          "name": "Int",
+          "bonus": 9
+        },
+        {
+          "name": "Wis",
+          "bonus": 6
+        }
+      ],
+      "skills": [
+        {
+          "name": "Arcana",
+          "bonus": 13
+        },
+        {
+          "name": "History",
+          "bonus": 13
+        }
+      ],
+      "damage_resistances": "damage from spells; nonmagical bludgeoning, piercing, and slashing (from stoneskin)",
+      "senses": "passive Perception 12",
+      "languages": "any six languages",
+      "challenge_rating": "12",
+      "xp": 8400,
+      "traits": [
+        {
+          "label": "Magic Resistance",
+          "text": "The archmage has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "label": "Spellcasting",
+          "text": "The archmage is an 18th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 17, +9 to hit with spell attacks). The archmage can cast disguise self and invisibility at will and has the following wizard spells prepared:\nCantrips (at will): fire bolt, light, mage hand, prestidigitation, shocking grasp\n1st level (4 slots): detect magic, identify, mage armor,* magic missile\n2nd level (3 slots): detect thoughts, mirror image, misty step\n3rd level (3 slots): counterspell, fly, lightning bolt\n4th level (3 slots): banishment, fire shield, stoneskin*\n5th level (3 slots): cone of cold, scrying, wall of force\n6th level (1 slot): globe of invulnerability\n7th level (1 slot): teleport\n8th level (1 slot): mind blank*\n9th level (1 slot): time stop\n*The archmage casts these spells on itself before combat."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Dagger",
+          "text": "Melee or Ranged Weapon Attack: +6 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:commoner",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 398,
+      "last_page": 398,
+      "last_line": "target. Hit: 2 (1d4) bludgeoning damage."
+    },
+    "statblock": {
+      "name": "Commoner",
+      "size": "Medium",
+      "creature_type": "humanoid (any race)",
+      "alignment": "any alignment",
+      "armor_class": 10,
+      "hit_points": 4,
+      "hit_dice": "1d8",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 10,
+          "modifier": 0
+        },
+        "dex": {
+          "score": 10,
+          "modifier": 0
+        },
+        "con": {
+          "score": 10,
+          "modifier": 0
+        },
+        "int": {
+          "score": 10,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 10,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 10,
+          "modifier": 0
+        }
+      },
+      "senses": "passive Perception 10",
+      "languages": "any one language (usually Common)",
+      "challenge_rating": "0",
+      "xp": 10,
+      "actions": [
+        {
+          "label": "Club",
+          "text": "Melee Weapon Attack: +2 to hit, reach 5 ft., one target. Hit: 2 (1d4) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:knight",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 400,
+      "last_page": 400,
+      "last_line": "the attacker and be wielding a melee weapon."
+    },
+    "statblock": {
+      "name": "Knight",
+      "size": "Medium",
+      "creature_type": "humanoid (any race)",
+      "alignment": "any alignment",
+      "armor_class": 18,
+      "hit_points": 52,
+      "hit_dice": "8d8 + 16",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 16,
+          "modifier": 3
+        },
+        "dex": {
+          "score": 11,
+          "modifier": 0
+        },
+        "con": {
+          "score": 14,
+          "modifier": 2
+        },
+        "int": {
+          "score": 11,
+          "modifier": 0
+        },
+        "wis": {
+          "score": 11,
+          "modifier": 0
+        },
+        "cha": {
+          "score": 15,
+          "modifier": 2
+        }
+      },
+      "armor_class_details": "(plate)",
+      "saving_throws": [
+        {
+          "name": "Con",
+          "bonus": 4
+        },
+        {
+          "name": "Wis",
+          "bonus": 2
+        }
+      ],
+      "senses": "passive Perception 10",
+      "languages": "any one language (usually Common)",
+      "challenge_rating": "3",
+      "xp": 700,
+      "traits": [
+        {
+          "label": "Brave",
+          "text": "The knight has advantage on saving throws against being frightened."
+        }
+      ],
+      "actions": [
+        {
+          "label": "Multiattack",
+          "text": "The knight makes two melee attacks."
+        },
+        {
+          "label": "Greatsword",
+          "text": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+        },
+        {
+          "label": "Heavy Crossbow",
+          "text": "Ranged Weapon Attack: +2 to hit, range 100/400 ft., one target. Hit: 5 (1d10) piercing damage."
+        },
+        {
+          "label": "Leadership (Recharges after a Short or Long Rest)",
+          "text": "For 1 minute, the knight can utter a special command or warning whenever a nonhostile creature that it can see within 30 feet of it makes an attack roll or a saving throw. The creature can add a d4 to its roll provided it can hear and understand the knight. A creature can benefit from only one Leadership die at a time. This effect ends if the knight is incapacitated."
+        }
+      ],
+      "reactions": [
+        {
+          "label": "Parry",
+          "text": "The knight adds 2 to its AC against one melee attack that would hit it. To do so, the knight must see the attacker and be wielding a melee weapon."
+        }
+      ]
+    }
+  },
+  {
+    "id": "srd51:mage",
+    "source": "srd51-en",
+    "provenance": {
+      "first_page": 400,
+      "last_page": 400,
+      "last_line": "2) piercing damage."
+    },
+    "statblock": {
+      "name": "Mage",
+      "size": "Medium",
+      "creature_type": "humanoid (any race)",
+      "alignment": "any alignment",
+      "armor_class": 12,
+      "hit_points": 40,
+      "hit_dice": "9d8",
+      "movement": "30 ft.",
+      "abilities": {
+        "str": {
+          "score": 9,
+          "modifier": -1
+        },
+        "dex": {
+          "score": 14,
+          "modifier": 2
+        },
+        "con": {
+          "score": 11,
+          "modifier": 0
+        },
+        "int": {
+          "score": 17,
+          "modifier": 3
+        },
+        "wis": {
+          "score": 12,
+          "modifier": 1
+        },
+        "cha": {
+          "score": 11,
+          "modifier": 0
+        }
+      },
+      "armor_class_details": "(15 with mage armor)",
+      "saving_throws": [
+        {
+          "name": "Int",
+          "bonus": 6
+        },
+        {
+          "name": "Wis",
+          "bonus": 4
+        }
+      ],
+      "skills": [
+        {
+          "name": "Arcana",
+          "bonus": 6
+        },
+        {
+          "name": "History",
+          "bonus": 6
+        }
+      ],
+      "senses": "passive Perception 11",
+      "languages": "any four languages",
+      "challenge_rating": "6",
+      "xp": 2300,
+      "traits": [
+        {
+          "label": "Spellcasting",
+          "text": "The mage is a 9th-level spellcaster. Its spellcasting ability is Intelligence (spell save DC 14, +6 to hit with spell attacks). The mage has the following wizard spells prepared:\nCantrips (at will): fire bolt, light, mage hand, prestidigitation\n1st level (4 slots): detect magic, mage armor, magic missile, shield\n2nd level (3 slots): misty step, suggestion\n3rd level (3 slots): counterspell, fireball, fly\n4th level (3 slots): greater invisibility, ice storm\n5th level (1 slot): cone of cold"
+        }
+      ],
+      "actions": [
+        {
+          "label": "Dagger",
+          "text": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 4 (1d4 + 2) piercing damage."
+        }
+      ]
+    }
+  }
+]
