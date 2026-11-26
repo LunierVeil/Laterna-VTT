@@ -62,3 +62,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - uses: actions/setup-python@6d4fd22b20465bcc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+      - name: Check Python SRD drafts against the NPC TypeScript contract
+        run: |
+          python -m pip install "$(sed -n '/^pydantic[<=>]/p' ../server/requirements.txt)"
+          PYTHON=python node --test tests/srd-npc-adapter.contract.mjs
