@@ -1,7 +1,7 @@
 """Offline entry point for a future migrator, protected by a durable fence."""
 
 from collections.abc import Callable, Mapping
-from contextlib import ExitStack, closing
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
@@ -21,9 +21,9 @@ from .instance_backup import (
     create_backup, verify_backup,
 )
 from .schema_catalog import ALPHA_CATALOG_SHA256 as SOURCE_CATALOG_SHA256
-from .schema_catalog import catalog_digest, sqlite_catalog
+from .schema_catalog import SchemaState, inspect_schema, sqlite_catalog
 from .storage_lock import own_storage
-from .storage_preflight import StorageError, _entry, check_storage
+from .storage_preflight import StorageError, _entry, check_storage, open_quiescent_sqlite
 
 FENCE = ".laterna-upgrade-in-progress"
 SOURCE_REVISION = "pb07-v0"
@@ -123,18 +123,14 @@ def _require_no_sidecars(database: Path) -> None:
 
 def _require_known_schema(database: Path) -> dict[str, set[str]]:
     _require_no_sidecars(database)
-    with _regular_file(database), closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as current:
-        catalog = sqlite_catalog(current)
-        digest = catalog_digest(catalog)
-        if (current.execute("PRAGMA user_version").fetchone() != (0,)
-                or current.execute("PRAGMA application_id").fetchone() != (0,)
-                or digest != SOURCE_CATALOG_SHA256):
+    with open_quiescent_sqlite(database, require_rollback_journal=True) as current:
+        if inspect_schema(current) is not SchemaState.ALPHA:
             raise UpgradeBlocked("Исходная версия или схема SQLite неизвестна этому gate.")
         return {
             name: {row[0] for row in current.execute(
                 "SELECT name FROM pragma_table_xinfo(?) WHERE hidden = 0", (name,),
             )}
-            for kind, name, _, _ in catalog if kind == "table"
+            for kind, name, _, _ in sqlite_catalog(current) if kind == "table"
         }
 
 

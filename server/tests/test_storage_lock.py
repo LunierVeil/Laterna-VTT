@@ -23,6 +23,9 @@ ready, mode = sys.argv[1:]
 if mode == "init_failure":
     async def fail():
         raise RuntimeError("synthetic initialization failure")
+    def fail_file(*args):
+        raise RuntimeError("synthetic initialization failure")
+    main.initialize_file_db = fail_file
     main.init_db = fail
 
 async def run():
@@ -128,9 +131,9 @@ def test_failed_start_releases_lock_without_replacing_partial_database(install):
         _refused(proc, "synthetic initialization failure")
     before = snapshot(home)
     assert before["lanterna.db"] == b""
-    assert "gm_key.txt" not in before
+    assert ("gm_key.txt" in before) == (sys.platform == "linux")
     with child(install, "invalid") as (proc, _):
-        _refused(proc, "Неполное хранилище")
+        _refused(proc, "Несовместимая схема" if sys.platform == "linux" else "Неполное хранилище")
     assert snapshot(home) == before
     with child(install, "lock-after-error", mode="lock") as (proc, _):
         _, error = proc.communicate(timeout=15)
