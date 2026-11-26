@@ -1,0 +1,13 @@
+{
+  "catalog_schema_version": 1,
+  "id": "srd51-en",
+  "title": "System Reference Document 5.1",
+  "language": "en",
+  "rules_edition": "2014",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "document_url": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
+  "document_sha256": "2504d2a0abb0a4d491a939be4f17910a2dde0312570ab8d208080225ccf0a1f0",
+  "attribution": "This work includes material taken from the System Reference Document 5.1 (“SRD 5.1”) by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.",
+  "changes": "Selected English statblocks were extracted into JSON. PDF whitespace and discretionary hyphens were normalized. Printed fields were structured, with rules text retained for manual play."
+}
