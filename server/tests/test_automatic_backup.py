@@ -415,3 +415,80 @@ def test_retention_write_failure_keeps_survivor_and_halts(series, monkeypatch):
     assert core.verify_backup(survivor, series.backup.schema) == manifest
     with pytest.raises(core.BackupError):
         series.reserve(3000)
+
+
+def test_external_series_stops_at_count_without_deleting_copies(series):
+    series.backup.external_key = True
+    series.policy = replace(series.policy, max_count=2)
+    first, first_manifest = create(series, 1000)
+    second, second_manifest = create(series, 2000)
+    journal = series.root / "series.json"
+    before = journal.read_bytes()
+
+    with own_storage(series.backup.paths):
+        with pytest.raises(core.BackupError, match="Внешний ключ не подтверждает"):
+            series.reserve(3000)
+        series.policy = replace(series.policy, max_age=1000)
+        with pytest.raises(core.BackupError, match="Пригодная копия с файловым ключом не подтверждена"):
+            series.reserve(3000)
+
+    assert journal.read_bytes() == before
+    assert set(series.root.iterdir()) == {journal, first, second}
+    for path, manifest in ((first, first_manifest), (second, second_manifest)):
+        assert core.verify_backup(path, series.backup.schema) == manifest
+        assert manifest["key_mode"] == "external"
+        assert not (path / "gm_key.txt").exists()
+
+
+@pytest.mark.parametrize("phase", ["partial_unlink", "after_unlink", "before_pending"])
+def test_interrupted_series_can_be_preserved_and_replaced_offline(series, tmp_path, monkeypatch, phase):
+    old, _ = create(series, 1000)
+    survivor, manifest = create(series, 2000)
+    if phase != "before_pending":
+        series.policy = replace(series.policy, max_count=1)
+    journal = series.root / "series.json"
+    before = journal.read_bytes()
+
+    def fail_write(state):
+        raise OSError(errno.ENOSPC, "synthetic journal write fault")
+
+    def partial_unlink(quarantine, identity, snapshot):
+        (quarantine / "lanterna.db").unlink()
+        raise PermissionError(errno.EACCES, "synthetic partial retention fault")
+
+    with own_storage(series.backup.paths), monkeypatch.context() as patch:
+        if phase == "partial_unlink":
+            patch.setattr(series, "_unlink_files", partial_unlink)
+        else:
+            patch.setattr(series, "_write", fail_write)
+        with pytest.raises(OSError, match="synthetic"):
+            series.reserve(3000)
+
+    assert journal.read_bytes() == before
+    if phase == "before_pending":
+        assert old.exists()
+        work, = series.root.glob("work-*")
+        assert (work / "snapshot" / "uploads").is_dir()
+    else:
+        assert not old.exists()
+        if phase == "partial_unlink":
+            quarantine, = series.root.glob("trash-*")
+            with pytest.raises(core.BackupError):
+                core.verify_backup(quarantine, series.backup.schema)
+        else:
+            assert not list(series.root.glob("trash-*"))
+
+    restarted = auto.BackupSeries(series.backup, series.policy)
+    with own_storage(series.backup.paths):
+        with pytest.raises(core.BackupError, match="неизвестный|отсутствуют зарегистрированные"):
+            restarted.reserve(3000)
+
+    destination = tmp_path / "Recovery drill"
+    assert restore_backup(survivor, destination, series.backup.schema) == manifest
+    archived = tmp_path / "Preserved series"
+    series.root.rename(archived)
+    fresh = auto.BackupSeries(series.backup, series.policy)
+    published, created = create(fresh, 4000)
+    assert core.verify_backup(published, series.backup.schema) == created
+    assert (archived / journal.name).read_bytes() == before
+    assert core.verify_backup(archived / survivor.name, series.backup.schema) == manifest
