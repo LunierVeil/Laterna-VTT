@@ -123,7 +123,7 @@ def _require_no_sidecars(database: Path) -> None:
 
 def _require_known_schema(database: Path) -> dict[str, set[str]]:
     _require_no_sidecars(database)
-    with open_quiescent_sqlite(database) as current:
+    with open_quiescent_sqlite(database, require_rollback_journal=True) as current:
         if inspect_schema(current) is not SchemaState.ALPHA:
             raise UpgradeBlocked("Исходная версия или схема SQLite неизвестна этому gate.")
         return {

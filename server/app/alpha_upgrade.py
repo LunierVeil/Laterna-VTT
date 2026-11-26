@@ -15,7 +15,7 @@ from sqlalchemy.pool import NullPool
 
 from .data_home import StoragePaths, resolve_storage
 from .instance_backup import MAX_MANIFEST, _deadline_check, _measure, _regular_file, _upload_paths, verify_backup
-from .instance_restore import _restore_backup
+from .instance_restore import _restore_backup, lock_restore_destination
 from .pre_upgrade import (
     FENCE, UpgradeBlocked, UpgradeSnapshot, _directory_id, _mount_id,
     _require_known_schema, _sync_directory, _write_exclusive, run_pre_upgrade,
@@ -101,7 +101,8 @@ def prepare_alpha_upgrade(paths: StoragePaths, destination: Path, *, server_dir:
     def copy_and_stamp(attempt: UpgradeSnapshot):
         check_parent()
         schema = _require_known_schema(attempt.snapshot / "lanterna.db")
-        manifest = verify_backup(attempt.snapshot, schema)
+        deadline = monotonic() + 120
+        manifest = verify_backup(attempt.snapshot, schema, deadline=deadline)
         with _regular_file(attempt.snapshot / "manifest.json") as stream:
             encoded = stream.read(MAX_MANIFEST + 1)
         if (len(encoded) > MAX_MANIFEST or hashlib.sha256(encoded).hexdigest() != attempt.manifest_sha256
@@ -139,8 +140,10 @@ def prepare_alpha_upgrade(paths: StoragePaths, destination: Path, *, server_dir:
                 _sync_directory(staging, staged_id)
             check_parent()
 
-        _restore_backup(attempt.snapshot, destination, schema, prepare_upgrade=prepare,
-                        sync_publication=sync_publication)
+        _restore_backup(attempt.snapshot, destination, schema, manifest, parent_identity=restore_parent,
+                        deadline=deadline, env={}, prepare_upgrade=prepare, sync_publication=sync_publication)
 
-    return run_pre_upgrade(paths, server_dir=server_dir, cwd=cwd, env=env,
-                           target_revision=INITIAL_REVISION, apply=copy_and_stamp)
+    with lock_restore_destination(destination) as restore_parent:
+        check_parent()
+        return run_pre_upgrade(paths, server_dir=server_dir, cwd=cwd, env=env,
+                               target_revision=INITIAL_REVISION, apply=copy_and_stamp)

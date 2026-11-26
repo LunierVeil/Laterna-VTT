@@ -1,10 +1,14 @@
 import asyncio
 from collections import namedtuple
+from contextlib import closing
 from dataclasses import replace
 import errno
+import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 
@@ -492,3 +496,31 @@ def test_interrupted_series_can_be_preserved_and_replaced_offline(series, tmp_pa
     assert core.verify_backup(published, series.backup.schema) == created
     assert (archived / journal.name).read_bytes() == before
     assert core.verify_backup(archived / survivor.name, series.backup.schema) == manifest
+
+
+def test_incompatible_registered_copy_cannot_replace_last_compatible_survivor(series):
+    compatible, manifest = create(series, 1000)
+    incompatible, bad_manifest = create(series, 2000)
+    database = incompatible / "lanterna.db"
+    with closing(sqlite3.connect(database)) as conn, conn:
+        conn.execute("CREATE TABLE alembic_version ( version_num VARCHAR(32) NOT NULL, "
+                     "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num) )")
+        conn.execute("INSERT INTO alembic_version VALUES ('future_revision')")
+    data = database.read_bytes()
+    bad_manifest["files"]["lanterna.db"] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    (incompatible / "manifest.json").write_text(json.dumps(bad_manifest))
+
+    # Simulate a copy published and registered by an older Verify contract.
+    state = series.load()
+    receipt = state["copies"][incompatible.name.removeprefix("backup-")]
+    receipt["digest"] = auto._manifest_digest(bad_manifest)
+    receipt["bytes"] = sum((incompatible / name).stat().st_size for name in bad_manifest["files"])
+    receipt["bytes"] += (incompatible / "manifest.json").stat().st_size
+    series._write(state)
+
+    series.policy = replace(series.policy, max_count=1)
+    with pytest.raises(core.BackupError, match="Несовместимая схема SQLite"):
+        series.prune(series.load(), 2000)
+    assert core.verify_backup(compatible, series.backup.schema) == manifest
+    assert database.read_bytes() == data
+    assert len(series.load()["copies"]) == 2

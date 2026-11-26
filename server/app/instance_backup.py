@@ -21,6 +21,7 @@ from time import monotonic
 import anyio
 
 from .data_home import StoragePaths
+from .schema_catalog import SchemaState, has_active_campaign_scene, identify_schema
 from .upload_files import UPLOAD_TEMP, upload_references
 from .storage_preflight import StorageError, _entry
 
@@ -153,6 +154,12 @@ def _inspect(database: Path, schema: dict[str, set[str]], deadline: float) -> tu
         if conn.execute("PRAGMA foreign_key_check").fetchone() is not None:
             raise BackupError("SQLite foreign_key_check обнаружил нарушение. Исходная БД сохранена.")
 
+        state = identify_schema(conn)
+        if state not in (SchemaState.ALPHA, SchemaState.CURRENT):
+            raise BackupError(f"Несовместимая схема SQLite ({state}).")
+        if not has_active_campaign_scene(conn):
+            raise BackupError("SQLite не содержит кампании с активной сценой.")
+
         refs = set()
         for query in ("SELECT background_url FROM scenes", "SELECT image_url FROM tokens",
                       "SELECT data_json FROM characters"):
@@ -172,7 +179,7 @@ def _unique_keys(pairs):
 
 
 def verify_backup(directory: Path, schema: dict[str, set[str]], *, deadline: float | None = None) -> dict:
-    """Read only. SHA-256 verifies integrity, not authenticity."""
+    """Verify bundle integrity and the supported startup schema without writes."""
     if deadline is None:
         deadline = monotonic() + 120
     try:

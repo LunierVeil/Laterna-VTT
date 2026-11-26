@@ -9,7 +9,7 @@ import stat
 from typing import Literal
 
 from .data_home import StoragePaths
-from .schema_catalog import SchemaState, inspect_schema
+from .schema_catalog import SchemaState, has_active_campaign_scene, inspect_schema
 
 
 class StorageError(RuntimeError):
@@ -53,7 +53,7 @@ def _require_no_sqlite_sidecars(database: Path) -> None:
 
 
 @contextmanager
-def open_quiescent_sqlite(database: Path):
+def open_quiescent_sqlite(database: Path, *, require_rollback_journal: bool = False):
     """Inspect an existing SQLite file under the caller's storage locks."""
     def stamp(info):
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
@@ -73,6 +73,14 @@ def open_quiescent_sqlite(database: Path):
         if stamp(os.fstat(fd)) != original:
             raise StorageError(f"SQLite была заменена перед проверкой: {database}")
         _require_no_sqlite_sidecars(database)
+        if require_rollback_journal:
+            # Bytes 18 and 19 are the SQLite file write/read format versions.
+            # A clean WAL file has no sidecars, and immutable SQLite can report
+            # journal_mode=delete for it. Check the on-disk format before
+            # allowing the offline gate to use the ordinary backup reader.
+            header = os.read(fd, 20)
+            if header[:16] != b"SQLite format 3\0" or header[18:20] != b"\x01\x01":
+                raise StorageError("Offline upgrade требует SQLite в rollback journal format. WAL не допускается.")
         with closing(sqlite3.connect(database.as_uri() + "?mode=ro&immutable=1", uri=True)) as conn:
             yield conn
         _require_no_sqlite_sidecars(database)
@@ -103,10 +111,7 @@ def _check_sqlite(database: Path, schema: Mapping[str, Set[str]], *, require_sup
                         f"Несовместимая схема SQLite ({name}): {database}. "
                         "Сохраните исходную базу и используйте проверенную процедуру обновления."
                     )
-            if conn.execute(
-                "SELECT 1 FROM campaigns JOIN scenes ON scenes.id = campaigns.active_scene_id "
-                "AND scenes.campaign_id = campaigns.id LIMIT 1"
-            ).fetchone() is None:
+            if not has_active_campaign_scene(conn):
                 raise StorageError(f"SQLite не содержит кампании с активной сценой: {database}")
     except sqlite3.Error as exc:
         raise StorageError(f"SQLite не читается или повреждена: {database}") from exc

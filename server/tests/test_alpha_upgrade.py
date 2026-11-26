@@ -29,6 +29,7 @@ from app.schema_migrations import stamp_alpha_staging
 from app.sessions import session_user, token_digest
 from app.storage_lock import own_storage
 from app.storage_preflight import StorageError, check_storage
+from .test_storage_preflight import snapshot
 
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux offline upgrade")
 UpgradeBlocked = pre_upgrade.UpgradeBlocked
@@ -322,3 +323,64 @@ up.prepare_alpha_upgrade(paths,target,server_dir=home.parent,cwd=home.parent,env
     paths = resolve_storage({"LANTERNA_DATA_HOME": str(staging)}, server_dir=tmp_path, cwd=tmp_path)
     with own_storage(paths), pytest.raises(StorageError, match="промежуточный DataHome"):
         check_storage(paths, server_dir=tmp_path, cwd=tmp_path, env={}, schema={}, require_supported_catalog=True)
+
+
+def test_clean_wal_offline_migration_preserves_source_inventory(alpha, tmp_path, supported_mount, monkeypatch, capsys):
+    home = Path(alpha.data_home)
+    database = home / "lanterna.db"
+    with closing(sqlite3.connect(database)) as conn:
+        assert conn.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        conn.execute("UPDATE campaigns SET name='Checkpointed Alpha'")
+        conn.commit()
+        assert conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone() == (0, 0, 0)
+
+    assert database.read_bytes()[18:20] == b"\x02\x02"
+    assert {path.name for path in home.iterdir()} == {"lanterna.db", "uploads", "gm_key.txt"}
+    before = snapshot(home)
+    target = tmp_path / "destination"
+    monkeypatch.delenv("LANTERNA_GM_KEY", raising=False)
+    monkeypatch.setattr(sys, "argv", ["migration_cli", "--source", str(home), "--destination", str(target)])
+    from app.migration_cli import main
+
+    assert main() == 1
+    assert snapshot(home) == before
+    assert not target.exists()
+    assert not list(tmp_path.glob(".laterna-pre-upgrade-*"))
+    assert "WAL не допускается" in capsys.readouterr().err
+
+
+def test_busy_destination_rejected_before_source_fence(alpha, tmp_path, supported_mount):
+    home = Path(alpha.data_home)
+    before = files(home)
+    target = tmp_path / "destination"
+    target_paths = resolve_storage({"LANTERNA_DATA_HOME": str(target)}, server_dir=tmp_path, cwd=tmp_path)
+
+    with own_storage(target_paths), pytest.raises((StorageError, BackupError), match="занято"):
+        prepare(alpha, target)
+
+    assert files(home) == before
+    assert not target.exists()
+    assert not list(tmp_path.glob(".laterna-pre-upgrade-*"))
+
+
+def test_destination_occupied_after_source_fence_is_preserved(alpha, tmp_path, supported_mount, monkeypatch):
+    home = Path(alpha.data_home)
+    before = files(home)
+    target = tmp_path / "destination"
+    publish = instance_restore._publish
+
+    def occupy(staging, destination):
+        assert destination == target
+        assert (home / pre_upgrade.FENCE).is_file()
+        target.mkdir()
+        (target / "sentinel").write_bytes(b"competitor")
+        publish(staging, destination)
+
+    monkeypatch.setattr(instance_restore, "_publish", occupy)
+    with pytest.raises(BackupError):
+        prepare(alpha, target)
+    after = files(home)
+    assert pre_upgrade.FENCE in after
+    del after[pre_upgrade.FENCE]
+    assert after == before
+    assert files(target) == {"sentinel": b"competitor"}
