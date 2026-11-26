@@ -1,4 +1,5 @@
 import errno
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,10 +15,12 @@ from sqlalchemy.orm import Session
 
 from app import instance_restore as restore
 from app.data_home import resolve_storage
+from app.db import Base
 from app.instance_backup import BackupError, verify_backup
 from app.models import Campaign, Character, Scene, Token, User
+from app.schema_catalog import INITIAL_REVISION, SchemaState, inspect_schema
 from .test_instance_backup import create, storage  # noqa: F401
-from .test_storage_preflight import install, snapshot  # noqa: F401
+from .test_storage_preflight import install, launch, snapshot  # noqa: F401
 
 
 @pytest.fixture
@@ -63,6 +66,7 @@ def test_wal_backup_restores_and_starts_with_original_accounts(storage, install,
         live.execute("UPDATE scenes SET name='Committed in WAL'")
         live.commit()
         assert Path(paths.database_url.database + "-wal").is_file()
+        assert inspect_schema(live) is SchemaState.ALPHA
         create(storage, target, external_key=external)
     before_source = snapshot(Path(paths.data_home))
     before_backup = snapshot(target)
@@ -115,7 +119,6 @@ with closing(sqlite3.connect(main.config.DATABASE_URL.database)) as conn:
 
 @pytest.mark.parametrize("change", ["manifest", "missing", "corrupt", "unsafe", "schema_version"])
 def test_invalid_backup_rejected_before_writing(bundle, tmp_path, change):
-    import hashlib
     source, schema = bundle
     manifest_path = source / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
@@ -301,3 +304,54 @@ def test_destination_inside_backup_does_not_modify_source(bundle):
     with pytest.raises(BackupError, match="внутри резервной копии"):
         restore.restore_backup(source, source / "destination", schema)
     assert snapshot(source) == before
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Alembic first run uses the Linux lifecycle")
+def test_current_alembic_backup_verify_restore_and_start(install, tmp_path):
+    server, home, env = install
+    result = launch(install)
+    assert result.returncode == 0, result.stderr
+    paths = resolve_storage(env, server_dir=server, cwd=server)
+    schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
+    with closing(sqlite3.connect(home / "lanterna.db")) as conn:
+        assert inspect_schema(conn) is SchemaState.CURRENT
+
+    backup = tmp_path / "current backup"
+    created = create((paths, schema), backup)
+    assert verify_backup(backup, schema) == created
+    before = snapshot(backup)
+    destination = tmp_path / "restored current"
+    assert restore.restore_backup(backup, destination, schema) == created
+    result = launch((server, destination, dict(env, LANTERNA_DATA_HOME=str(destination),
+                                              LANTERNA_REQUIRE_EXISTING="1")), no_init=True)
+    assert result.returncode == 0, result.stderr
+    assert snapshot(backup) == before
+
+
+@pytest.mark.parametrize("operation", ["verify", "restore"])
+@pytest.mark.parametrize(("revision", "state"), [("future_revision", "unknown"), (INITIAL_REVISION, "drift")])
+def test_unsupported_catalog_with_valid_manifest_is_rejected(bundle, tmp_path, operation, revision, state):
+    backup, schema = bundle
+    database = backup / "lanterna.db"
+    with closing(sqlite3.connect(database)) as conn, conn:
+        conn.execute("CREATE TABLE alembic_version ( version_num VARCHAR(32) NOT NULL, "
+                     "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num) )")
+        conn.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
+        if state == "drift":
+            conn.execute("CREATE INDEX unexpected ON campaigns(name)")
+        assert conn.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert conn.execute("PRAGMA foreign_key_check").fetchone() is None
+    manifest_path = backup / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    data = database.read_bytes()
+    manifest["files"]["lanterna.db"] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    manifest_path.write_text(json.dumps(manifest))
+    before = snapshot(tmp_path)
+    destination = tmp_path / "incompatible destination"
+    with pytest.raises(BackupError, match=rf"Несовместимая схема SQLite \({state}\)"):
+        if operation == "verify":
+            verify_backup(backup, schema)
+        else:
+            restore.restore_backup(backup, destination, schema)
+    assert not destination.exists()
+    assert snapshot(tmp_path) == before

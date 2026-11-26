@@ -14,9 +14,10 @@ import asyncio
 from app import main
 
 if NO_INIT:
-    async def unexpected_init():
-        raise AssertionError('preflight called init_db for existing or invalid storage')
+    def unexpected_init(*args):
+        raise AssertionError('preflight attempted to initialize existing or invalid storage')
     main.init_db = unexpected_init
+    main.initialize_file_db = unexpected_init
 
 async def start():
     async with main.lifespan(main.app):
@@ -180,3 +181,152 @@ asyncio.run(connect())
     assert result.returncode != 0
     assert "unable to open database file" in result.stderr
     assert not (home / "lanterna.db").exists()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux Alembic first-run path")
+def test_linux_first_run_has_revision_and_active_scene(install):
+    _, home, _ = install
+    result = launch(install)
+    assert result.returncode == 0, result.stderr
+    with sqlite3.connect(home / "lanterna.db") as conn:
+        version = conn.execute("SELECT name FROM sqlite_schema WHERE name = 'alembic_version'").fetchone()
+        assert version == ("alembic_version",)
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchall() == [("0001_alpha_baseline",)]
+        assert conn.execute("SELECT COUNT(*) FROM campaigns JOIN scenes ON scenes.id=campaigns.active_scene_id").fetchone() == (1,)
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+@pytest.mark.parametrize("change", [
+    "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)); INSERT INTO alembic_version VALUES ('9999_future')",
+    "CREATE INDEX unexpected_index ON campaigns(name)",
+    "PRAGMA user_version=42",
+])
+def test_existing_unknown_catalog_never_starts_or_changes_files(install, change):
+    _, home, _ = install
+    result = launch(install)
+    assert result.returncode == 0, result.stderr
+    with sqlite3.connect(home / "lanterna.db") as conn:
+        conn.execute("DROP TABLE IF EXISTS alembic_version")
+        conn.executescript(change)
+    before = snapshot(home)
+    result = launch(install, no_init=True)
+    assert result.returncode != 0
+    assert "Несовместимая схема SQLite" in result.stderr
+    assert snapshot(home) == before
+
+
+def test_existing_confirmed_alpha_is_never_stamped(install):
+    _, home, _ = install
+    result = launch(install)
+    assert result.returncode == 0, result.stderr
+    with sqlite3.connect(home / "lanterna.db") as conn:
+        conn.execute("DROP TABLE IF EXISTS alembic_version")
+    before = snapshot(home)
+    result = launch(install, no_init=True)
+    assert result.returncode == 0, result.stderr
+    assert snapshot(home) == before
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux Alembic first-run path")
+@pytest.mark.parametrize("abort", [
+    "raise RuntimeError('injected seed failure')",
+    "__import__('os')._exit(37)",
+])
+def test_incomplete_seed_is_never_served_after_error_or_process_crash(install, abort):
+    server, home, env = install
+    hook = (
+        "from app import main\n"
+        "original_seed = main._seed_demo_scene\n"
+        "def abort_seed(db):\n"
+        "    original_seed(db)\n"
+        f"    {abort}\n"
+        "main._seed_demo_scene = abort_seed\n"
+    )
+    result = subprocess.run([sys.executable, "-c", hook + "NO_INIT = False\n" + _START],
+                            cwd=server, env=env, capture_output=True, text=True, timeout=20)
+    if "._exit" in abort:
+        assert result.returncode == 37, result.stderr
+    else:
+        assert result.returncode != 0 and "injected seed failure" in result.stderr
+        uri = (home / "lanterna.db").as_uri() + "?mode=ro&immutable=1"
+        with sqlite3.connect(uri, uri=True) as conn:
+            assert conn.execute("SELECT name FROM sqlite_schema").fetchall() == []
+    before = snapshot(home)
+    result = launch(install, no_init=True)
+    assert result.returncode != 0
+    assert snapshot(home) == before
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux quiescent source path")
+def test_crashed_writer_hot_journal_is_rejected_without_replay(install):
+    from app.pre_upgrade import _require_known_schema
+    from app.storage_lock import own_storage
+    from app.data_home import resolve_storage
+    from app.storage_preflight import StorageError
+
+    server, home, env = install
+    result = launch(install)
+    assert result.returncode == 0, result.stderr
+    database = home / "lanterna.db"
+    with sqlite3.connect(database) as conn:
+        conn.execute("DROP TABLE alembic_version")
+        conn.execute("UPDATE campaigns SET name=hex(zeroblob(256000))")
+    writer = """
+import os
+import sqlite3
+import sys
+conn=sqlite3.connect(sys.argv[1])
+conn.execute("PRAGMA cache_size=4")
+conn.execute("BEGIN IMMEDIATE")
+conn.execute("UPDATE campaigns SET name=replace(name, '0', '1')")
+os._exit(37)
+"""
+    result = subprocess.run([sys.executable, "-c", writer, str(database)], env=env, timeout=20)
+    assert result.returncode == 37
+    journal = home / "lanterna.db-journal"
+    assert journal.read_bytes()[:8] == bytes.fromhex("d9d505f920a163d7")
+    before = snapshot(home)
+    paths = resolve_storage(env, server_dir=server, cwd=server)
+    with own_storage(paths), pytest.raises(StorageError, match="незавершённый журнал"):
+        _require_known_schema(database)
+    result = launch(install, no_init=True)
+    assert result.returncode != 0 and "журнал или WAL" in result.stderr
+    assert snapshot(home) == before
+
+
+@pytest.mark.parametrize("change", [False, True])
+def test_quiescent_sqlite_compares_windows_file_identity_and_descriptor_changes(tmp_path, monkeypatch, change):
+    from contextlib import closing, nullcontext
+    from types import SimpleNamespace
+
+    from app import storage_preflight as preflight
+
+    database = tmp_path / "fixture.db"
+    with closing(sqlite3.connect(database)) as conn:
+        conn.execute("CREATE TABLE fixture (id INTEGER PRIMARY KEY)")
+    before = database.read_bytes()
+
+    real_lstat = Path.lstat
+    inspected = False
+
+    def windows_metadata(info, ctime):
+        return SimpleNamespace(st_mode=info.st_mode, st_dev=info.st_dev, st_ino=info.st_ino,
+                               st_nlink=info.st_nlink, st_size=info.st_size, st_mtime_ns=info.st_mtime_ns,
+                               st_birthtime_ns=10, st_ctime_ns=ctime)
+
+    def lstat(path, *args, **kwargs):
+        result = real_lstat(path, *args, **kwargs)
+        return windows_metadata(result, 10) if path == database else result
+
+    def fstat(fd):
+        return windows_metadata(os.fstat(fd), 30 if change and inspected else 20)
+
+    windows_os = SimpleNamespace(name="nt", open=os.open, close=os.close, fstat=fstat,
+                                 O_RDONLY=os.O_RDONLY, O_NOFOLLOW=getattr(os, "O_NOFOLLOW", 0))
+    monkeypatch.setattr(preflight, "os", windows_os)
+    monkeypatch.setattr(Path, "lstat", lstat)
+    expected = pytest.raises(preflight.StorageError, match="изменилась во время проверки") if change else nullcontext()
+    with expected, preflight.open_quiescent_sqlite(database) as conn:
+        assert conn.execute("SELECT name FROM sqlite_schema").fetchall() == [("fixture",)]
+        inspected = True
+    assert database.read_bytes() == before
