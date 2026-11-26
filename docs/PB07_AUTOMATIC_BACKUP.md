@@ -64,13 +64,6 @@ GM key. При повреждении свежего экземпляра защ
 или приватно размещённый Portable. Враждебный процесс с теми же правами ОС
 может менять файлы напрямую и находится за пределами этой защиты.
 
-Внешний ключ не сохраняется. Копия с внешним ключом структурно проверяется,
-но пригодность восстановления требует исходного секрета. Она не может
-разрешить удаление последней пригодной копии с файловым ключом. Если
-остающаяся пригодная копия не подтверждена, обрезка приостанавливается.
-Для серии с внешним ключом следующий запуск при заполненном лимите
-количества откладывается до освобождения места оператором.
-
 ## Место и отказы
 
 Проверяется свободное место целевого тома. Для staging допускается один
@@ -80,7 +73,11 @@ SQLite контролируется в ходе snapshot, затем тот же
 к файлам. До публикации резерв проверяется повторно. Это ограничение
 логического объёма, а не атомарное резервирование ФС. Параллельные записи,
 метаданные ФС и SQLite journal могут повлиять на реально свободное место.
-При ENOSPC или выходе за бюджет копия не публикуется, прежние копии остаются.
+При ENOSPC или выходе за бюджет на стадии подготовки новый комплект не
+публикуется. Безопасная обрезка уже могла пройти до проверки места, поэтому
+сохраняется защищённая копия, а количество прежних копий может уменьшиться.
+При сбое после публикации новый комплект может уже лежать на диске, даже
+если попытка в журнале планировщика завершилась ошибкой.
 
 Во время ротации допускается одна дополнительная публикация над лимитом.
 Если уже возникло превышение, следующая публикация возможна после
@@ -149,3 +146,142 @@ PB-06 и PB-07 B сохраняют свой прежний контракт.
 восстановления при прерванной миграции и финализация маркера после
 подтверждённого upgrade. Windows требует подтверждённого механизма
 долговечной публикации до включения миграций.
+
+## Operational limitations
+
+- Соседние manual, automatic и pre-upgrade копии защищают от разных сбоев
+  приложения. От физического отказа накопителя нужна проверенная копия на
+  другом носителе. Retention управляет только текущей автоматической серией.
+- Временные сбои дают повтор с backoff. Прерванная обрезка, потеря журнала,
+  неизвестное содержимое или несовпадение идентичности могут блокировать
+  серию до вмешательства оператора. Очередь ручных копий работает отдельно
+  от журнала серии и пользуется общим worker.
+- Состояние защиты оценивается по возрасту **последней пригодной копии**.
+  Работающий игровой сервер и строка о повторе планировщика сами по себе
+  не подтверждают наличие свежей проверенной копии.
+
+## External GM key policy
+
+Согласованная владельцем политика сохраняет действующий fail-closed. Комплект `key_mode=external` содержит пометку о режиме, но без
+значения или отпечатка `LANTERNA_GM_KEY`. Для retention пригодный остающийся
+комплект должен содержать файловый ключ и пройти повторную проверку.
+Структурно исправная внешняя копия не даёт такого разрешения.
+
+При возрасте или объёме сверх лимита, либо при превышении количества,
+prune останавливается, если нет проверенной остающейся копии с файловым
+ключом. В режиме внешнего ключа создание также останавливается на пределе
+количества после возможной безопасной обрезки. Освобождение байтов на томе
+помогает при дефиците места. Оно само по себе не устраняет этот запрет.
+
+Оператору нужно хранить исходный секрет отдельно от DataHome и комплектов,
+в защищённом хранилище секретов с независимым доступом при отказе сервера.
+При смене ключа сохраняйте доступ к нужной версии, пока от неё зависят
+хранимые точки восстановления. Связь копии с версией секрета храните в
+закрытом учёте без значения ключа. Проверяйте доступность ключа и
+восстановление. При остановке ротации назначьте ручное создание проверенных
+копий с согласованной частотой, например раз в сутки при штатном суточном
+интервале, и следите за их свежестью и свободным местом. Храните хотя бы одну
+проверенную копию на другом носителе вместе с независимым способом получить
+соответствующий секрет.
+
+Если потребуется непрерывная автоматическая ротация в external-режиме,
+это отдельное изменение. Для него нужен проверяемый контракт подтверждения
+восстановления и доступности секрета на весь срок хранения, с правилами
+смены, отзыва и потери доступа, без сохранения секрета или его отпечатка
+в данных backup. Ручной restore drill не записывает такое подтверждение в
+журнал и не меняет решение retention.
+
+## Retention failure diagnostics
+
+Смотрите журнал серверного процесса, logger `laterna.backup.auto`.
+`Автоматическое копирование приостановлено (…). Повтор через … с.`
+означает отказ конкретной попытки. Для `BackupError` видна причина, для
+ошибок ОС и разбора журнала виден класс исключения, например
+`PermissionError`, `OSError` или `JSONDecodeError`. По одной такой строке
+нельзя установить errno и фазу. [Таблица диагностики](PB07_RECOVERY_RUNBOOK.md#диагностика)
+сопоставляет сообщения с состоянием каталога и безопасными действиями.
+
+## Operator recovery
+
+[Runbook PB-07](PB07_RECOVERY_RUNBOOK.md) описывает остановку планировщика,
+инвентаризацию, изолированный restore и условия возобновления. Для
+прерванной retention штатного ремонта журнала нет. Если серия целиком
+идентифицирована, подтверждённую копию можно сохранить вне серии и начать
+новую серию после архивирования всего старого корня. Старая серия остаётся
+доступной для разбора и ручного Verify/Restore отдельных полных комплектов.
+
+## Verification and restore
+
+Проверяйте отдельный каталог комплекта через PB-06 Verify. Затем выполните
+Restore в отсутствующий DataHome под существующим доверенным родителем.
+Запустите восстановленный стол изолированно и сверьте кампанию, вход ГМ и
+медиа. Для внешнего ключа Verify проверяет комплект, Restore проверяет
+наличие значения в окружении, а пробный вход подтверждает доступ к
+изолированному столу. Подлинность исходного секрета устанавливается по
+доверенному хранилищу ключей. Подстановка произвольного значения может дать
+работающий тестовый стол и не подтверждает сохранность исходного ключа.
+[Команды и критерии drill](PB07_RECOVERY_RUNBOOK.md#verification-and-restore)
+
+## Platform guarantees
+
+| Область | Linux | Windows |
+| --- | --- | --- |
+| Ручной/автоматический backup и restore | Поддерживаемая файловая SQLite. Retention проверяет идентичность каталогов и удаляет файлы относительно открытых дескрипторов. | Profile и Portable с приватным хранилищем. Retention удерживает Win32 handles без разрешения на rename/delete каталогов во время работы с содержимым. Junction/reparse point отклоняются. |
+| Pre-upgrade | Gate принимает проверяемые локальные ext4, XFS и Btrfs с допустимыми параметрами и синхронизирует файлы, каталоги и marker. | Gate закрыт до создания snapshot и вызова writer. Рабочий backup/restore не означает поддержку Alpha upgrade. |
+| Аварийная остановка | Process-crash тесты и fault injection проверяют наблюдаемые состояния и порядок операций. | ZIP smoke проверяет контракт backup/restore, отказ gate и сохранность источника. |
+
+Process-crash тесты не доказывают устойчивость к реальному отключению
+питания. Предобновительный gate полагается на подтверждённый flush со
+стороны файловой системы и накопителя. Правила Alpha cutover, финализации
+и восстановления после изменения схемы остаются частью PB-08.
+
+## Final acceptance
+
+| Критерий | Реализация | Проверка |
+| --- | --- | --- |
+| Периодические проверенные копии, расписание после рестарта | `serve_automatic_backups`, `startup_wait`, восстановление последней публикации из `series.json`. Backup Core проверяет staging до публикации. | `test_policy_and_virtual_clock`, `test_scheduler_virtual_wait_one_run_per_wake_and_backoff`, `test_process_crash_around_publication`, тесты повреждения и SQLite в Backup Core. |
+| Retention по возрасту, количеству и объёму. Защита последней пригодной копии | `BackupSeries.prune` проверяет оставшийся комплект с файловым ключом и кандидата. Состав и идентичность сверяются до удаления. | `test_prunes_only_registered_copies_and_restores_survivor`, `test_unusable_new_copy_cannot_displace_working_copy`, `test_clock_reversal_preserves_latest_publication`, `test_external_series_stops_at_count_without_deleting_copies`. |
+| Резерв места и безопасный отказ при disk full | `BackupSeries.reserve`, проверка перед публикацией, ограничения SQLite snapshot и потоковой записи. | `test_disk_reserve_and_logical_budget_block_writes`, `test_write_failures_preserve_last_verified_backup`, `test_copy_error_never_publishes_and_preserves_source`. |
+| Прерванная retention, неизвестные каталоги, подмена | `_recover` восстанавливает только зарегистрированную публикацию/staging. `_inventory` закрывает неподтверждённую серию. | `test_retention_write_failure_keeps_survivor_and_halts`, `test_interrupted_series_can_be_preserved_and_replaced_offline`, `test_unproven_directory_never_deleted`, `test_reparse_point_rejected_during_inventory`, `test_renamed_candidate_is_not_erased_after_quarantine_race`. |
+| Ручной/автоматический worker, штатная остановка и locks | Lifespan удерживает PB-05 locks, ожидает scheduler и `OnlineBackup.close`. Restore берёт locks для назначения. | `test_real_lifespan_automatic_backup_shares_manual_slot_and_allows_http_ws`, `test_shutdown_waits_for_inflight_worker`, `test_killed_restore_and_live_storage_lock`, профильные тесты storage lock. |
+| Обязательный pre-upgrade snapshot, receipt, marker и locks | `run_pre_upgrade` держит locks до возврата writer, проверяет источник и комплект, синхронизирует receipt и marker до `apply`. Startup и повторный gate блокируются при наличии marker. | `test_verified_snapshot_precedes_writer_and_can_restore`, `test_low_space_and_occupied_datahome_fail_closed`, `test_real_process_crash_requires_safe_retry`, `test_replaced_receipt_with_same_contents_does_not_authorize`, `test_fence_fsync_failure_preserves_source_and_prevents_retry`, `test_writer_error_retains_fence_and_snapshot`. |
+| Платформенный допуск и сохранность | Проверка Linux mount и отказ на Windows в pre-upgrade gate. | `test_real_linux_mount_and_durability`, `test_mount_rejection_blocks_before_snapshot`, исторические Windows ZIP smoke B/C. |
+
+Исходники и тесты для матрицы:
+[scheduler и retention](../server/app/automatic_backup.py),
+[Backup Core](../server/app/instance_backup.py),
+[restore](../server/app/instance_restore.py),
+[lifespan](../server/app/main.py),
+[pre-upgrade](../server/app/pre_upgrade.py),
+[automatic tests](../server/tests/test_automatic_backup.py),
+[pre-upgrade tests](../server/tests/test_pre_upgrade.py),
+[backup tests](../server/tests/test_instance_backup.py),
+[restore tests](../server/tests/test_instance_restore.py),
+[lock tests](../server/tests/test_storage_lock.py),
+[Windows smoke](../scripts/windows-datahome-smoke.py).
+
+История интеграции:
+
+- [Review #82](https://github.com/LunierVeil/Laterna-VTT/pull/82#pullrequestreview-6030099500)
+  для `af5d61e1b56272e88b68c2163dd039a7cab8f788` подтвердило B без
+  блокеров и оставило вопросы эксплуатации external key и recovery.
+  [Fast CI push](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45271501289),
+  [Full CI PR](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45273958270),
+  [Full CI merge](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45276729134),
+  [Windows candidate](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45271543609)
+  завершились успешно.
+- [Review #83](https://github.com/LunierVeil/Laterna-VTT/pull/83#pullrequestreview-6034481055)
+  для `a065207e9069274e1a36796da3e0ad97cf6fa79e` подтвердило C без
+  блокеров для принятого Linux gate и отказа Windows.
+  [Fast CI push](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45278997825),
+  [Full CI PR](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45338048366),
+  [Full CI merge](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45340212334),
+  [Windows candidate](https://github.com/LunierVeil/Laterna-VTT/actions/runs/45279141543)
+  завершились успешно.
+- [Review PB-08A](https://github.com/LunierVeil/Laterna-VTT/pull/93#pullrequestreview-6063592885)
+  оставляет эксплуатационную приёмку здесь. Миграция Alpha, cutover и
+  подтверждение долговечности Windows upgrade относятся к PB-08.
+
+Владелец согласовал external GM key policy. Закрытие #48 требует
+независимого подтверждения матрицы, runbook и проверок на текущем SHA.
+Прежние запуски Actions подтверждают только соответствующие исторические SHA.
