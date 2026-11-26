@@ -7,6 +7,8 @@ import binascii
 import json
 import math
 import re
+import struct
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -29,6 +31,9 @@ MAX_REPORT_ENTRIES = 512
 MAX_IMAGE_SIDE = 8192
 MAX_IMAGE_PIXELS = 32 * 1024 * 1024
 MAX_IMAGE_CHUNKS = 4096
+MAX_PNG_METADATA_BYTES = 2 * 1024 * 1024
+MAX_PNG_METADATA_STREAM = 1024 * 1024
+MAX_PNG_METADATA_INFLATED = 4 * 1024 * 1024
 MAX_PIXELS_PER_GRID = 1024
 MAX_COORDINATE = 65_536
 PIXEL_ROUNDING_TOLERANCE = 0.01
@@ -351,12 +356,121 @@ def _webp_size(data: bytes) -> tuple[int, int]:
     return frame
 
 
+# W3C PNG 3, sections 5.6, 8, 10 and 11.2. Pillow still owns pixel decoding.
+_PNG_DEPTHS = {0: (1, 2, 4, 8, 16), 2: (8, 16), 3: (1, 2, 4, 8), 4: (8, 16), 6: (8, 16)}
+_PNG_CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}
+_PNG_ADAM7 = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4),
+              (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2))
+_PNG_CRITICAL = {b"IHDR", b"PLTE", b"IDAT", b"IEND"}
+_PNG_ANIMATION = {b"acTL", b"fcTL", b"fdAT"}
+_PNG_BEFORE_PLTE = {b"cHRM", b"cICP", b"gAMA", b"iCCP", b"mDCV", b"cLLI", b"sBIT", b"sRGB"}
+_PNG_AFTER_PLTE = {b"bKGD", b"hIST", b"tRNS"}
+_PNG_BEFORE_IDAT = _PNG_BEFORE_PLTE | _PNG_AFTER_PLTE | {b"eXIf", b"pHYs", b"sPLT"}
+_PNG_SINGLETONS = (_PNG_BEFORE_IDAT - {b"sPLT"}) | {b"tIME", b"IHDR", b"PLTE"}
+_PNG_CHUNK_NAME = re.compile(rb"[A-Za-z]{2}[A-Z][A-Za-z]")
+_PNG_INFLATE_BLOCK = 64 * 1024
+
+
+def _png_scanline_bytes(width: int, height: int, bits_per_pixel: int, interlace: int) -> int:
+    passes = _PNG_ADAM7 if interlace else ((0, 0, 1, 1),)
+    total = 0
+    for x, y, step_x, step_y in passes:
+        columns = (width - x + step_x - 1) // step_x
+        rows = (height - y + step_y - 1) // step_y
+        if columns > 0 and rows > 0:
+            total += rows * (1 + (columns * bits_per_pixel + 7) // 8)
+    return total
+
+
+class _PngZlib:
+    """Count bounded zlib output and require the end marker and Adler-32."""
+
+    def __init__(self, limit: int, label: str, limit_code: str):
+        self.limit = limit
+        self.label = label
+        self.limit_code = limit_code
+        self.count = 0
+        self.stream = zlib.decompressobj()
+
+    def _invalid(self, reason: str) -> UvttParseError:
+        return UvttParseError("/image", "invalid_image", f"PNG {self.label}: {reason}")
+
+    def _consume(self, data: bytes | memoryview) -> None:
+        if self.stream.eof and data:
+            raise self._invalid("data after the zlib stream")
+        while True:
+            try:
+                # Keep memory bounded even for a very compressible row stream.
+                output = self.stream.decompress(data, min(_PNG_INFLATE_BLOCK, self.limit - self.count + 1))
+            except zlib.error as exc:
+                raise self._invalid("invalid zlib stream or Adler-32 checksum") from exc
+            self.count += len(output)
+            if self.count > self.limit:
+                raise UvttParseError("/image", self.limit_code, f"PNG {self.label}: inflated size exceeds its limit")
+            if self.stream.unused_data:
+                raise self._invalid("data after the zlib stream")
+            data = self.stream.unconsumed_tail
+            if not data:
+                return
+
+    def feed(self, data: memoryview) -> None:
+        for start in range(0, len(data), _PNG_INFLATE_BLOCK):
+            self._consume(data[start:start + _PNG_INFLATE_BLOCK])
+
+    def finish(self) -> int:
+        # A capped inflate call can leave pending output in zlib without input.
+        while not self.stream.eof:
+            previous = self.count
+            self._consume(b"")
+            if self.count == previous and not self.stream.eof:
+                raise self._invalid("incomplete zlib stream")
+        return self.count
+
+
+def _png_metadata_stream(kind: bytes, payload: memoryview) -> memoryview | None:
+    if kind not in (b"iCCP", b"zTXt", b"iTXt"):
+        return None
+    # Locate the metadata prefix without copying the compressed payload.
+    separator = next((i for i, byte in enumerate(payload[:80]) if byte == 0), -1)
+    if separator < 1 or separator + 1 >= len(payload):
+        raise UvttParseError("/image", "invalid_image", "Invalid PNG metadata header")
+    start = separator + 2
+    method = payload[separator + 1]
+    if kind == b"iTXt":
+        compression_flag = method
+        if start >= len(payload) or compression_flag not in (0, 1):
+            raise UvttParseError("/image", "invalid_image", "Invalid PNG iTXt compression flag")
+        method = payload[start]
+        start += 1
+        for _ in range(2):  # language tag and translated keyword
+            while start < len(payload) and payload[start] != 0:
+                start += 1
+            if start == len(payload):
+                raise UvttParseError("/image", "invalid_image", "Invalid PNG iTXt text header")
+            start += 1
+        if compression_flag == 0:
+            return None  # Uncompressed text is covered by the ancillary byte budget.
+    if method != 0:
+        raise UvttParseError("/image", "invalid_image", "Unsupported PNG metadata compression method")
+    return payload[start:]
+
+
 def _png_size(data: bytes) -> tuple[int, int]:
     if len(data) < 33 or data[8:16] != b"\x00\x00\x00\x0dIHDR":
         raise _Invalid("/image", "Invalid PNG header")
-    size = _bounded_raster_size(int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big"))
+    width, height, depth, color, compression, filter_method, interlace = struct.unpack_from(">IIBBBBB", data, 16)
+    size = _bounded_raster_size(width, height)
+    if (depth not in _PNG_DEPTHS.get(color, ()) or compression != 0 or filter_method != 0
+            or interlace not in (0, 1)):
+        raise UvttParseError("/image", "invalid_image", "Unsupported PNG image header")
+    expected_size = _png_scanline_bytes(width, height, depth * _PNG_CHANNELS[color], interlace)
+    image_stream = _PngZlib(expected_size, "IDAT", "invalid_image")
+
     view = memoryview(data)
     offset, chunks = 8, 0
+    ancillary_bytes = inflated_metadata = 0
+    seen: set[bytes] = set()
+    previous_kind = b""
     while offset + 12 <= len(data):
         length = int.from_bytes(view[offset:offset + 4], "big")
         kind = data[offset + 4:offset + 8]
@@ -367,17 +481,55 @@ def _png_size(data: bytes) -> tuple[int, int]:
             raise UvttParseError("/image", "image_chunks", "Image chunk budget exceeded")
         if end > len(data):
             break
-        if kind == b"acTL":
+        if not _PNG_CHUNK_NAME.fullmatch(kind):
+            raise UvttParseError("/image", "invalid_image", "Invalid PNG chunk name")
+        if kind in _PNG_ANIMATION:
             raise _Invalid("/image", "Animated images are unsupported")
-        if kind == b"IHDR" and chunks != 1:
-            raise _Invalid("/image", "Multiple PNG raster headers")
+        if kind[:1].isupper() and kind not in _PNG_CRITICAL:
+            raise UvttParseError("/image", "invalid_image", "Unknown critical PNG chunk")
         expected_crc = int.from_bytes(view[crc_start:end], "big")
         if binascii.crc32(view[offset + 4:crc_start]) != expected_crc:
             raise UvttParseError("/image", "invalid_image", "Invalid PNG chunk checksum")
-        if kind == b"IEND" and length == 0 and end == len(data):
+        if kind in _PNG_SINGLETONS and kind in seen:
+            raise UvttParseError("/image", "invalid_image", "Duplicate PNG chunk")
+        payload = view[offset + 8:crc_start]
+
+        if kind == b"IEND":
+            if length or end != len(data):
+                raise _Invalid("/image", "Invalid PNG trailer or unexpected trailing data")
+            if b"IDAT" not in seen or image_stream.finish() != expected_size:
+                raise UvttParseError("/image", "invalid_image", "PNG IDAT does not match the expected scanline size")
             return size
+        if kind == b"PLTE":
+            max_entries = 1 << depth if color == 3 else 256
+            if (b"IDAT" in seen or seen & _PNG_AFTER_PLTE or color in (0, 4)
+                    or length % 3 or not 1 <= length // 3 <= max_entries):
+                raise UvttParseError("/image", "invalid_image", "Invalid or misplaced PNG palette")
+        elif kind == b"IDAT":
+            if b"IDAT" in seen and previous_kind != b"IDAT":
+                raise UvttParseError("/image", "invalid_image", "PNG IDAT chunks must be consecutive")
+            if color == 3 and b"PLTE" not in seen:
+                raise UvttParseError("/image", "invalid_image", "Indexed PNG requires a palette before IDAT")
+            image_stream.feed(payload)
+        elif kind != b"IHDR":
+            if ((kind in _PNG_BEFORE_IDAT and b"IDAT" in seen)
+                    or (kind in _PNG_BEFORE_PLTE and b"PLTE" in seen)
+                    or (kind == b"hIST" and b"PLTE" not in seen)):
+                raise UvttParseError("/image", "invalid_image", "Misplaced PNG metadata chunk")
+            ancillary_bytes += length
+            if ancillary_bytes > MAX_PNG_METADATA_BYTES:
+                raise UvttParseError("/image", "png_metadata", "PNG ancillary byte budget exceeded")
+            compressed = _png_metadata_stream(kind, payload)
+            if compressed is not None:
+                remaining = min(MAX_PNG_METADATA_STREAM, MAX_PNG_METADATA_INFLATED - inflated_metadata)
+                stream = _PngZlib(remaining, "metadata", "png_metadata")
+                stream.feed(compressed)
+                inflated_metadata += stream.finish()
+        seen.add(kind)
+        previous_kind = kind
         offset = end
-    raise _Invalid("/image", "Truncated PNG or unexpected trailing data")
+    raise _Invalid("/image", "Truncated PNG or missing IEND")
+
 
 
 def _raster(encoded: object, map_size_px: Point) -> Raster:
@@ -412,7 +564,7 @@ def _raster(encoded: object, map_size_px: Point) -> Raster:
             if image.size != size or getattr(image, "is_animated", False):
                 raise _Invalid("/image", "Unexpected raster dimensions or animation")
             image.load()
-    except (OSError, ValueError, SyntaxError, EOFError,
+    except (OSError, ValueError, SyntaxError, EOFError, struct.error,
             Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise UvttParseError("/image", "invalid_image", "The embedded raster is corrupt") from exc
     return Raster(image_format, *size, data)
