@@ -8,9 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const web = fileURLToPath(new URL("../", import.meta.url));
 const server = resolve(web, "../server");
-const npcContract = process.env.LATERNA_NPC_CONTRACT
-  ? resolve(process.env.LATERNA_NPC_CONTRACT)
-  : join(web, "src/systems/dnd5e/model/npc-contract.ts");
+const npcContract = join(web, "src/systems/dnd5e/model/npc-contract.ts");
 
 test("TypeScript checks 58 live Python drafts and an editable homebrew NPC", async (t) => {
   const temporary = mkdtempSync(join(tmpdir(), "laterna-srd-npc-contract-"));
