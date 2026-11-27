@@ -1,6 +1,6 @@
 ﻿param(
     [ValidateSet("Profile", "Portable", "NewPortable")][string]$Storage,
-    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths", "Verify", "Restore")][string]$Action = "Menu",
+    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths", "Verify", "Restore", "UpgradeStatus")][string]$Action = "Menu",
     [string]$BackupPath,
     [string]$Destination,
     [string]$RestoredDataHome
@@ -17,6 +17,11 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Python = Join-Path $Root "python\python.exe"
 $Server = Join-Path $Root "server"
 $Port = if ($env:PORT) { $env:PORT } else { "8000" }
+
+if ($Action -eq "UpgradeStatus") {
+    Write-Host "HOLD: перенос Alpha в Profile или Portable закрыт до испытаний долговечной публикации на Windows."
+    return
+}
 
 if (-not (Test-Path $Python)) {
     Write-Host "Нет python\python.exe рядом с laterna.bat."

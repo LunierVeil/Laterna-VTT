@@ -58,7 +58,7 @@ from .backup_control import control_directory, serve_backups
 from .automatic_backup import BackupPolicy, serve_automatic_backups
 from .upload_files import publish_upload
 from .storage_lock import own_storage
-from .pre_upgrade import assert_no_pending_upgrade
+from .offline_cutover import check_admission
 from .storage_preflight import StorageError, check_storage, prepare_storage
 
 
@@ -69,12 +69,12 @@ log = logging.getLogger("laterna")
 async def lifespan(app: FastAPI):
     with own_storage(config.STORAGE_PATHS):
         try:
-            assert_no_pending_upgrade(config.STORAGE_PATHS)
+            activated = check_admission(config.STORAGE_PATHS, config.SERVER_DIR)
             schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}
             state = check_storage(config.STORAGE_PATHS, server_dir=config.SERVER_DIR,
                                   cwd=config.STARTUP_CWD, env=os.environ, schema=schema,
                                   require_supported_catalog=True)
-            if os.getenv("LANTERNA_REQUIRE_EXISTING") == "1" and state != "existing":
+            if (activated or os.getenv("LANTERNA_REQUIRE_EXISTING") == "1") and state != "existing":
                 raise StorageError("Указанный восстановленный DataHome не содержит готовый стол.")
             prepare_storage(config.STORAGE_PATHS, state)
             if state == "first_run" and sys.platform == "linux":

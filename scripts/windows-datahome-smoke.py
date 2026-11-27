@@ -416,6 +416,7 @@ for package, settings, mode in (
     (replacement, env, "Profile"),
     (portable, spare_env, "Portable"),
 ):
+    assert "HOLD" in menu(package, "-Action", "UpgradeStatus", settings=settings)
     upgrade_env = dict(settings)
     if mode == "Portable":
         upgrade_env["LANTERNA_PORTABLE"] = "1"

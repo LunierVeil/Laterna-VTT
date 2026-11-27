@@ -35,11 +35,14 @@ elif [ "${1:-}" = tunnel ]; then
   TUNNEL=1
 elif [ "${1:-}" = porthole ]; then
   PORTHOLE=1
+elif [ "${1:-}" = upgrade ]; then
+  shift
+  UPGRADE=1
 elif [ "${1:-}" = backup ]; then
   shift
   BACKUP=1
 elif [ -n "${1:-}" ]; then
-  echo "неизвестная команда: $1 (есть: porthole, tunnel, gm, backup)"
+  echo "неизвестная команда: $1 (есть: porthole, tunnel, gm, backup, upgrade)"
   exit 1
 fi
 
@@ -49,6 +52,30 @@ if [ ! -x "$PY" ]; then
   echo "> создаю server/.venv"
   python3 -m venv "$VENV"
   "$PY" -m pip install -q -r "$ROOT/server/requirements.txt"
+fi
+
+if [ "${UPGRADE:-}" = 1 ]; then
+  if [ "$#" -eq 0 ]; then
+    set -- status
+  elif [ "$1" != prepare ] && [ "$1" != status ] && [ "$1" != activate ] && [ "$1" != cancel ] && [ "$1" != recover ]; then
+    echo "Используйте upgrade status, prepare, activate, cancel или recover." >&2
+    exit 2
+  fi
+  cd "$ROOT/server"
+  exec "$PY" -m app.migration_cli "$@"
+fi
+
+# Verification and isolated restore remain available while startup is on hold.
+if [ "${BACKUP:-}" != 1 ] || [ "${1:-}" = create ]; then
+  ACTIVE_HOME="$(cd "$ROOT/server" && "$PY" -m app.migration_cli select)"
+  if [ -n "$ACTIVE_HOME" ]; then
+    if [ -n "${DATABASE_URL+x}${UPLOAD_DIR+x}${GM_KEY_FILE+x}${LANTERNA_PORTABLE+x}${LANTERNA_GM_KEY+x}" ] ||
+       { [ -n "${LANTERNA_DATA_HOME+x}" ] && [ "$LANTERNA_DATA_HOME" != "$ACTIVE_HOME" ]; }; then
+      echo "Настройки хранилища конфликтуют с активированным DataHome." >&2
+      exit 1
+    fi
+    export LANTERNA_DATA_HOME="$ACTIVE_HOME" LANTERNA_REQUIRE_EXISTING=1
+  fi
 fi
 
 if [ "${GM:-}" = 1 ]; then
