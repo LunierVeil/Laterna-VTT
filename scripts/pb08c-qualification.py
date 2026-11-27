@@ -11,6 +11,7 @@ import io
 import json
 import os
 from pathlib import Path
+from runpy import run_path
 import shutil
 import sqlite3
 import subprocess
@@ -148,6 +149,33 @@ def unpack_windows_candidate(candidate: Path | None, application: Path):
                         encoding="utf-8")
 
 
+def sync_fixture(root: Path, server: Path):
+    # Flush from the harness after the embedded runtimes have exited. Windows
+    # can deny writes to an executable while it is mapped by a running process.
+    if os.name == "nt":
+        flush = run_path(str(server / "app" / "cutover_platform.py"))["windows_flush"]
+    else:
+        def flush(path):
+            fd = os.open(path, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+
+    flush(root / "fixture.json")
+    for tree in (root / "Alpha", root / "Beta"):
+        children = list(tree.rglob("*"))
+        for path in children:
+            if path.is_file():
+                flush(path)
+        for path in sorted(children, key=lambda item: len(item.parts), reverse=True):
+            if path.is_dir():
+                flush(path)
+        flush(tree)
+    for path in (root / "Profile", root, root.parent):
+        flush(path)
+
+
 def provision(root: Path, candidate: Path | None, mode: str, historical_archive: Path | None):
     alpha, beta, profile = (root / name for name in ("Alpha", "Beta", "Profile"))
     profile.mkdir()
@@ -192,16 +220,7 @@ windows_flush(root)
         )
     sync_json(root / "fixture.json", {"original": inventory(source), "mode": mode,
                                       "contents": table_contents(source)})
-    execute(beta / "server", env, """from pathlib import Path
-from app.pre_upgrade import _directory_id, _sync_directory, _sync_file
-root = Path(sys.argv[1])
-source = root / 'Alpha' / 'server'
-for path in (root / 'fixture.json', source / 'lanterna.db', source / 'gm_key.txt', *list((source / 'uploads').iterdir())):
-    _sync_file(path)
-for path in (source / 'uploads', source, source.parent, root / 'Beta' / 'server',
-             root / 'Beta', root / 'Profile', root, root.parent):
-    _sync_directory(path, _directory_id(path))
-""", str(root))
+    sync_fixture(root, beta / "server")
     return beta / "server", source, destination, env
 
 
@@ -262,7 +281,7 @@ def verify_contents(home: Path, evidence):
 def check_empty_start_held(root, server, env):
     fresh = root / "UnexpectedDataHome"
     result = execute(server, {**env, "LANTERNA_DATA_HOME": str(fresh)}, BOOT, success=False)
-    assert "HOLD" in result.stderr
+    assert "HOLD" in result.stderr, result.stderr
     assert not any((fresh / entry).exists() for entry in ("lanterna.db", "gm_key.txt", "uploads"))
 
 
