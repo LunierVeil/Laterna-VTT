@@ -247,15 +247,23 @@ def activate(server, env):
         cli(server, env, "activate")
 
 
-def confirmed_write(destination: Path):
-    connection = sqlite3.connect(destination / "lanterna.db")
-    try:
-        connection.execute("PRAGMA synchronous=FULL")
-        connection.execute("UPDATE campaigns SET name='PB08C confirmed'")
-        assert connection.total_changes > 0
-        connection.commit()
-    finally:
-        connection.close()
+def confirmed_write(server: Path, destination: Path, env: dict):
+    execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, """
+import asyncio
+from sqlalchemy import text
+from app.db import SessionLocal
+from app.main import app, lifespan
+
+async def write():
+    async with lifespan(app):
+        async with SessionLocal() as session:
+            assert (await session.execute(text("PRAGMA synchronous"))).scalar_one() == 3
+            result = await session.execute(text("UPDATE campaigns SET name='PB08C confirmed'"))
+            assert result.rowcount > 0
+            await session.commit()
+
+asyncio.run(write())
+""")
 
 
 def table_contents(home: Path):
@@ -367,8 +375,6 @@ assert db.execute("PRAGMA journal_mode=" + sys.argv[2]).fetchone()[0].upper() ==
 db.execute("PRAGMA synchronous=FULL")
 db.execute("PRAGMA wal_autocheckpoint=0")
 db.execute("PRAGMA cache_size=5")
-db.execute("UPDATE campaigns SET name='PB08C confirmed'")
-db.commit()
 db.execute("BEGIN IMMEDIATE")
 db.execute("UPDATE campaigns SET name=?", ('uncommitted' * 65536,))
 if len(sys.argv) == 4:
@@ -381,6 +387,7 @@ os._exit(37)
 
 def check_replay(server, destination, env, mode):
     database = destination / "lanterna.db"
+    confirmed_write(server, destination, env)
     result = execute(server, env, INTERRUPTED_TRANSACTION, str(database), mode, success=False)
     assert result.returncode == 37, result.stderr
     suffix = "-wal" if mode == "WAL" else "-journal"
@@ -432,7 +439,7 @@ def trial(root, candidate, mode, historical_archive):
     activate(server, env)
     verify_beta(server, destination, env)
     if os.name == "nt":
-        confirmed_write(destination)
+        confirmed_write(server, destination, env)
         previous = root / "PreviousZip"
         server.parent.rename(previous)
         unpack_windows_candidate(candidate, server.parent)
@@ -468,8 +475,8 @@ def launch_pause(root: Path, point: str):
         prepare(server, source, destination, env)
     if sqlite_mode or point in {"recovery", "confirmed-write"}:
         activate(server, env)
-    if point in {"recovery", "confirmed-write"}:
-        confirmed_write(destination)
+    if sqlite_mode or point in {"recovery", "confirmed-write"}:
+        confirmed_write(server, destination, env)
     if point == "confirmed-write":
         print("PB08C_VM_CHECKPOINT confirmed-write", flush=True)
         while True:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine import Connection, URL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -18,13 +18,28 @@ class Base(DeclarativeBase):
 
 
 _engine_url = DATABASE_URL
-if DATABASE_URL.get_backend_name() == "sqlite" and DATABASE_URL.database != ":memory:":
+_file_sqlite = DATABASE_URL.get_backend_name() == "sqlite" and DATABASE_URL.database != ":memory:"
+if _file_sqlite:
     # Only prepare_storage may create the file, with exclusive ownership.
     _engine_url = DATABASE_URL.set(database=Path(DATABASE_URL.database).as_uri()).update_query_dict(
         {"uri": "true", "mode": "rw"},
     )
 engine = create_async_engine(_engine_url, echo=False, future=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+
+if _file_sqlite:
+    @event.listens_for(engine.sync_engine, "connect")
+    def _sync_sqlite_commit_directory(connection, _record):
+        # In DELETE mode FULL leaves journal removal vulnerable to power loss.
+        cursor = connection.cursor()
+        try:
+            cursor.execute("PRAGMA main.synchronous=EXTRA")
+            cursor.execute("PRAGMA main.synchronous")
+            if cursor.fetchone() != (3,):
+                raise RuntimeError("SQLite must support durable rollback-journal commits.")
+        finally:
+            cursor.close()
 
 
 def initialize_file_db(database: Path, seed: Callable[[Connection], None]) -> None:
