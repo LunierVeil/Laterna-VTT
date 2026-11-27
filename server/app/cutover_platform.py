@@ -168,6 +168,8 @@ $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
 $isAdministrator = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 $owner = $acl.GetOwner($sidType).Value
 $ownerIsTrusted = $owner -eq $user -or ($owner -eq $administrators -and $isAdministrator)
+$descriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(), 0)
+$hasDacl = $null -ne $descriptor.DiscretionaryAcl
 # S-1-3-4 (OWNER RIGHTS) grants access to the already-checked owner.
 $allowed = @($user, 'S-1-5-18', $administrators, 'S-1-3-4')
 $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
@@ -176,7 +178,7 @@ $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
     $canModify = ([long]$_.FileSystemRights -band 0x500D0156) -ne 0
     $other -and ($env:LATERNA_PROBE_ARG_1 -eq 'private' -or (-not $inheritOnly -and $canModify))
 })
-@{owner = $ownerIsTrusted; restricted = ($bad.Count -eq 0)} | ConvertTo-Json -Compress
+@{owner = $ownerIsTrusted; restricted = ($hasDacl -and $bad.Count -eq 0)} | ConvertTo-Json -Compress
 """, str(path), "private" if private else "parent")
     if not isinstance(result, dict) or result.get("owner") is not True:
         raise OSError("Владелец каталога обновления Windows не подтверждён.")

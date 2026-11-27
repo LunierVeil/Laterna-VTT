@@ -229,7 +229,7 @@ def verify_beta(server, destination, env, *, expect_record=False):
     selected = cli(server, env, "select").stdout.strip()
     assert Path(selected) == destination
     if os.name == "nt":
-        launch = json.loads(shell(server, env, "-Action", "Paths").stdout)
+        launch = json.loads(shell(server, env, "-Action", "Paths").stdout.splitlines()[-1])
         assert Path(launch["home"]) == destination
     execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, BOOT)
     with sqlite3.connect(destination / "lanterna.db") as db:
