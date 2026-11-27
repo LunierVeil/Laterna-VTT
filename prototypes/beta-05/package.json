@@ -1,0 +1,29 @@
+{
+  "name": "laterna-beta-05-prototype",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && npm run verify:srd && vite build",
+    "preview": "vite preview",
+    "postbuild": "node scripts/add-notices.mjs",
+    "verify:srd": "node scripts/verify-srd.mjs"
+  },
+  "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.8",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
