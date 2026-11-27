@@ -1,5 +1,6 @@
 import { GlobalSpellbook } from '../../features/roster/GlobalSpellbook';
 import { FloatingWindow } from '../../shared/ui/FloatingWindow';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { canRead, controlsActor, playerHeroId } from '../../entities/model';
 import { HeroCreation } from '../../features/roster/HeroCreation';
@@ -7,7 +8,7 @@ import type { Actor, Asset, Campaign, Material, Page, Placement, Role, Scene } f
 import { AssetLibrary } from '../../features/assets';
 import { CampaignSettings } from '../../features/campaign-tools';
 import { Materials } from '../../features/materials';
-import { Roster, Sheet, type CreatureStart, type Roll } from '../../features/roster';
+import { Roster, Sheet, type CreatureStart, type Roll, type SheetTab } from '../../features/roster';
 import { SceneLibrary, UVTT } from '../../features/scene-editor';
 import { Dialog, IconButton } from '../../shared/ui';
 
@@ -33,22 +34,24 @@ function setLayout(key: string, value: NonNullable<Actor['sheetLayout']>) {
   try { localStorage.setItem(key, value); } catch { /* actor still stores the active layout */ }
 }
 
-export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId, materialId, quickCreate, openBook, connection, onPortrait, reduceMotion, onMotion, onClose, onExit, onPlace, onActivate, onSheet, onMaterial, commands }: {
-  page: NonNullable<Page>; expandedSidebar: boolean; campaign: Campaign; role: Role; srd: Actor[];
+export function Workbench({ page, initialLayout, initialTab, initialSpell, initialDecals, expandedSidebar, campaign, role, srd, actorId, materialId, quickCreate, openBook, connection, onPortrait, reduceMotion, onMotion, onClose, onExit, onPlace, onActivate, onSheet, onMaterial, commands }: {
+  initialTab?: SheetTab; initialSpell?: string; initialLayout?: Actor['sheetLayout']; initialDecals?: boolean; page: NonNullable<Page>; expandedSidebar: boolean; campaign: Campaign; role: Role; srd: Actor[];
   actorId?: string; materialId?: string; quickCreate?: CreatureStart; openBook: boolean; connection: boolean; onPortrait?: (asset: Asset) => void;
   reduceMotion: boolean; onMotion: (value: boolean) => void; onClose: () => void; onExit: () => void;
   onPlace: (item: Placement) => void; onActivate: (id: string) => void; onSheet: (id: string) => void; onMaterial: (id: string) => void; commands: CampaignCommands;
 }) {
+  const [reviewLayout, setReviewLayout] = useState(initialLayout);
   const gm = role === 'gm';
   if (!gm && page !== 'sheet' && page !== 'journal' && page !== 'hero-create' && page !== 'spells' && !(page === 'roster' && quickCreate?.startsWith('companion'))) return null;
   const selectedActor = gm ? campaign.actors.find(item => item.id === actorId) ?? campaign.actors.find(a => a.kind === 'hero') : campaign.actors.find(item => item.id === (actorId ?? playerHeroId(campaign)) && controlsActor(item, playerHeroId(campaign)));
   const layoutKey = (id: string) => `laterna-beta05:sheet:${campaign.id}:${id}`;
-  const remembered = selectedActor ? getLayout(layoutKey(selectedActor.id)) : undefined;
+  const remembered = reviewLayout ?? (selectedActor ? getLayout(layoutKey(selectedActor.id)) : undefined);
   const actor = selectedActor && remembered ? { ...selectedActor, sheetLayout: remembered } : selectedActor;
   const compact = actor?.sheetLayout === 'compact';
   function changeLayout(value: NonNullable<Actor['sheetLayout']>) {
     if (!actor) return;
-    setLayout(layoutKey(actor.id), value);
+    if (initialLayout) setReviewLayout(value);
+    else setLayout(layoutKey(actor.id), value);
     commands.saveActor({ ...actor, sheetLayout: value });
   }
   function addFolder(key: 'sceneFolders' | 'materialFolders' | 'assetFolders', name: string) {
@@ -63,7 +66,7 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
   const title = page === 'sheet' && actor ? actor.name : titles[page];
   const content = <>
     {page === 'scenes' && <SceneLibrary campaign={campaign} onActivate={onActivate} onSave={(next, active) => { commands.writeScene(next, active); commands.notify('Сцена сохранена'); }} onDelete={commands.removeScene} onFolder={name => addFolder('sceneFolders', name)}/>}
-    {page === 'assets' && <AssetLibrary assets={campaign.assets} folders={campaign.assetFolders}
+    {page === 'assets' && <AssetLibrary initialDecals={initialDecals} assets={campaign.assets} folders={campaign.assetFolders}
       onUpload={asset => { commands.updateCampaign(current => ({ ...current, assets: [...current.assets, asset] })); commands.notify('Ассет добавлен'); }}
       onFolder={name => addFolder('assetFolders', name)}
       onDecal={(name, decal) => onPlace({ kind: 'prop', name, decal, symbol: 'map', color: '#ac8c67' })} onPlace={placeAsset} onPortrait={onPortrait}
@@ -83,7 +86,7 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
     }}/>}
     {page === 'spells' && <GlobalSpellbook actors={gm ? campaign.actors : campaign.actors.filter(a => controlsActor(a, playerHeroId(campaign)))}
       targets={campaign.actors.filter(a => gm || controlsActor(a, playerHeroId(campaign)))} onSave={commands.saveActor} onClose={onClose}/>}
-    {page === 'sheet' && <Sheet materials={campaign.materials.filter(material => canRead(material, role))} onMaterial={onMaterial} actor={actor} role={role} onChange={commands.saveActor} onRoll={commands.roll} compact={compact} onClassic={() => changeLayout('classic')} onCompact={value => changeLayout(value ? 'compact' : 'full')}/>}
+    {page === 'sheet' && <Sheet initialTab={initialTab} initialSpell={initialSpell} materials={campaign.materials.filter(material => canRead(material, role))} onMaterial={onMaterial} actor={actor} role={role} onChange={commands.saveActor} onRoll={commands.roll} compact={compact} onClassic={() => changeLayout('classic')} onCompact={value => changeLayout(value ? 'compact' : 'full')}/>}
     {page === 'journal' && <Materials materials={campaign.materials} folders={campaign.materialFolders} role={role} initialId={materialId} openBook={openBook}
       onSave={material => { commands.saveMaterial(material); commands.notify('Материал сохранён'); }}
       onShow={commands.showMaterial} onDelete={id => { commands.updateCampaign(current => ({ ...current, materials: current.materials.filter(material => material.id !== id) })); commands.notify('Материал удалён'); }}

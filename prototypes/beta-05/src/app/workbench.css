@@ -565,3 +565,6 @@ textarea.handout-ink-note, .handout-written.handout-ink-note { color: #294139; }
 .classic-combat .button { min-height:36px; white-space:normal; }
 .sheet-classic .sheet-record-list, .sheet-classic .character-skills { max-height: min(34vh, 280px); overflow:auto; }
 .sheet-classic .character-block { min-width:0; overflow-wrap:anywhere; }
+.character-heading > div:nth-child(2), .sheet > *, .floating-title strong { min-width:0; }
+.character-heading .character-portrait { flex:none; }
+.character-heading h2, .floating-title strong, .sheet-record-fields dd { overflow-wrap:anywhere; }

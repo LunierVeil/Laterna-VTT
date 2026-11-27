@@ -6,7 +6,7 @@ export type ObjectKind = 'token' | 'prop' | 'wall' | 'door' | 'window' | 'light'
 export const tokenSizes = { small: "Маленький", medium: "Средний", large: "Большой", giant: "Гигантский" } as const;
 export type TokenSize = keyof typeof tokenSizes;
 export type WallMode = 'line' | 'curve' | 'rectangle' | 'circle' | 'ellipse';
-export interface DecalPattern { kind: 'tracks' | 'stones' | 'cracks' | 'leaves' | 'embers'; size: number; rotation: number; variant: number }
+export interface DecalPattern { kind: 'tracks' | 'stones' | 'cracks' | 'blood' | 'mud'; size: number; rotation: number; variant: number }
 export interface MapObject extends Point {
   id: string;
   kind: ObjectKind;
@@ -56,7 +56,7 @@ export interface Actor {
   hp: number;
   maxHp: number;
   ac: number;
-  init: number;
+  init: number; // initiative modifier
   color: string;
   symbol: string;
   actions: Record<'attack' | 'bonus' | 'reaction' | 'legendary' | 'lair' | 'spells', string>;
@@ -146,7 +146,7 @@ export interface Entry {
   author: string;
   text: string;
   value?: number;
-  roll?: { sides: number; dice: number[]; bonus: number; mode: 'normal' | 'advantage' | 'disadvantage' };
+  roll?: { sides: number; faces?: number[]; critical?: boolean; dice: number[]; bonus: number; mode: 'normal' | 'advantage' | 'disadvantage' };
   secret?: boolean;
 }
 export interface CombatParticipant { id: string; initiative: number }

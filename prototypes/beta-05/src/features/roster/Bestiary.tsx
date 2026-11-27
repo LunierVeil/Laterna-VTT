@@ -60,7 +60,7 @@ export function Bestiary({ creatures, tools, onClose, onCopy, onCustom, onPlace,
           <dl className="bestiary-stats">
             <div><dt>КД</dt><dd>{selected.ac}</dd></div>
             <div><dt>Хиты</dt><dd>{selected.maxHp}</dd></div>
-            <div><dt>Инициатива</dt><dd>{selected.init}</dd></div>
+            <div><dt>Мод. инициативы</dt><dd>{selected.init}</dd></div>
             {selected.srdProfile && <><div><dt>Скорость</dt><dd>{selected.srdProfile.speed} фт.</dd></div>
               <div><dt>Размер</dt><dd>{selected.srdProfile.size}</dd></div></>}
           </dl>

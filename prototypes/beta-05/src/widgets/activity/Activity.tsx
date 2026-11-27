@@ -9,12 +9,13 @@ import { PartyHealth, PartyOverview } from './Party';
 import type { CreatureKind, CreatureStart, Roll } from '../../features/roster';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
-export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend, expanded, onToggle, scenes, heroId, onSheet, onAddHero, onBooks, onStart, onNext, onEnd, sceneId, sceneName, sceneActorIds, onConfigure, onQuickCreate, onPlaceActor, onRemoveActor, onHeroHp, onTokenHp, sceneTokens, combatRequest, closeCombatRequest }: {
+export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend, expanded, onToggle, scenes, heroId, onSheet, onAddHero, onBooks, onStart, onNext, onEnd, sceneId, sceneName, sceneActorIds, onConfigure, onRoll, onQuickCreate, onPlaceActor, onRemoveActor, onHeroHp, onTokenHp, sceneTokens, combatRequest, closeCombatRequest }: {
   entries: Entry[]; role: Role; battle?: Combat; actors: Actor[]; hiddenActorIds: string[]; sceneId: string; sceneName: string; sceneActorIds: string[];
   combatRequest: number; closeCombatRequest: number;
   sceneTokens: MapObject[]; onHeroHp: (actor: Actor, delta: number) => void;
   onTokenHp: (token: MapObject, actor: Actor, delta: number) => void;
   onQuickCreate: (kind: CreatureStart) => void; onPlaceActor: (actor: Actor) => void; onRemoveActor: (actor: Actor) => void;
+  onRoll: Roll;
   onConfigure: (participants: CombatParticipant[]) => void;
   onSend: (text: string) => void; expanded: boolean; onToggle: () => void; scenes: ReactNode; heroId?: string; onAddHero: () => void; onBooks: () => void; onSheet: (id: string) => void; onStart: () => void; onNext: () => void; onEnd: () => void;
 }) {
@@ -91,14 +92,14 @@ export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend
         {role === 'gm' && <Button onClick={onBooks}>Книги NPC и чудовищ</Button>}
       </div>}
     </div> : tab === 'combat'  ? <div className="activity-content combat-panel">
-      {configuring && role === 'gm' ? <InitiativeEditor key={sceneId} actors={actors} sceneActorIds={sceneActorIds} battle={battle}
+      {configuring && role === 'gm' ? <InitiativeEditor onRoll={onRoll} key={sceneId} actors={actors} sceneActorIds={sceneActorIds} battle={battle}
         onCancel={() => setConfiguring(false)} onSave={next => { onConfigure(next); setConfiguring(false); }}/>
       : battle ? <>
         <div className="combat-heading"><div className="eyebrow"><Swords size={14}/> ИНИЦИАТИВА</div><strong>Раунд {battle.round}</strong></div>
         {battle.order.map((id, i) => {
           const actor = actors.find(a => a.id === id);
           if (!actor || role === 'player' && hiddenActorIds.includes(id)) return null;
-          return <div className={`combat-row ${i === battle.turn ? 'current-turn' : ''}`} key={id}><span className="mono">{battle.initiative[id] ?? actor.init}</span><span className="tiny-avatar" style={{ color: actor.color }}><Glyph name={actor.symbol} size={16}/></span><strong>{actor.name}</strong>{i === battle.turn && <ChevronRight size={16}/>}</div>;
+          return <div className={`combat-row ${i === battle.turn ? 'current-turn' : ''}`} key={id}><span className="mono">{battle.initiative[id] ?? '—'}</span><span className="tiny-avatar" style={{ color: actor.color }}><Glyph name={actor.symbol} size={16}/></span><strong>{actor.name}</strong>{i === battle.turn && <ChevronRight size={16}/>}</div>;
         })}
         {role === 'gm' && sceneTokens.some(token => battle.order.includes(token.actorId ?? '') && actors.some(actor => actor.id === token.actorId && actor.kind !== 'hero')) &&
           <section className="combat-token-hp"><h3>Хиты существ на сцене</h3>
@@ -135,21 +136,23 @@ export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend
   </aside>;
 }
 
-function InitiativeEditor({ actors, sceneActorIds, battle, onCancel, onSave }: {
-  actors: Actor[]; sceneActorIds: string[]; battle?: Combat;
+function InitiativeEditor({ actors, sceneActorIds, battle, onCancel, onSave, onRoll }: {
+  actors: Actor[]; sceneActorIds: string[]; battle?: Combat; onRoll: Roll;
   onCancel: () => void; onSave: (participants: CombatParticipant[]) => void;
 }) {
   const [included, setIncluded] = useState(() => new Set(battle?.order ?? sceneActorIds));
   const [scores, setScores] = useState<Record<string, string>>(() => Object.fromEntries(
-    actors.map(actor => [actor.id, String(battle?.initiative[actor.id] ?? actor.init)]),
+    actors.map(actor => [actor.id, String(battle?.initiative[actor.id] ?? '')]),
   ));
-  const valid = included.size > 0 && [...included].every(id => scores[id]?.trim() && Number.isInteger(Number(scores[id])));
+  const selected = actors.filter(actor => included.has(actor.id));
+  const valid = selected.length > 0 && selected.every(({id}) => !scores[id]?.trim() || Number.isInteger(Number(scores[id])));
   return <form className="initiative-editor" onSubmit={event => {
     event.preventDefault();
-    if (valid) onSave([...included].map(id => ({ id, initiative: Number(scores[id]) })));
+    if (valid) onSave(selected.map(actor => ({ id: actor.id, initiative: scores[actor.id]?.trim()
+      ? Number(scores[actor.id]) : onRoll(20, 'normal', false, actor.init, `Инициатива · ${actor.name}`) })));
   }}>
     <h2>Инициатива</h2>
-    <p>Отметьте участников и задайте порядок бросками инициативы.</p>
+    <p>Введите итоги вручную, бросьте инициативу сразу или оставьте поле пустым для броска при сохранении.</p>
     {actors.map(actor => <div className="initiative-entry" key={actor.id}>
       <label className="checkline"><input type="checkbox" checked={included.has(actor.id)} onChange={event => {
         const next = new Set(included);
@@ -157,15 +160,19 @@ function InitiativeEditor({ actors, sceneActorIds, battle, onCancel, onSave }: {
         else next.delete(actor.id);
         setIncluded(next);
       }}/><span>{actor.name}</span></label>
-      <input aria-label={`Инициатива: ${actor.name}`} type="number" step={1}
+      <input aria-label={`Инициатива: ${actor.name}`} type="number" step={1} placeholder="Авто"
         disabled={!included.has(actor.id)} value={scores[actor.id]} onChange={event => setScores({ ...scores, [actor.id]: event.target.value })}/>
     </div>)}
-    <footer><Button onClick={onCancel}>Отмена</Button>
+    <footer><Button disabled={!included.size} onClick={() => {
+      const rolls = actors.filter(actor => included.has(actor.id)).map(actor => [actor.id,
+        String(onRoll(20, 'normal', false, actor.init, `Инициатива · ${actor.name}`))]);
+      setScores({ ...scores, ...Object.fromEntries(rolls) });
+    }}>Бросить инициативу</Button><Button onClick={onCancel}>Отмена</Button>
       <Button type="submit" className="primary" disabled={!valid}>{battle ? 'Сохранить состав' : 'Начать бой'}</Button></footer>
   </form>;
 }
 
-export function RollResults({ entries, role, expanded }: { entries: Entry[]; role: Role; expanded: boolean }) {
+export function RollResults({ entries, role, expanded, animate }: { entries: Entry[]; role: Role; expanded: boolean; animate: boolean }) {
   const seen = useRef(new Set(entries.map(entry => entry.id)));
   const [queue, setQueue] = useState<Entry[]>([]);
   const result = queue.find(entry => role === 'gm' || !entry.secret);
@@ -179,19 +186,30 @@ export function RollResults({ entries, role, expanded }: { entries: Entry[]; rol
   }, [role]);
   useEffect(() => {
     if (!result) return;
-    const timer = window.setTimeout(() => setQueue(previous => previous.filter(entry => entry.id !== result.id)), 2600);
+    const timer = window.setTimeout(() => setQueue(previous => previous.filter(entry => entry.id !== result.id)), 4700);
     return () => window.clearTimeout(timer);
   }, [result]);
   if (!result?.roll) return null;
-  const { dice, sides, bonus, mode } = result.roll;
-  const chosen = mode === 'advantage' ? Math.max(...dice) : Math.min(...dice);
-  const critical = dice.length === 1 || mode !== 'normal' ? sides === 20 && [1, 20].includes(chosen) : false;
-  return <aside className={`roll-result glass ${expanded ? '' : 'roll-result-collapsed'}`} aria-live="polite">
-    {sides === 6 && dice.length === 1 ? <DiceVisual value={chosen} key={result.id}/> : <Dice5 size={19}/>}<div><strong>{result.text}</strong>
-      <small>{dice.join(mode === 'normal' ? ' + ' : ' / ')}{bonus ? ` ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)}` : ''}
-        {critical && ` · Натуральная ${chosen}`}{result.secret && ' · Скрытый'}</small></div>
-    <output>{result.value}</output>
-    <IconButton label="Закрыть результат броска" onClick={() => setQueue(previous => previous.filter(entry => entry.id !== result.id))}><X size={15}/></IconButton>
+  const { dice, sides, bonus, mode, faces, critical } = result.roll;
+  const chosen = mode === 'advantage' ? Math.max(...dice) : mode === 'disadvantage' ? Math.min(...dice) : dice[0];
+  const natural = sides === 20 && (dice.length === 1 || mode !== 'normal') && (chosen === 1 || chosen === 20);
+  return <aside className={`roll-result glass ${expanded ? '' : 'roll-result-collapsed'} ${natural && critical ? 'roll-critical-' + chosen : ''}`}
+      aria-label="Глобальный результат броска" aria-live="polite" role="status">
+    <div><strong>{result.text}</strong>
+      <span className="roll-dice" key={result.id}>
+        {dice.map((value, i) => <span key={i} className={mode !== 'normal' && value !== chosen ? 'roll-discarded' : ''}>
+          {i < 4 && <DiceVisual sides={faces?.[i] ?? sides} value={value} animate={animate}/>}
+          <small>d{faces?.[i] ?? sides}: <b>{value}</b></small>
+        </span>)}
+      </span>
+      <small>{mode === 'advantage' ? 'Преимущество · ' : mode === 'disadvantage' ? 'Помеха · ' : ''}
+        Модификатор {bonus >= 0 ? '+' : '−'}{Math.abs(bonus)}
+        {natural && ` · Натуральная ${chosen}`}
+        {natural && critical && (chosen === 20 ? ' · Критическое попадание' : ' · Критический промах')}
+        {result.secret ? ' · Скрытый (ГМ)' : ' · Публичный'}{queue.length > 1 && ` · В очереди: ${queue.length - 1}`}</small>
+    </div>
+    <output aria-label="Итог">{result.value}</output>
+    <IconButton label="Следующий результат броска" onClick={() => setQueue(previous => previous.filter(entry => entry.id !== result.id))}><X size={15}/></IconButton>
   </aside>;
 }
 
@@ -199,7 +217,7 @@ const sides = [4, 6, 8, 10, 12, 20, 100];
 export type RollPool = (groups: Record<number, number>, bonus: number, secret: boolean, formula: string) => number;
 const savedPools: { groups: Record<number, number>; bonus: number; formula: string }[] = [];
 
-export function DiceOverlay({ role, onRoll, onPool, onClose }: { role: Role; onRoll: Roll; onPool: RollPool; onClose: () => void }) {
+export function DiceOverlay({ role, onRoll, onPool, onClose, staticDice, onStatic }: { role: Role; onRoll: Roll; onPool: RollPool; onClose: () => void; staticDice: boolean; onStatic: (value: boolean) => void }) {
   const [die, setDie] = useState(20);
   const [mode, setMode] = useState<Parameters<Roll>[1]>('normal');
   const [secret, setSecret] = useState(false);
@@ -229,6 +247,7 @@ export function DiceOverlay({ role, onRoll, onPool, onClose }: { role: Role; onR
     <div className="form-grid">
       <label>Модификатор<input type="number" value={bonus} onChange={event => setBonus(Math.trunc(Number(event.target.value)) || 0)}/></label>
       {!composer && <select aria-label="Режим броска" value={mode} disabled={die !== 20} onChange={e => setMode(e.target.value as Parameters<Roll>[1])}><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select>}
+      <label className="checkline"><input type="checkbox" checked={staticDice} onChange={event => onStatic(event.target.checked)}/>Без анимации</label>
       {role === 'gm' && <label className="checkline"><input type="checkbox" checked={secret} onChange={e => setSecret(e.target.checked)}/>Скрытый</label>}
     </div>
     {composer && <>

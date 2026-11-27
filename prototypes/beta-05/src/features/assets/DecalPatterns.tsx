@@ -3,9 +3,9 @@ import type { DecalPattern } from '../../entities/model';
 import { Button } from '../../shared/ui';
 import { decalNames, DecalMark } from '../../shared/map-art/DecalMark';
 
-export function DecalPatterns({ onPlace }: { onPlace: (name: string, pattern: DecalPattern) => void }) {
+export function DecalPatterns({ onPlace, initiallyOpen }: { initiallyOpen?: boolean; onPlace: (name: string, pattern: DecalPattern) => void }) {
   const [pattern, setPattern] = useState<DecalPattern>({ kind: 'tracks', size: 80, rotation: 0, variant: 0 });
-  return <details className="decal-patterns character-block">
+  return <details open={initiallyOpen || undefined} className="decal-patterns character-block">
     <summary>Паттерны декалей</summary>
     <div className="form-grid">
       <label>Паттерн<select value={pattern.kind} onChange={event => setPattern({ ...pattern, kind: event.target.value as DecalPattern['kind'] })}>

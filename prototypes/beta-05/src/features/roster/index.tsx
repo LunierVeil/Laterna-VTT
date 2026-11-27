@@ -10,9 +10,9 @@ import { Bestiary } from './Bestiary';
 import { NpcBook, npcChapters } from './NpcBook';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
-export type Roll = (sides: number, mode: 'normal' | 'advantage' | 'disadvantage', secret: boolean, bonus?: number, label?: string) => number;
+export type Roll = (sides: number, mode: 'normal' | 'advantage' | 'disadvantage', secret: boolean, bonus?: number, label?: string, critical?: boolean) => number;
 const tabs = ['Главное', 'Инвентарь', 'Заклинания', 'Умения', 'О персонаже'] as const;
-type SheetTab = typeof tabs[number];
+export type SheetTab = typeof tabs[number];
 
 export function ActorMedal({ actor, size = 23 }: { actor: Actor; size?: number }) {
   return <div className="actor-medal" style={{ color: actor.color }}><Glyph name={actor.symbol} size={size}/></div>;
@@ -32,7 +32,7 @@ export function Roster({ actors, srd, onSheet, onSave, onPlace, quickCreate, con
 
   function newCreature(start: 'npc' | 'monster' | 'companion'): Actor {
     const kind = start === 'monster' ? 'monster' : 'npc';
-    return { companion: start === 'companion' ? { controllerId: controller } : undefined, id: uid(), kind, name: '', title: '', hp: 12, maxHp: 12, ac: 12, init: 10, symbol: kind === 'npc' ? 'user' : 'skull', color: kind === 'npc' ? '#c8b68d' : '#dd897f', actions: { ...blankActions }, items: '', notes: '', resource: 0 };
+    return { companion: start === 'companion' ? { controllerId: controller } : undefined, id: uid(), kind, name: '', title: '', hp: 12, maxHp: 12, ac: 12, init: 0, symbol: kind === 'npc' ? 'user' : 'skull', color: kind === 'npc' ? '#c8b68d' : '#dd897f', actions: { ...blankActions }, items: '', notes: '', resource: 0 };
   }
 
   function create(kind: 'npc' | 'monster') {
@@ -84,7 +84,7 @@ export function Roster({ actors, srd, onSheet, onSave, onPlace, quickCreate, con
       <label>Класс доспеха<input required type="number" min={0} max={40} value={draft.ac} onChange={e => setDraft({ ...draft, ac: Number(e.target.value) })}/></label>
       <label>Скорость<input value={creature.speed} maxLength={70}
         onChange={event => setDraft({ ...draft, creatureProfile: { ...creature, speed: event.target.value } })}/></label>
-      <label>Инициатива<input required type="number" min={-10} max={50} value={draft.init} onChange={e => setDraft({ ...draft, init: Number(e.target.value) })}/></label>
+      <label>Модификатор инициативы<input required type="number" min={-10} max={50} value={draft.init} onChange={e => setDraft({ ...draft, init: Number(e.target.value) })}/></label>
     </div>
     <div className="creature-stat-fields">{abilityNames.map((name, index) => <label key={name}>{name}
       <input type="number" min={1} max={30} value={creature.scores[index]}
@@ -143,12 +143,12 @@ export function Roster({ actors, srd, onSheet, onSave, onPlace, quickCreate, con
 const abilityNames = ['СИЛ', 'ЛОВ', 'ТЕЛ', 'ИНТ', 'МДР', 'ХАР'];
 const signed = (value: number) => value < 0 ? `−${Math.abs(value)}` : `+${value}`;
 
-export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, compact, materials, onMaterial }: {
-  actor?: Actor; role: Role; onChange: (actor: Actor) => void; onRoll: Roll;
+export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, compact, materials, onMaterial, initialTab, initialSpell }: {
+  initialTab?: SheetTab; initialSpell?: string; actor?: Actor; role: Role; onChange: (actor: Actor) => void; onRoll: Roll;
   materials: Material[]; onMaterial: (id: string) => void;
   onClassic: () => void; onCompact: (compact: boolean) => void; compact: boolean;
 }) {
-  const [tab, setTab] = useState<SheetTab>('Главное');
+  const [tab, setTab] = useState<SheetTab>(initialTab ?? 'Главное');
   const [advancing, setAdvancing] = useState(false);
   const [feature, setFeature] = useState('');
   const [newSkill, setNewSkill] = useState('');
@@ -158,7 +158,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<Parameters<Roll>[1]>('normal');
   const [last, setLast] = useState<number>();
-  const [spellId, setSpellId] = useState<string>();
+  const [spellId, setSpellId] = useState(initialSpell);
   if (!actor) return <Empty>В этой кампании пока нет доступного персонажа.</Empty>;
 
   const death = actor.deathSaves ?? { successes: 0, failures: 0 };
@@ -187,7 +187,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
     const hp = Math.min(actor.maxHp, Math.max(0, actor.hp + sign * hpAmount + absorbed));
     onChange({ ...actor, hp, deathSaves: hp > 0 || actor.hp > 0 ? undefined : actor.deathSaves, tempHp: (actor.tempHp ?? 0) - absorbed });
   };
-  const rollCheck = (label: string, bonus: number) => setLast(onRoll(20, mode, false, bonus, label));
+  const rollCheck = (label: string, bonus: number, attack = false) => setLast(onRoll(20, mode, false, bonus, label, attack));
   const attachedAttacks = actor.equipment?.flatMap(item => item.attack ? [item.attack] : []);
   const attacks = actor.equipment ? [...actor.actions.attack.split('\n').filter(line => !attachedAttacks?.includes(line)),
     ...actor.equipment.flatMap(item => item.equipped && item.quantity && item.attack ? [item.attack] : [])].filter(Boolean).join('\n') : actor.actions.attack;
@@ -230,7 +230,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
     <div className="stats sheet-stats">
       <div><small><Heart size={12}/> Хиты</small><strong>{actor.hp} / {actor.maxHp}</strong><progress max={actor.maxHp} value={actor.hp} aria-label="Здоровье"/></div>
       <div><small><Shield size={12}/> КД</small><strong>{actor.ac}</strong></div>
-      <div><small><Swords size={12}/> Инициатива</small><strong>{signed(actor.init)}</strong></div>
+      <div><small><Swords size={12}/> Мод. инициативы</small><strong>{signed(actor.init)}</strong></div>
       <div><small>Скорость</small><strong>{profile ? `${profile.speed} фт` : '—'}</strong></div>
       <div><small>Мастерство</small><strong>{profile ? signed(profile.proficiency) : '—'}</strong></div>
     </div>
@@ -244,7 +244,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
         : <small>Временные HP: {actor.tempHp ?? 0}</small>}
     </div>
     {classic && <div className="classic-combat inline-form" aria-label="Боевые действия Classic">
-      {attacks.split('\n').filter(Boolean).slice(0,2).map(action => <Button key={action} onClick={()=>rollCheck(action,Number(/[+-]\d+/.exec(action)?.[0]??0))}>{action}</Button>)}
+      {attacks.split('\n').filter(Boolean).slice(0,2).map(action => <Button key={action} onClick={()=>rollCheck(action,Number(/[+-]\d+/.exec(action)?.[0]??0),true)}>{action}</Button>)}
       {charges}
     </div>}
     </div>
@@ -349,7 +349,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
                   {actor[field] ? <span className="badge">Израсходовано</span> : <Button onClick={() => onChange({ ...actor, [field]: true })}>Потратить</Button>}
                 </>;
               })()}{key === 'attack' && <>
-                <Button onClick={() => rollCheck(action, Number(/\+(\d+)/.exec(action)?.[1] ?? 0))}><Dice5 size={15}/>Атака</Button>
+                <Button onClick={() => rollCheck(action, Number(/[+-]\d+/.exec(action)?.[0] ?? 0), true)}><Dice5 size={15}/>Атака</Button>
                 <Button onClick={() => rollDamage(action.split(' · ')[0], actor.equipment?.find(item => item.attack === action)?.damage || (/кинжал/i.test(action) ? '1d4' : '1d8'))}>Урон</Button>
               </>}</div>)}
               {(key === 'bonus' || key === 'reaction') && actor[key === 'bonus' ? 'bonusUsed' : 'reactionUsed'] &&
@@ -370,7 +370,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
         </div>
       </div>
     </>}
-    {tab === 'Инвентарь' && <Equipment actor={actor} onChange={onChange} onAttack={attack => rollCheck(attack, Number(/[+-]\d+/.exec(attack)?.[0] ?? 0))} onDamage={rollDamage}/>}
+    {tab === 'Инвентарь' && <Equipment actor={actor} onChange={onChange} onAttack={attack => rollCheck(attack, Number(/[+-]\d+/.exec(attack)?.[0] ?? 0), true)} onDamage={rollDamage}/>}
     {tab === 'Заклинания' && <Spellbook initialSpellId={spellId} actor={actor} onChange={onChange}/>}
     {tab === 'Умения' && <div className="character-columns sheet-detail-columns">
       <section className="character-block"><h3><ListChecks size={15}/> Классовые умения и особенности</h3>

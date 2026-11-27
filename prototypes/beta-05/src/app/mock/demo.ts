@@ -7,7 +7,7 @@ export const makeActor = (id: string, name: string, title: string, kind: Actor['
 });
 
 const elara = {
-  ...makeActor('elara', 'Элара Вейл', 'Полуэльф', 'hero', 31, 15, 18, 'bow', '#81b9a3'),
+  ...makeActor('elara', 'Элара Вейл', 'Полуэльф', 'hero', 31, 15, 4, 'bow', '#81b9a3'),
   hp: 27,
   conditions: ['Сбит с ног'],
   progression: { className: 'Следопыт', level: 4, features: ['Избранный враг', 'Метка охотника'] },
@@ -17,13 +17,13 @@ const elara = {
   notes: 'Проводница из Грейвика. Узнаёт печать ордена Семи Фонарей.',
 };
 const brann: Actor = {
-  ...makeActor('brann', 'Бранн Кремень', 'Дварф', 'hero', 38, 17, 13, 'shield', '#e1a575'),
+  ...makeActor('brann', 'Бранн Кремень', 'Дварф', 'hero', 38, 17, 1, 'shield', '#e1a575'),
   progression: { className: 'Воин', level: 4, features: ['Второе дыхание', 'Всплеск действий'], resources: [{ name: 'Второе дыхание', current: 1, max: 1, rest: 'short' }, { name: 'Всплеск действий', current: 1, max: 1, rest: 'short' }], subclass: 'Чемпион' },
   sheetProfile: { scores: [17, 12, 16, 10, 12, 9], speed: 25, proficiency: 2, saves: [0, 2], skills: ['Атлетика', 'Выживание'] },
   actions: { ...blankActions, attack: 'Длинный меч · +5 к атаке' }, items: 'Длинный меч\nЩит',
 };
 const mira: Actor = {
-  ...makeActor('mira', 'Мира Сумрак', 'Человек', 'hero', 24, 13, 11, 'wand', '#c6a6e8'),
+  ...makeActor('mira', 'Мира Сумрак', 'Человек', 'hero', 24, 13, 2, 'wand', '#c6a6e8'),
   progression: { className: 'Волшебник', level: 4, features: ['Магическое восстановление'] },
   sheetProfile: { scores: [8, 14, 12, 18, 12, 10], speed: 30, proficiency: 2, saves: [3, 4], skills: ['Магия', 'История'] },
   conditions: ['Концентрация'],
@@ -36,7 +36,7 @@ const mira: Actor = {
   ],
   notes: 'Изучает странные сигилы аббатства.',
 };
-const warden = { ...makeActor('warden', 'Пепельный страж', 'Нежить · Дозорный', 'monster', 27, 14, 15, 'skull', '#dd897f'), actions: { ...blankActions, attack: 'Ржавый клинок', reaction: 'Парирование' } };
+const warden = { ...makeActor('warden', 'Пепельный страж', 'Нежить · Дозорный', 'monster', 27, 14, 2, 'skull', '#dd897f'), actions: { ...blankActions, attack: 'Ржавый клинок', reaction: 'Парирование' } };
 const tokens: MapObject[] = [
   { id: 't-elara', kind: 'token', name: elara.name, actorId: elara.id, x: 465, y: 570, symbol: elara.symbol, color: elara.color },
   { id: 't-brann', kind: 'token', name: brann.name, actorId: brann.id, x: 525, y: 610, symbol: brann.symbol, color: brann.color },
@@ -57,7 +57,7 @@ export const demoCampaigns: Campaign[] = [
   {
     id: 'graywick', name: 'Тени Грейвика', subtitle: 'Семь фонарей · Акт I',
     activeScene: 'abbey', scenes: [abbey, crypt, woods],
-    actors: [elara, brann, mira, warden, makeActor('keeper', 'Смотритель Орен', 'Человек · Хранитель ключей', 'npc', 16, 12, 9, 'user', '#cfb58a')],
+    actors: [elara, brann, mira, warden, makeActor('keeper', 'Смотритель Орен', 'Человек · Хранитель ключей', 'npc', 16, 12, 0, 'user', '#cfb58a')],
     sceneFolders: ['Акт I · Грейвик', 'Дорога к северу'],
     materialFolders: ['История Грейвика', 'Раздаточные материалы', 'Подготовка'],
     assetFolders: ['Стартовый набор', 'Мои ассеты'],

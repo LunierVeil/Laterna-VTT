@@ -4,8 +4,8 @@ import type { Actor, Combat, Material, Point, Scene } from '../../entities/model
 import type { Roll } from '../../features/roster';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
-export function Screen({ scenes, activeScene, actors, materials, battle, onClose, onScene, onRoster, onSheet, onMaterial, onNewMaterial, onRoll, onBattle, position, onPosition, size, onSize }: {
-  scenes: Scene[]; activeScene: string; actors: Actor[]; materials: Material[]; battle?: Combat;
+export function Screen({ opaque, onOpaque, scenes, activeScene, actors, materials, battle, onClose, onScene, onRoster, onSheet, onMaterial, onNewMaterial, onRoll, onBattle, position, onPosition, size, onSize }: {
+  opaque: boolean; onOpaque: (value: boolean) => void; scenes: Scene[]; activeScene: string; actors: Actor[]; materials: Material[]; battle?: Combat;
   size?: Point; onSize: (size: Point) => void;
   position?: Point; onPosition: (position?: Point) => void;
   onClose: () => void; onScene: (id: string) => void; onRoster: () => void; onSheet: (id: string) => void;
@@ -17,7 +17,7 @@ export function Screen({ scenes, activeScene, actors, materials, battle, onClose
     const rect = panel.current?.getBoundingClientRect();
     const board = panel.current?.parentElement?.getBoundingClientRect();
     if (event.button !== 0 || !rect || !board ||
-      (!edge && event.target instanceof Element && event.target.closest('button'))) return;
+      (!edge && event.target instanceof Element && event.target.closest('button,input,label'))) return;
     drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY, edge,
       left: rect.left - board.left, top: rect.top - board.top, width: rect.width, height: rect.height };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -49,9 +49,9 @@ export function Screen({ scenes, activeScene, actors, materials, battle, onClose
   return <aside ref={panel} className="gm-screen glass" aria-label="Ширма мастера" style={style}>
     <header className="screen-dragbar" onPointerDown={event => startDrag(event)} onPointerMove={moveDrag}
       onLostPointerCapture={stopDrag} onDoubleClick={event => {
-        if (event.target instanceof Element && !event.target.closest('button')) onPosition();
+        if (event.target instanceof Element && !event.target.closest('button,input,label')) onPosition();
       }}>
-      <div><h2>Ширма мастера</h2><span className="prototype-status">PROPOSED</span></div>
+      <div><h2>Ширма мастера</h2><label className="checkline"><input type="checkbox" checked={opaque} onChange={event => onOpaque(event.target.checked)}/>Сплошной фон</label></div>
       <IconButton label="Закрыть ширму" onClick={onClose}><X size={20}/></IconButton>
     </header>
     <div className="screen-content">

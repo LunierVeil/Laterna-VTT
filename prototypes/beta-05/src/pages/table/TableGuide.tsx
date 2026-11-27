@@ -1,36 +1,44 @@
-import { useState } from 'react';
-import { Button, Dialog } from '../../shared/ui';
-import { DiceVisual } from '../../widgets/activity/DiceVisual';
+import { useEffect, useState } from 'react';
+import { Button, IconButton } from '../../shared/ui';
+import { X } from 'lucide-react';
+import type { Role } from '../../entities/model';
 
-const steps = [
-  { title:'Осмотр стола', description:'Откройте список клавиш через /. Камера и инструменты находятся слева.' },
-  { title:'Первое действие', description:'Закройте гид и нажмите «Действия». Выберите персонажа, выполните атаку или закрепите команду.' },
-  { title:'Проверка роли', description:'Переключитесь в Player View, откройте свой лист и вернитесь к карте. Доступ к чужим листам ограничен.' },
-  { title:'Подготовка сцены', description:'В GM View перейдите в редактор. Откройте Ассеты → Декали, сделайте предпросмотр, разместите декаль и отмените постановку.' },
+const introduction = [
+  {title:'Осмотр стола', description:'Откройте список клавиш через /. Инструменты карты находятся слева.', target:'tools'},
+  {title:'Первое действие', description:'Откройте «Действия» над картой и попробуйте атаку или закрепление.', target:'actions'},
 ];
+const practice = {
+  gm: [
+    {title:'Ширма мастера', description:'Откройте ширму. Перетащите её за верхнюю полосу и измените размер за край.', target:'screen'},
+    {title:'Подготовка сцены', description:'Откройте редактор карты. В ассетах выберите декаль, измените размер и разместите её.', target:'edit'},
+  ],
+  player: [
+    {title:'Свой лист', description:'Откройте «Мой лист». Сравните боевые показатели и вкладку заклинаний.', target:'sheet'},
+    {title:'Бросок', description:'Откройте «Кубики» или бросьте из листа. Итог появится над столом.', target:'dice'},
+  ],
+};
 
-export function TableGuide({ onClose, lowOpacity, onOpacity, dock, onDock }: {
-  onClose: () => void; lowOpacity:boolean; onOpacity:(value:boolean)=>void; dock:boolean; onDock:(value:boolean)=>void;
-}) {
-  const [mode,setMode] = useState<'quick'|'extended'>('quick');
+export function TableGuide({ role, onClose, onHighlight }: { role:Role; onClose:()=>void; onHighlight:(target?:string)=>void }) {
+  const [extended, setExtended] = useState(false);
   const [step,setStep] = useState(0);
-  const [dice,setDice] = useState<'volume'|'static'>('volume');
-  const [roll,setRoll] = useState(0);
-  const last = mode === 'quick' ? 1 : steps.length - 1;
-  return <Dialog title="Гид по столу · PROPOSED" onClose={onClose}>
-    <div className="segmented"><Button aria-pressed={mode==='quick'} onClick={()=>{setMode('quick');setStep(0);}}>Быстрое знакомство</Button>
-      <Button aria-pressed={mode==='extended'} onClick={()=>{setMode('extended');setStep(0);}}>Практический сценарий</Button></div>
-    <section className="character-block"><small>Шаг {step+1} / {last+1}</small><h3>{steps[step].title}</h3><p>{steps[step].description}</p>
-      <div className="inline-form"><Button disabled={!step} onClick={()=>setStep(step-1)}>Назад</Button>
-        <Button onClick={step===last?onClose:()=>setStep(step+1)}>{step===last?'К столу':'Далее'}</Button></div>
-    </section>
-    <section className="character-block"><h3>Варианты отображения · PROPOSED</h3>
-      <label className="checkline"><input type="checkbox" checked={lowOpacity} onChange={e=>onOpacity(e.target.checked)}/>Полупрозрачная ширма вне фокуса</label>
-      <label className="checkline"><input type="checkbox" checked={dock} onChange={e=>onDock(e.target.checked)}/>Быстрые действия у нижней панели</label>
-      <div className="segmented"><Button aria-pressed={dice==='volume'} onClick={()=>setDice('volume')}>Объёмный d6</Button>
-        <Button aria-pressed={dice==='static'} onClick={()=>setDice('static')}>Статичный результат</Button></div>
-      <div className="inline-form"><Button onClick={()=>setRoll(roll+1)}>Повторить пример</Button>
-        {dice==='volume'?<DiceVisual value={4} key={roll}/>:<output>4</output>}</div>
-    </section>
-  </Dialog>;
+  const steps = extended ? [...introduction, ...practice[role]] : introduction;
+  const current = steps[step];
+  useEffect(() => {
+    onHighlight(current.target);
+    return () => onHighlight(undefined);
+  }, [current.target, onHighlight]);
+  const next = () => step === steps.length-1 ? onClose() : setStep(step+1);
+  return <aside className="table-guide glass" aria-label="Гид по столу" onKeyDown={event=>{
+    if (event.key==='Escape') {event.stopPropagation();onClose();}
+  }}>
+    <header><strong>Гид по столу</strong><IconButton label="Закрыть гид" onClick={onClose}><X size={17}/></IconButton></header>
+    <div className="segmented" aria-label="Маршрут гида">
+      <Button aria-pressed={!extended} onClick={()=>{setExtended(false);setStep(0);}}>Знакомство</Button>
+      <Button aria-pressed={extended} onClick={()=>{setExtended(true);setStep(0);}}>Практика {role === 'gm' ? 'мастера' : 'игрока'}</Button>
+    </div>
+    <div aria-live="polite"><small>Шаг {step+1} / {steps.length}</small><h3>{current.title}</h3><p>{current.description}</p></div>
+    <div className="inline-form"><Button disabled={!step} onClick={()=>setStep(step-1)}>Назад</Button>
+      {step < steps.length-1 && <Button onClick={next}>Пропустить шаг</Button>}
+      <Button className="primary" onClick={next}>{step===steps.length-1?'Завершить':'Далее'}</Button></div>
+  </aside>;
 }

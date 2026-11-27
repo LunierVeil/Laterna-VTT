@@ -31,7 +31,7 @@ export function TableHeader({ scene, campaign, role, onRole, onPage, onScreen, o
       <Button className="nav-current" aria-current="page" onClick={() => onPage(null)}><Map size={17}/>Стол</Button>
       {navigation.map(([id,label,Icon]) => <Button key={id} title={id === 'spells' ? 'Книга заклинаний (K)' : undefined} onClick={() => onPage(id)}><Icon size={16}/>{label}</Button>)}
       {role === 'player' && <Button title="Лист персонажа (C)" onClick={() => onPage('sheet')}><Users size={16}/>Персонаж</Button>}
-      {role === 'gm' && <Button title="Ширма мастера (M)" aria-pressed={screen} onClick={onScreen}><PanelTop size={16}/>Ширма</Button>}
+      {role === 'gm' && <Button data-guide="screen" title="Ширма мастера (M)" aria-pressed={screen} onClick={onScreen}><PanelTop size={16}/>Ширма</Button>}
     </nav>
     <div className="header-end">
       {role === 'gm' && <Button className="connection ghost" onClick={onConnection}><span className="status-dot"/> {campaign.demoSettings?.connected ? campaign.demoSettings.connection + ' · демо' : 'Локально'}</Button>}
@@ -70,7 +70,7 @@ export function SceneRail({ campaign, scene, onActivate, onPublish, onPage, onSc
 }
 export function MapToolbar({ editing, tool, onTool, onAssets }: { editing: boolean; tool: Tool; onTool: (tool: Tool) => void; onAssets: () => void }) {
   const geometry = tool === 'wall' || tool === 'door' || tool === 'window';
-  return <nav className="map-toolbar" aria-label="Инструменты карты">
+  return <nav data-guide="tools" className="map-toolbar" aria-label="Инструменты карты">
     {mapTools.map(item => {
       if (!('icon' in item)) {
         if (!editing || item.id !== 'wall') return null;

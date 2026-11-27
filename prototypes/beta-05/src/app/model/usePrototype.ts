@@ -1,14 +1,21 @@
+import { reviewRole, type ReviewCase } from '../../pages/review/Review';
+import { reviewCampaigns, sampleRolls } from '../mock/review';
 import { useRef, useState } from 'react';
 import { controlsActor, emptyScene, participant, playerHeroId, uid, type Actor, type Campaign, type Combat, type CombatParticipant, type Entry, type MapObject, type Material, type Role, type Scene } from '../../entities/model';
 import { demoCampaigns, demoEntries } from '../mock/demo';
 
-export function usePrototype() {
-  const [campaigns, setCampaigns] = useState(demoCampaigns);
+const randomDie = (faces: number) => 1 + Math.floor(Math.random() * faces);
+
+export function usePrototype(review?: ReviewCase, enterImmediately = false) {
+  const [campaigns, setCampaigns] = useState(() => reviewCampaigns(review, demoCampaigns));
   const [campaignId, setCampaignId] = useState('graywick');
-  const [entered, setEntered] = useState(false);
-  const [role, setRole] = useState<Role>('gm');
+  const [entered, setEntered] = useState(Boolean(review) || enterImmediately);
+  const [role, setRole] = useState<Role>(() => reviewRole(review));
   const [entries, setEntries] = useState<Record<string, Entry[]>>({ graywick: demoEntries });
-  const [battles, setBattles] = useState<Record<string, Combat | undefined>>({});
+  const [battles, setBattles] = useState<Record<string, Combat | undefined>>(() =>
+    review === 'initiative' ? {'graywick/abbey': {
+      order:['elara','warden','brann','mira'], initiative:{elara:18,warden:15,brann:13,mira:11}, turn:0, round:1,
+    }} : {});
   const [undoHistory, setUndoHistory] = useState<Record<string, MapObject[][]>>({});
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef<number>();
@@ -105,23 +112,32 @@ export function usePrototype() {
     if (message) append({ author: role === 'gm' ? 'Мастер' : participant, kind: 'chat', text: message });
   }
 
-  function rollPool(groups: Record<number, number>, bonus: number, secret: boolean, formula: string) {
-    const dice = Object.entries(groups).flatMap(([face, count]) =>
-      Array.from({ length: count }, () => 1 + Math.floor(Math.random() * Number(face))));
-    const value = dice.reduce((total, die) => total + die, bonus);
-    append({ author: role === 'gm' ? 'Мастер' : participant, kind: 'roll', text: formula, value,
-      secret: role === 'gm' && secret, roll: { sides: 0, dice, bonus, mode: 'normal' } });
+  function recordRoll(dice: number[], sides: number, mode: NonNullable<Entry['roll']>['mode'], secret: boolean, bonus: number, text: string, faces?: number[], critical?: boolean) {
+    const base = mode === 'advantage' ? Math.max(...dice)
+      : mode === 'disadvantage' ? Math.min(...dice) : dice.reduce((sum, die) => sum + die, 0);
+    const value = base + bonus;
+    append({ author: role === 'gm' ? 'Мастер' : participant, kind: 'roll', text, value,
+      roll: { sides, dice, faces, bonus, mode, critical }, secret: role === 'gm' && secret });
     return value;
   }
 
-  function roll(sides: number, mode: 'normal' | 'advantage' | 'disadvantage', secret: boolean, bonus = 0, label = '') {
-    const die = () => 1 + Math.floor(Math.random() * sides);
-    const first = die();
-    const second = mode === 'normal' ? first : die();
-    const value = (mode === 'advantage' ? Math.max(first, second) : Math.min(first, second)) + bonus;
-    const notation = mode === 'normal' ? `1d${sides}` : `2d${sides}${mode === 'advantage' ? 'kh1' : 'kl1'} [${first}, ${second}]`;
-    append({ author: role === 'gm' ? 'Мастер' : participant, kind: 'roll', text: [label, notation + (bonus ? ` + ${bonus}` : '')].filter(Boolean).join(' · '), value, roll: { sides, dice: mode === 'normal' ? [first] : [first, second], bonus, mode }, secret: role === 'gm' && secret });
-    return value;
+  function rollPool(groups: Record<number, number>, bonus: number, secret: boolean, formula: string) {
+    const faces = Object.entries(groups).flatMap(([face, count]) => Array<number>(count).fill(Number(face)));
+    return recordRoll(faces.map(randomDie), 0, 'normal', secret, bonus, formula, faces);
+  }
+
+  function roll(sides: number, mode: NonNullable<Entry['roll']>['mode'], secret: boolean, bonus = 0, label = '', critical = false) {
+    const dice = Array.from({length: mode === 'normal' ? 1 : 2}, () => randomDie(sides));
+    const notation = mode === 'normal' ? `1d${sides}` : `2d${sides}${mode === 'advantage' ? 'kh1' : 'kl1'}`;
+    const formula = notation + (bonus ? ` ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)}` : '');
+    return recordRoll(dice, sides, mode, secret, bonus, [label, formula].filter(Boolean).join(' · '), undefined, critical);
+  }
+
+  function reviewRoll(id: string) {
+    if (review !== 'dice-overlay') return;
+    for (const result of sampleRolls(id)) {
+      recordRoll(result.dice, result.sides, result.mode, Boolean(result.secret), result.bonus, result.label, result.faces, result.critical);
+    }
   }
 
   function saveMaterial(material: Material) {
@@ -187,7 +203,7 @@ export function usePrototype() {
     const present = new Set(scene.objects.flatMap(object => object.actorId ? [object.actorId] : []));
     const participants = campaign.actors.filter(actor => present.has(actor.id));
     if (!participants.length) { notify('Добавьте персонажа или существо на сцену'); return; }
-    configureCombat(participants.map(actor => ({ id: actor.id, initiative: actor.init })));
+    configureCombat(participants.map(actor => ({ id: actor.id, initiative: roll(20, 'normal', false, actor.init, `Инициатива · ${actor.name}`) })));
   }
 
   function nextTurn() {
@@ -213,6 +229,6 @@ export function usePrototype() {
     notice, notify, openCampaign, selectCampaignScene, createCampaign, updateCampaign, writeScene, removeScene,
     changeObjects, undo, canUndo: Boolean(undoHistory[scope]?.length),
     entries: (entries[campaign.id] ?? []).filter(entry => role === 'gm' || !entry.secret),
-    sendChat, roll, rollPool, event, saveMaterial, showMaterial, saveActor, removeActor, battle, startCombat, configureCombat, nextTurn, endCombat,
+    sendChat, roll, rollPool, reviewRoll, event, saveMaterial, showMaterial, saveActor, removeActor, battle, startCombat, configureCombat, nextTurn, endCombat,
   };
 }

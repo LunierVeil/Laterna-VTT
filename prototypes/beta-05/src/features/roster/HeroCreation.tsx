@@ -32,7 +32,7 @@ export function HeroCreation({ onSave }: { onSave: (actor: Actor) => void }) {
     const skills = lineList(value(6));
     onSave({
       id: uid(), kind: 'hero', name: name.trim() || 'Новый герой', title: value(1),
-      hp: 10, maxHp: 10, ac: 10, init: 0, color: '#86b8ad', symbol: 'user', resource: 0, sheetLayout: layout,
+      hp: 10, maxHp: 10, ac: 10, init: empty ? 0 : Math.floor((scores[1] - 10) / 2), color: '#86b8ad', symbol: 'user', resource: 0, sheetLayout: layout,
       actions: { ...blankActions, spells: value(9) }, items: value(10), notes: '',
       characterIdentity: empty ? undefined : { portrait: portrait || undefined, background: value(3), alignment: value(4), proficiencies: value(7) },
       progression: { className: empty ? '' : className, level: 1, features: lineList(value(8)) },
@@ -55,7 +55,7 @@ export function HeroCreation({ onSave }: { onSave: (actor: Actor) => void }) {
       <Button aria-pressed={source === 'json'} onClick={() => setSource('json')}><Upload size={16}/>Импортировать JSON</Button>
     </div>
     {source && <label>Раскладка листа<select value={layout} onChange={event => setLayout(event.target.value === 'classic' ? 'classic' : event.target.value === 'compact' ? 'compact' : 'full')}>
-      <option value="full">Полная</option><option value="compact">Компактная</option><option value="classic">Classic 2014</option>
+      <option value="full">Laterna · Map-safe</option><option value="compact">Компактный Laterna</option><option value="classic">Classic 2014</option>
     </select></label>}
     {source === 'manual' && <section className="character-block">
       <p className="sheet-subtitle" aria-live="polite">Шаг {step + 1} из {steps.length} · {steps[step]}</p>
