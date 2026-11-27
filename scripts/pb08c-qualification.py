@@ -5,6 +5,7 @@ The release checkout, package input, and real DataHomes are never used as
 sources of data or modified.
 """
 import argparse
+from contextlib import closing
 import hashlib
 import io
 import json
@@ -236,7 +237,7 @@ def verify_beta(server, destination, env, *, expect_record=False):
         launch = json.loads(shell(server, env, "-Action", "Paths").stdout.splitlines()[-1])
         assert Path(launch["home"]) == destination
     execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, BOOT)
-    with sqlite3.connect(destination / "lanterna.db") as db:
+    with closing(sqlite3.connect(destination / "lanterna.db")) as db:
         assert db.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == ("0001_alpha_baseline",)
