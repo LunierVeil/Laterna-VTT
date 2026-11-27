@@ -257,7 +257,7 @@ export function Board({ actors, campaignId, reviewExploration = false, heroId, a
             ? actors.find(item => item.id === o.actorId) : undefined;
           const hp = actor ? Math.min(actor.maxHp, actor.kind === 'hero' ? actor.hp : o.hp ?? actor.maxHp) : 0;
           const ratio = actor ? hp / actor.maxHp : 0;
-          return <g key={o.id} data-object={o.name} data-kind={o.kind} role={tool === 'select' && o.kind !== 'fog' ? 'button' : undefined}
+          return <g key={o.id} data-guide={o.kind==='token' && o.actorId===heroId ? 'player-token' : undefined} data-object={o.name} data-kind={o.kind} role={tool === 'select' && o.kind !== 'fog' ? 'button' : undefined}
             tabIndex={tool === 'select' && o.kind !== 'fog' ? 0 : undefined} aria-label={role === 'player' && o.kind === 'door' ? (o.open ? 'Открытая дверь' : 'Закрытая дверь') : o.name}
             className={`map-object ${o.secret ? 'secret-object' : ''} ${tool !== 'select' || placement ? 'passthrough' : ''}`}
             data-group-selected={group.includes(o.id) || undefined}

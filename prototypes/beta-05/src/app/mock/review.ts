@@ -3,7 +3,7 @@ import type { Campaign, DecalPattern, Entry, MapObject } from '../../entities/mo
 import { decalNames } from '../../shared/map-art/DecalMark';
 
 export function reviewCampaigns(review: ReviewCase | undefined, campaigns: Campaign[]) {
-  const sheets = review?.endsWith('-sheet') || review === 'dice-overlay';
+  const sheets = review === 'overflow-sheet' || review === 'hp-hud';
   const quickActions = review?.startsWith('quick-actions');
   if (!sheets && review !== 'decal-patterns' && !quickActions) return campaigns;
   return campaigns.map(campaign => {
@@ -12,7 +12,7 @@ export function reviewCampaigns(review: ReviewCase | undefined, campaigns: Campa
       if (actor.id !== 'elara') return actor;
       if (review === 'quick-actions-empty') return { ...actor, quickActions: [], resource: 0 };
       return { ...actor,
-        quickActions: ['attack:Длинный лук · +5 к атаке', 'spell:cure-wounds', 'feature:Избранный враг', 'resource'],
+        quickActions: ['attack:Длинный лук · +5 к атаке', 'spell:cure-wounds', 'skill:Внимательность', 'save:1', 'bonus:Метка охотника', 'resource'],
         spells: [{id:'cure-wounds',name:'Лечение ран',level:1,prepared:true,equipped:true,
           description:'Элара восстанавливает хиты союзника касанием.'}],
         spellSlots: {1:{current:2,max:3}},
@@ -27,7 +27,7 @@ export function reviewCampaigns(review: ReviewCase | undefined, campaigns: Campa
         ? {...scene, objects:[...scene.objects, ...decals]} : scene)};
     }
     return {...campaign, actors:campaign.actors.map(actor => actor.id === 'elara' ? {
-      ...actor, name:'Элара Вейл, хранительница переправы и последняя следопытка Семи Фонарей', tempHp:3,
+      ...actor, ...(review === 'overflow-sheet' && { name:'Элара Вейл, хранительница переправы и последняя следопытка Семи Фонарей' }), tempHp:3,
       items: [actor.items, ...Array.from({length:22}, (_,i) => 'Полевой припас для дальней экспедиции ' + (i+1))].join('\n'),
       notes: actor.notes + '\n\nНестандартная карточка · памятка о печати ордена',
       spells: Array.from({length:16}, (_,i) => ({

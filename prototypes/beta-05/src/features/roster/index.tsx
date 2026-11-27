@@ -1,3 +1,4 @@
+import { attackRows, changeHp, damageRoll, skillRows } from './gameplay';
 import { AnchoredPopover } from '../../shared/ui/AnchoredPopover';
 import { skills } from './skills';
 import portrait from '../../shared/assets/sheet-portrait.svg?inline';
@@ -12,7 +13,7 @@ import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
 export type Roll = (sides: number, mode: 'normal' | 'advantage' | 'disadvantage', secret: boolean, bonus?: number, label?: string, critical?: boolean) => number;
 const tabs = ['Главное', 'Инвентарь', 'Заклинания', 'Умения', 'О персонаже'] as const;
-export type SheetTab = typeof tabs[number];
+type SheetTab = typeof tabs[number];
 
 export function ActorMedal({ actor, size = 23 }: { actor: Actor; size?: number }) {
   return <div className="actor-medal" style={{ color: actor.color }}><Glyph name={actor.symbol} size={size}/></div>;
@@ -143,12 +144,12 @@ export function Roster({ actors, srd, onSheet, onSave, onPlace, quickCreate, con
 const abilityNames = ['СИЛ', 'ЛОВ', 'ТЕЛ', 'ИНТ', 'МДР', 'ХАР'];
 const signed = (value: number) => value < 0 ? `−${Math.abs(value)}` : `+${value}`;
 
-export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, compact, materials, onMaterial, initialTab, initialSpell }: {
-  initialTab?: SheetTab; initialSpell?: string; actor?: Actor; role: Role; onChange: (actor: Actor) => void; onRoll: Roll;
+export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, compact, materials, onMaterial, classicVariant = 'a' }: {
+  classicVariant?: 'a' | 'b'; actor?: Actor; role: Role; onChange: (actor: Actor) => void; onRoll: Roll;
   materials: Material[]; onMaterial: (id: string) => void;
   onClassic: () => void; onCompact: (compact: boolean) => void; compact: boolean;
 }) {
-  const [tab, setTab] = useState<SheetTab>(initialTab ?? 'Главное');
+  const [tab, setTab] = useState<SheetTab>('Главное');
   const [advancing, setAdvancing] = useState(false);
   const [feature, setFeature] = useState('');
   const [newSkill, setNewSkill] = useState('');
@@ -158,7 +159,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<Parameters<Roll>[1]>('normal');
   const [last, setLast] = useState<number>();
-  const [spellId, setSpellId] = useState(initialSpell);
+  const [spellId, setSpellId] = useState<string>();
   if (!actor) return <Empty>В этой кампании пока нет доступного персонажа.</Empty>;
 
   const death = actor.deathSaves ?? { successes: 0, failures: 0 };
@@ -182,18 +183,13 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
   const title = [actor.title, progression && `${progression.className} ${progression.level}`, progression?.subclass].filter(Boolean).join(' · ');
   const modifiers = profile?.scores.map(score => Math.floor((score - 10) / 2));
   const hpAmount = Math.max(1, Math.min(actor.maxHp, Number(amount) || 1));
-  const updateHp = (sign: number) => {
-    const absorbed = sign < 0 ? Math.min(actor.tempHp ?? 0, hpAmount) : 0;
-    const hp = Math.min(actor.maxHp, Math.max(0, actor.hp + sign * hpAmount + absorbed));
-    onChange({ ...actor, hp, deathSaves: hp > 0 || actor.hp > 0 ? undefined : actor.deathSaves, tempHp: (actor.tempHp ?? 0) - absorbed });
-  };
+  const updateHp = (sign: number) => onChange(changeHp(actor, sign * hpAmount));
   const rollCheck = (label: string, bonus: number, attack = false) => setLast(onRoll(20, mode, false, bonus, label, attack));
-  const attachedAttacks = actor.equipment?.flatMap(item => item.attack ? [item.attack] : []);
-  const attacks = actor.equipment ? [...actor.actions.attack.split('\n').filter(line => !attachedAttacks?.includes(line)),
-    ...actor.equipment.flatMap(item => item.equipped && item.quantity && item.attack ? [item.attack] : [])].filter(Boolean).join('\n') : actor.actions.attack;
+  const availableAttacks = attackRows(actor);
+  const attacks = availableAttacks.map(attack => attack.name).join('\n');
   const rollDamage = (name: string, formula: string) => {
-    const match = /^1?d(4|6|8|10|12|20)([+-][0-9]+)?$/.exec(formula);
-    if (match) setLast(onRoll(Number(match[1]), 'normal', false, Number(match[2] ?? 0), `Урон: ${name}`));
+    const damage = damageRoll(formula);
+    if (damage) setLast(onRoll(damage.sides, 'normal', false, damage.bonus, `Урон: ${name}`));
   };
   const actionRows = Object.entries({ ...actor.actions, attack: attacks }).filter(([key, value]) => key !== 'spells' && value.trim());
   const rest = (long: boolean) => {
@@ -210,10 +206,10 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
   </div>;
 
   const classic = actor.sheetLayout === 'classic';
-  return <div className={`sheet ${classic ? 'sheet-classic' : ''}`}>
+  return <div className={`sheet ${classic ? `sheet-classic classic-${classicVariant}` : ''}`}>
     <header className="character-heading">
       <div className="character-portrait">{actor.characterIdentity?.portrait || actor.id === 'elara' ? <img src={actor.characterIdentity?.portrait ?? portrait} alt=""/> : <ActorMedal actor={actor} size={35}/>}</div>
-      <div><h2>{actor.name}</h2><p className="sheet-subtitle">{title || 'Персонаж кампании'} · D&D 5e {actor.importedEdition ?? '2014'}</p></div>
+      <div><h2 title={actor.name}>{actor.name}</h2><p className="sheet-subtitle">{title || 'Персонаж кампании'} · D&D 5e {actor.importedEdition ?? '2014'}</p></div>
       <div className="character-actions"><AnchoredPopover className="" label="Действия листа" trigger={<><Settings2 size={16}/>Лист</>}>{close => <>
         <Button onClick={() => { close(); onCompact(!compact); setTab('Главное'); setChecks(compact ? 'abilities' : 'skills'); }}><Columns2 size={16}/>{compact ? 'Полный лист' : 'Компактный лист'}</Button>
         <Button aria-pressed={classic} onClick={() => { close(); onClassic(); setTab('Главное'); }}>Classic 2014</Button>
@@ -246,10 +242,11 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
     {classic && <div className="classic-combat inline-form" aria-label="Боевые действия Classic">
       {attacks.split('\n').filter(Boolean).slice(0,2).map(action => <Button key={action} onClick={()=>rollCheck(action,Number(/[+-]\d+/.exec(action)?.[0]??0),true)}>{action}</Button>)}
       {charges}
+      {!!actor.conditions?.length && <small>{actor.conditions.join(' · ')}</small>}
     </div>}
     </div>
     {editing && <section className="character-block"><h3>Редактирование листа</h3><div className="creature-stat-fields">
-      <label>Имя персонажа<input value={actor.name} maxLength={80} onChange={e => onChange({ ...actor, name: e.target.value })}/></label>
+      <label>Имя персонажа<input value={actor.name} onChange={e => onChange({ ...actor, name: e.target.value })}/></label>
       <label>Максимум HP<input type="number" min={1} max={999} value={actor.maxHp} onChange={e => {
         const maxHp = Math.max(1, Math.min(999, Number(e.target.value)));
         onChange({ ...actor, maxHp, hp: Math.min(actor.hp, maxHp) });
@@ -259,7 +256,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
         onChange({ ...actor, sheetProfile: { ...profile, speed: Math.max(0, Math.min(250, Number(e.target.value))) } })}/></label>}
     </div></section>}
     <nav className="character-tabs" aria-label="Разделы листа">{tabs.map(name => <Button aria-pressed={tab === name} key={name} onClick={() => setTab(name)}>{name}</Button>)}</nav>
-    {classic && <details className="character-block"><summary>Где находится элемент?</summary>
+    {classic && <details className="character-block classic-fallback"><summary>Где находится элемент?</summary>
       <div className="inline-form">
         <Button onClick={() => setTab('Инвентарь')}>Предметы и экипировка</Button>
         <Button onClick={() => setTab('Заклинания')}>Магия</Button>
@@ -270,7 +267,25 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
     {tab === 'Главное' && <>
       <div className="character-columns">
         <div>
-          <section className="character-block">
+          {classic && !editing && profile && <section className="classic-checks" aria-label="Характеристики и проверки Classic">
+            <div className="classic-abilities">
+              {abilityNames.map((name,index)=>{
+                const bonus=modifiers?.[index] ?? 0;
+                const save=bonus+(profile.saves.includes(index)?profile.proficiency:0);
+                return <article key={name}><strong>{name}<small>{profile.scores[index]}</small></strong>
+                  <Button onClick={()=>rollCheck(name,bonus)}>{signed(bonus)}</Button>
+                  <Button onClick={()=>rollCheck('Спасбросок: '+name,save)}>Спас {signed(save)}</Button></article>;
+              })}
+            </div>
+            <details className="classic-skills" open={classicVariant === 'a' || undefined}>
+              <summary>Навыки</summary>
+              <div className="classic-skill-scroll" tabIndex={0} aria-label="Список навыков">
+                {skillRows(actor).map(({name,bonus})=><Button key={name} onClick={()=>rollCheck(name,bonus)}>
+                  <span>{name}</span><strong>{signed(bonus)}</strong></Button>)}
+              </div>
+            </details>
+          </section>}
+          {(!classic || editing || !profile) && <section className="character-block">
             <header><h3>{checks === 'skills' ? 'Навыки и проверки' : 'Характеристики и спасброски'}</h3>
               <div className="segmented">
                 <Button aria-pressed={checks === 'abilities'} onClick={() => setChecks('abilities')}>Характеристики</Button>
@@ -320,7 +335,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
               </div></section>;
               return <Button key={name} onClick={() => rollCheck(name, bonus)}><span>{name}</span><small>{abilityNames[setting.ability]}</small><strong>{signed(bonus)}</strong></Button>;
             })}</div></>) : <Empty>Для этой карточки проверки не заданы.</Empty>}
-          </section>
+          </section>}
           <section className="character-block death-save-block" data-outcome={deathRoll === undefined ? undefined : deathRoll >= 10 ? 'success' : 'failure'}>
             <header><h3>Спасброски от смерти</h3>
               <Button disabled={actor.hp > 0 || death.successes >= 3 || death.failures >= 3} onClick={rollDeathSave}><Dice5 size={16}/>Бросить d20</Button>
@@ -350,7 +365,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
                 </>;
               })()}{key === 'attack' && <>
                 <Button onClick={() => rollCheck(action, Number(/[+-]\d+/.exec(action)?.[0] ?? 0), true)}><Dice5 size={15}/>Атака</Button>
-                <Button onClick={() => rollDamage(action.split(' · ')[0], actor.equipment?.find(item => item.attack === action)?.damage || (/кинжал/i.test(action) ? '1d4' : '1d8'))}>Урон</Button>
+                <Button onClick={() => rollDamage(action.split(' · ')[0], availableAttacks.find(item => item.name === action)?.damage ?? '')}>Урон</Button>
               </>}</div>)}
               {(key === 'bonus' || key === 'reaction') && actor[key === 'bonus' ? 'bonusUsed' : 'reactionUsed'] &&
                 <Button className="ghost" onClick={() => onChange({ ...actor, [key === 'bonus' ? 'bonusUsed' : 'reactionUsed']: false })}><RotateCcw size={14}/>Восстановить</Button>}

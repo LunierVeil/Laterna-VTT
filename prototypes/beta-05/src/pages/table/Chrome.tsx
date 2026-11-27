@@ -29,12 +29,12 @@ export function TableHeader({ scene, campaign, role, onRole, onPage, onScreen, o
     <span className="header-scene">{scene.name}</span>
     <nav className="main-nav" aria-label="Разделы стола">
       <Button className="nav-current" aria-current="page" onClick={() => onPage(null)}><Map size={17}/>Стол</Button>
-      {navigation.map(([id,label,Icon]) => <Button key={id} title={id === 'spells' ? 'Книга заклинаний (K)' : undefined} onClick={() => onPage(id)}><Icon size={16}/>{label}</Button>)}
+      {navigation.map(([id,label,Icon]) => <Button key={id} data-guide={id} title={id === 'spells' ? 'Книга заклинаний (K)' : undefined} onClick={() => onPage(id)}><Icon size={16}/>{label}</Button>)}
       {role === 'player' && <Button title="Лист персонажа (C)" onClick={() => onPage('sheet')}><Users size={16}/>Персонаж</Button>}
       {role === 'gm' && <Button data-guide="screen" title="Ширма мастера (M)" aria-pressed={screen} onClick={onScreen}><PanelTop size={16}/>Ширма</Button>}
     </nav>
     <div className="header-end">
-      {role === 'gm' && <Button className="connection ghost" onClick={onConnection}><span className="status-dot"/> {campaign.demoSettings?.connected ? campaign.demoSettings.connection + ' · демо' : 'Локально'}</Button>}
+      {role === 'gm' && <Button className="connection ghost" data-guide="connection" onClick={onConnection}><span className="status-dot"/> {campaign.demoSettings?.connected ? campaign.demoSettings.connection + ' · демо' : 'Локально'}</Button>}
       <div className="segmented role-switch" aria-label="Режим просмотра">
         <Button aria-pressed={role === 'gm'} onClick={() => onRole('gm')}>GM View</Button>
         <Button aria-pressed={role === 'player'} onClick={() => onRole('player')}><ScanEye size={14}/>Player View</Button>
@@ -75,14 +75,14 @@ export function MapToolbar({ editing, tool, onTool, onAssets }: { editing: boole
       if (!('icon' in item)) {
         if (!editing || item.id !== 'wall') return null;
         return <div key="geometry" className="tool-break">
-          <IconButton label="Геометрия" aria-pressed={geometry} onClick={() => onTool(geometry ? 'select' : 'wall')}>
+          <IconButton data-guide="geometry" label="Геометрия" aria-pressed={geometry} onClick={() => onTool(geometry ? 'select' : 'wall')}>
             <BrickWall size={20} strokeWidth={1.65}/>
           </IconButton>
         </div>;
       }
       if (!editing && (item.id === 'light' || item.id === 'fog')) return null;
       const { id, name, icon: Icon, key } = item;
-      return <div key={id}><IconButton label={name} title={`${name} (${key})`} aria-pressed={id === tool} onClick={() => onTool(id)}><Icon size={20} strokeWidth={1.65}/></IconButton></div>;
+      return <div key={id}><IconButton label={name} data-guide={id} title={`${name} (${key})`} aria-pressed={id === tool} onClick={() => onTool(id)}><Icon size={20} strokeWidth={1.65}/></IconButton></div>;
     })}
     {editing && <div className="tool-break"><IconButton label="Ассеты" title="Ассеты (A)" onClick={onAssets}><Boxes size={20}/></IconButton></div>}
   </nav>;

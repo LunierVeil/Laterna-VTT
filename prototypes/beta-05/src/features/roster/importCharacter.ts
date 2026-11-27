@@ -38,7 +38,7 @@ export function importLss(text: string): Actor {
   const spellBook = record(envelope.spells);
   const known = Array.isArray(spellBook.book) ? spellBook.book.map(entry => string(record(entry).name) || string(entry)).filter(Boolean) : [];
   return {
-    id: uid(), kind: 'hero', importedEdition, name: name.slice(0, 80), title: string(info.race), symbol: 'user', color: '#c8b28e',
+    id: uid(), kind: 'hero', importedEdition, name, title: string(info.race), symbol: 'user', color: '#c8b28e',
     hp: integer(vitality['hp-current'], maxHp, 0, maxHp), maxHp,
     tempHp: integer(vitality['hp-temp'], 0, 0, 999), ac: integer(vitality.ac, 10, 0, 40),
     init: integer(vitality.initiative, Math.floor((scores[1] - 10) / 2), -10, 50),

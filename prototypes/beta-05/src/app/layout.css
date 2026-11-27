@@ -365,20 +365,6 @@
 .table-quick-actions { grid-column:1/-1; justify-self:center; pointer-events:auto; width:min(340px,100%); max-height:min(48dvh,360px); overflow:auto; display:grid; gap:5px; padding:8px; border-radius:8px; background:var(--panel); }
 .table-quick-actions header,.quick-action-row { display:flex; align-items:center; gap:5px; }
 .table-quick-actions header strong,.quick-action-row > .button:first-child { flex:1; min-width:0; white-space:normal; }
-.dice-visual { display:inline-grid; place-items:center; width:38px; height:38px; flex:none; perspective:190px; }
-.dice-cube { width:24px; height:24px; display:block; position:relative; transform-style:preserve-3d; transform:rotateX(-14deg) rotateY(18deg); }
-.dice-cube b { position:absolute; inset:0; display:grid; place-items:center; border:1px solid #f5c776; background:linear-gradient(145deg,#a2723a,#4f3421); color:#fff3d3; font:13px var(--mono); border-radius:3px; backface-visibility:hidden; }
-.dice-cube b:nth-child(1) { transform:translateZ(12px); }
-.dice-cube b:nth-child(2) { transform:rotateY(90deg) translateZ(12px); }
-.dice-cube b:nth-child(3) { transform:rotateY(180deg) translateZ(12px); }
-.dice-cube b:nth-child(4) { transform:rotateY(-90deg) translateZ(12px); }
-.dice-cube b:nth-child(5) { transform:rotateX(90deg) translateZ(12px); }
-.dice-cube b:nth-child(6) { transform:rotateX(-90deg) translateZ(12px); }
-.dice-turn { animation:laterna-dice-turn .9s cubic-bezier(.17,.7,.37,1) both; }
-@keyframes laterna-dice-turn { from { transform:translateY(-9px) rotateX(-374deg) rotateY(378deg); } 78% { transform:translateY(2px) rotateX(-22deg) rotateY(23deg); } to { transform:rotateX(-14deg) rotateY(18deg); } }
-@media (prefers-reduced-motion:reduce) { .dice-turn { animation:none; } }
-.reduced-motion .dice-turn { animation:none; }
-
 /* Design review and approved table preferences */
 .gm-screen { background:color-mix(in srgb, var(--panel) 84%, transparent); backdrop-filter:blur(3px); }
 .opaque-screen .gm-screen { background:var(--panel); }
@@ -423,3 +409,51 @@
 .design-review dd { margin:0; }
 .design-review .button { justify-self:start; text-decoration:none; }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+
+.table-quick-actions.player-actions { width:min(500px,100%); }
+.table-quick-actions.gm-actions { width:min(620px,100%); }
+.quick-health,.gm-actors { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.quick-health input { width:58px; }
+.gm-actors .button { display:grid; text-align:left; justify-items:start; white-space:normal; gap:2px; }
+.gm-actors .button span { display:flex; gap:5px; align-items:center; }
+.gm-resources { display:grid; gap:4px; padding:5px; color:var(--muted); }
+.quick-conditions { color:var(--accent-text); font-size:12px; }
+.quick-games { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(205px,100%),1fr)); gap:4px; }
+.quick-spell { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px; background:var(--surface); border-radius:6px; }
+.quick-spell small { flex-basis:100%; }
+
+.die-glyph { width:38px; height:38px; flex:none; color:var(--accent-text); }
+.die-base { fill:#ad7034; }
+.die-light { fill:#d8a663; }
+.die-shade { fill:#64422d; }
+.die-edge { stroke:#f0b14a; fill:none; stroke-width:1.5; }
+.die-glyph text { fill:#fff4de; stroke:#392411; stroke-width:2.5; paint-order:stroke fill; font:700 21px var(--mono); }
+.die-visual { display:inline-flex; flex:none; perspective:180px; filter:drop-shadow(1px 4px 3px #0008); }
+.die-visual.dice-turn { animation:die-settle .65s cubic-bezier(.19,.78,.29,1) both; }
+@keyframes die-settle {
+  from { transform:translate(-12px,-16px) rotateY(75deg) rotateZ(-95deg) scale(.8); }
+  65% { transform:translate(2px,1px) rotateY(-18deg) rotateZ(12deg) scale(1.08); }
+  to { transform:none; }
+}
+.reduced-motion .die-visual.dice-turn { animation:none; }
+@media (prefers-reduced-motion:reduce) { .die-visual.dice-turn { animation:none; } }
+.roll-facet { border-color:#788c80; background:radial-gradient(ellipse at 45% 40%,#30433a,#101916); }
+.roll-facet .roll-dice { padding:6px 10px; min-height:64px; }
+.roll-facet .die-glyph { width:60px;height:60px; }
+.roll-facet .die-base { fill:#478775; }
+.roll-facet .die-light { fill:#8ab59a; }
+.roll-facet .die-shade { fill:#275148; }
+.roll-facet .die-edge { stroke:#c0d7ad; }
+.roll-readout .roll-dice > span { border:1px solid var(--line); border-radius:5px; padding:3px 6px; }
+.roll-readout output { font-size:27px; }
+.dice-play { width:min(380px,calc(100vw - 24px)); }
+.dice-play .dice-list .button { gap:3px; padding:4px; min-height:38px; }
+.dice-play .die-glyph { width:24px; height:24px; }
+
+.guide-lens { position:fixed; z-index:12; pointer-events:none; outline:2px solid var(--accent);
+  border-radius:6px; box-shadow:0 0 0 100vmax #08091060; }
+.table-guide.guide-card { position:fixed; z-index:13; right:auto; max-height:190px; overflow:auto; box-shadow:0 8px 22px #0007; }
+.guide-card header select { max-width:calc(100% - 46px); }
+.guide-card a { color:var(--accent-text); }
+
+.review-bar { position:relative; z-index:10002; background:var(--bg); }

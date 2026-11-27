@@ -69,7 +69,7 @@ export function HeroCreation({ onSave }: { onSave: (actor: Actor) => void }) {
         {steps.map((label, index) => <option key={label} value={index}>{index + 1} / {steps.length} · {label}</option>)}
       </select></label>
       {step === 0 && <>
-        <label>Имя героя<input maxLength={80} value={name} onChange={event => setName(event.target.value)}/></label>
+        <label>Имя героя<input value={name} onChange={event => setName(event.target.value)}/></label>
         <label>Портрет<input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
           const file = event.target.files?.[0];
           if (!file || file.size > 2_000_000 || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return;

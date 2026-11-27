@@ -1,8 +1,10 @@
+import type { DiceStyle } from '../../widgets/activity/DiceVisual';
+import { changeHp } from '../../features/roster/gameplay';
 import { ReviewBar, ReviewRolls, reviewLayout, type ReviewCase } from '../review/Review';
 import { saveUiPreference, uiPreference } from '../../shared/ui/preferences';
 import { TableGuide } from './TableGuide';
 import { QuickActions } from '../../widgets/activity/QuickActions';
-import type { CreatureStart, SheetTab } from '../../features/roster';
+import type { CreatureStart } from '../../features/roster';
 import { controlsActor, playerHeroId } from '../../entities/model';
 import { useEffect, useState } from 'react';
 import { BookOpen, Dice5, DoorOpen, EyeOff, Grid2X2, PencilRuler, Swords, Trash2, Undo2, Users, X } from 'lucide-react';
@@ -38,13 +40,12 @@ const tips: Partial<Record<Tool, string>> = {
 
 export function Table({ campaign, scene, role, setRole, entries, battle, srd, canUndo, commands, onExit, review }: Props) {
   const layout = reviewLayout(review);
-  const [guide, setGuide] = useState(review === 'guide-player');
-  const [sheetRecord, setSheetRecord] = useState<string>();
-  const [sheetTab, setSheetTab] = useState<SheetTab>();
+  const [guide, setGuide] = useState(review === 'guide-player' || review === 'guide-gm' || review === 'guide-update');
   const [highlight, setHighlight] = useState<string>();
   const [invite, setInvite] = useState(() => review === 'guide' || (!review && !uiPreference('guide-offered')));
   useEffect(() => { if (invite && !review) saveUiPreference('guide-offered'); }, [invite, review]);
   const [opaqueScreen, setOpaqueScreen] = useState(() => !review && uiPreference('opaque-screen'));
+  const [diceStyle, setDiceStyle] = useState<DiceStyle>('lantern');
   const [staticDice, setStaticDice] = useState(() => !review && uiPreference('static-dice'));
   const [quickActions, setQuickActions] = useState(Boolean(review?.startsWith('quick-actions')));
   function changeMotion(value: boolean) {
@@ -70,7 +71,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   const [screen, setScreen] = useState(review === 'gm-screen');
   const [screenSize, setScreenSize] = useState<Point>();
   const [screenPosition, setScreenPosition] = useState<Point>();
-  const [dice, setDice] = useState(false);
+  const [dice, setDice] = useState(review === 'dice-menu');
 
   const [wallMode, setWallMode] = useState<WallMode>('line');
   const [tool, setTool] = useState<Tool>('select');
@@ -103,7 +104,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   function openPage(next: Page) {
     setBook(false); setQuickCreate(undefined); setPage(next); setActorId(undefined); setMaterialId(undefined); setConnection(false); setContext(undefined);
   }
-  function openSheet(id?: string, tab?: SheetTab, record?: string) { openPage('sheet'); setActorId(id); setSheetTab(tab); setSheetRecord(record); }
+  function openSheet(id?: string) { openPage('sheet'); setActorId(id); }
   function openMaterial(id?: string) { openPage('journal'); setMaterialId(id); }
   function activate(id: string) {
     setTokenDetails(undefined); commands.updateCampaign(c => ({ ...c, gmScene: id }));
@@ -116,8 +117,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   }
   function adjustHeroHp(actor: Actor, delta: number) {
     if (!gm && actor.id !== playerHeroId(campaign)) return;
-    const hp = Math.max(0, Math.min(actor.maxHp, actor.hp + delta));
-    commands.saveActor({ ...actor, hp, deathSaves: hp > 0 || actor.hp > 0 ? undefined : actor.deathSaves });
+    commands.saveActor(changeHp(actor, delta));
   }
   function adjustTokenHp(token: MapObject, actor: Actor, delta: number) {
     if (!gm) return;
@@ -189,7 +189,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   }, [page, editing, hotkeys, gm, scene, hero, commands, context, deleting, deleteGroup, quickActions, guide, invite, screen, dice, review]);
 
   const brief = placement ? `Разместить: ${placement.name}` : tips[tool];
-  const workbench = page && <Workbench key={`${page}/${actorId ?? ''}/${materialId ?? ''}/${quickCreate}/${book}/${sheetRecord ?? ''}`} expandedSidebar={activity} page={page} initialTab={sheetTab} initialSpell={sheetRecord} initialLayout={layout} initialDecals={review === 'decal-patterns'} campaign={campaign} role={role} quickCreate={quickCreate} openBook={book} srd={srd} actorId={actorId} materialId={materialId} connection={connection} onExit={onExit} reduceMotion={staticDice} onMotion={changeMotion}
+  const workbench = page && <Workbench key={`${page}/${actorId ?? ''}/${materialId ?? ''}/${quickCreate}/${book}`} expandedSidebar={activity} page={page} initialLayout={layout} classicVariant={review === 'classic-b' ? 'b' : 'a'} initialDecals={review === 'decal-patterns'} campaign={campaign} role={role} quickCreate={quickCreate} openBook={book} srd={srd} actorId={actorId} materialId={materialId} connection={connection} onExit={onExit} reduceMotion={staticDice} onMotion={changeMotion}
       onPortrait={object?.kind === 'token' ? asset => {
         updateObject({ ...object, symbol: asset.symbol, color: asset.color, image: asset.image });
         setPage(null); commands.notify('Портрет токена обновлён');
@@ -203,16 +203,16 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
       <MapToolbar editing={editing} tool={tool} onTool={chooseTool} onAssets={() => openPage('assets')}/>
       <Board campaignId={review === 'exploration-reset' ? campaign.id + '-review' : campaign.id} reviewExploration={review === 'exploration-reset'} heroId={playerHeroId(campaign)} actors={campaign.actors} activeActorId={battle?.order[battle.turn]} key={`${scene.id}/${playerHeroId(campaign)}`} scene={scene} role={role} editing={editing} tool={tool} wallMode={wallMode} selected={selected} placement={placement}
         group={group} onGroup={setGroup} onSelect={setSelected} onUseDoor={useDoor} onChange={commands.changeObjects} onPlaced={() => { commands.notify('Объект размещён на сцене'); setPlacement(null); }}
-        tray={quickActions && <QuickActions actors={campaign.actors.filter(actor=>gm || controls(actor.id))} onSave={commands.saveActor}
-          onRoll={commands.roll} onSheet={(id, tab, record)=>{setQuickActions(false);openSheet(id, tab, record);}} onClose={()=>setQuickActions(false)}/>}
+        tray={quickActions && <QuickActions actors={campaign.actors.filter(actor=>gm || controls(actor.id))} gm={gm} tokens={scene.objects.filter(object => object.kind === 'token')} onSave={commands.saveActor} onTokenHp={adjustTokenHp} onNotify={commands.notify}
+          onRoll={commands.roll} onSheet={id=>{setQuickActions(false);openSheet(id);}} onClose={()=>setQuickActions(false)}/>}
         toolbar={<div className="quickbar" onDoubleClick={() => {
           setDice(false); setPage(null); setScreen(false); setQuickActions(false); setCloseCombatRequest(count => count + 1);
         }}>
           <Button data-guide="actions" aria-label="Быстрые действия" aria-pressed={quickActions} onClick={() => setQuickActions(value=>!value)}>Действия</Button>
           <Button data-guide="dice" title="Кубики (B)" aria-pressed={dice} onClick={() => setDice(value => !value)}><Dice5 size={17}/>Кубики</Button>
           <Button data-guide="sheet" title="Лист персонажа (C)" onClick={() => hero ? openSheet(hero.id) : openPage('hero-create')}><Users size={17}/>{gm ? 'Лист героя' : 'Мой лист'}</Button>
-          <Button onClick={() => openMaterial(!gm ? featuredLetter?.id : undefined)}><BookOpen size={17}/>{gm ? 'Материалы' : 'Раздатки'}</Button>
-          {(gm || battle) && <Button onClick={event => {
+          <Button data-guide="handouts" onClick={() => openMaterial(!gm ? featuredLetter?.id : undefined)}><BookOpen size={17}/>{gm ? 'Материалы' : 'Раздатки'}</Button>
+          {(gm || battle) && <Button data-guide="combat" onClick={event => {
             if (event.detail > 1) return;
             setActivity(true);
             if (!battle) commands.startCombat();
@@ -226,7 +226,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         }}
         onContext={(item, x, y) => { setDeleting(false); setContext({ id: item.id, x, y }); }}>
         <div className="board-controls">
-          <Button onClick={()=>dismissInvite(true)}>Гид</Button>
+          <Button onClick={()=>dismissInvite(true)}>Помощь · Гид</Button>
           {gm && <>
             {editing && <IconButton label="Отменить действие" onClick={commands.undo} disabled={!canUndo}><Undo2 size={17}/></IconButton>}
             <Button data-guide="edit" className="edit-toggle" title="Редактировать карту (E)" aria-pressed={editing} onClick={() => { setEdit(value => !value); chooseTool('select'); }}>
@@ -261,15 +261,16 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
           setOpaqueScreen(value);
           if (!review) saveUiPreference('opaque-screen', value);
         }} size={screenSize} onSize={setScreenSize} position={screenPosition} onPosition={setScreenPosition} scenes={campaign.scenes} activeScene={scene.id} actors={campaign.actors} materials={campaign.materials} battle={battle}
-          onClose={() => setScreen(false)} onScene={activate} onSheet={openSheet} onRoster={() => openPage('roster')} onMaterial={openMaterial} onNewMaterial={() => openMaterial()}
+          onClose={() => setScreen(false)} onScene={activate} onSheet={openSheet} onRoster={() => openPage('roster')} onMaterial={openMaterial}
           onRoll={commands.roll} onBattle={() => { setActivity(true); if (battle) commands.nextTurn(); else commands.startCombat(); }}/>}
         {!gm && !page && <PlayerParty actors={campaign.actors} heroId={playerHeroId(campaign)} showAllyNumbers={Boolean(campaign.demoSettings?.showAllyHp)}
           onSheet={openSheet} onHp={adjustHeroHp}/>}
         {invite && <aside className="table-guide glass" aria-label="Первое знакомство со столом">
-          <strong>Первый раз за столом?</strong><p>За два шага покажем инструменты и быстрые действия.</p>
-          <div className="inline-form"><Button onClick={()=>dismissInvite(false)}>Не сейчас</Button><Button className="primary" onClick={()=>dismissInvite(true)}>Показать стол</Button></div>
+          <strong>Вы уже знакомы с Laterna?</strong>
+          <div className="inline-form"><Button onClick={()=>dismissInvite(false)}>Да, я знаком</Button><Button className="primary" onClick={()=>dismissInvite(true)}>Показать возможности</Button><Button onClick={()=>dismissInvite(false)}>Пропустить обучение</Button></div>
         </aside>}
-        {guide && <TableGuide role={role} onClose={()=>setGuide(false)} onHighlight={setHighlight}/>}
+        {guide && <TableGuide key={role} role={role} sandbox={Boolean(review)} wallCount={scene.objects.filter(item=>item.kind==='wall').length}
+          initial={review==='guide-gm'?'scene':review==='guide-player'?'player':review==='guide-update'?'update':undefined} onClose={()=>setGuide(false)} onHighlight={setHighlight}/>}
       </Board>
       <Activity combatRequest={combatRequest} closeCombatRequest={closeCombatRequest} sceneId={scene.id} sceneName={scene.name} role={role} entries={entries} battle={battle} actors={campaign.actors}
         expanded={activity} onToggle={() => setActivity(value => !value)} onSheet={openSheet} onAddHero={() => openPage('hero-create')} onBooks={() => openPage('roster')} heroId={playerHeroId(campaign)}
@@ -285,7 +286,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         onConfigure={commands.configureCombat} onRoll={commands.roll} onSend={commands.sendChat} onStart={commands.startCombat} onNext={commands.nextTurn} onEnd={commands.endCombat}/>
       {page === 'assets' && workbench}
     </main>
-    {review && <ReviewBar scenario={review}>{review === 'dice-overlay' && <><ReviewRolls play={commands.reviewRoll}/><label className="checkline"><input type="checkbox" checked={staticDice} onChange={event=>changeMotion(event.target.checked)}/>Без анимации</label></>}</ReviewBar>}
+    {review && <ReviewBar scenario={review}>{review === 'dice-overlay' && <><ReviewRolls play={commands.reviewRoll}/><select aria-label="Вариант Dice Overlay" value={diceStyle} onChange={event=>setDiceStyle(event.target.value as DiceStyle)}><option value="lantern">Янтарный · компактный</option><option value="facet">Объёмный · на сукне</option><option value="readout">Боевой · только итог</option></select><label className="checkline"><input type="checkbox" checked={staticDice} onChange={event=>changeMotion(event.target.checked)}/>Без анимации</label></>}</ReviewBar>}
     {dice && <DiceOverlay staticDice={staticDice} onStatic={changeMotion} role={role} onRoll={commands.roll} onPool={commands.rollPool} onClose={() => setDice(false)}/>}
     {hotkeys && <Dialog title="Горячие клавиши" onClose={() => setHotkeys(false)}>
       <label>Поиск по клавишам<input autoFocus type="search" value={hotkeyQuery} onChange={event => setHotkeyQuery(event.target.value)}/></label>
@@ -300,7 +301,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         </section>;
       })}
     </Dialog>}
-    <RollResults animate={!staticDice} entries={entries} role={role} expanded={activity}/>
+    <RollResults style={diceStyle} animate={!staticDice} entries={entries} role={role} expanded={activity}/>
     {context && contextual && <div className="context-menu glass" style={{ left: Math.min(context.x, window.innerWidth - 235), top: Math.min(context.y, window.innerHeight - 170) }} onClick={e => e.stopPropagation()}>
       <strong>{contextual.name}</strong>
       {contextual.actorId && (gm || controls(contextual.actorId)) && <Button className="ghost" onClick={() => openSheet(contextual.actorId)}><Users size={15}/>Открыть лист</Button>}

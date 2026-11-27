@@ -1,3 +1,4 @@
+import { spendSpellSlot } from './gameplay';
 import { actorSpells, availableSpells, srdSpellSource } from './spellCatalog';
 import { useState, type ReactNode } from 'react';
 import { Backpack, BookText, ContactRound, WandSparkles } from 'lucide-react';
@@ -117,7 +118,7 @@ export function Spellbook({ actor, onChange, initialSpellId }: { actor: Actor; o
       <select aria-label="Круг ячеек" value={slotLevel} onChange={event => setSlotLevel(Number(event.target.value))}>
         {Array.from({ length: 9 }, (_, i) => <option key={i} value={i + 1}>{i + 1} круг</option>)}
       </select>
-      <Button aria-label="Потратить ячейку" disabled={!slots.current} onClick={() => updateSlots({ ...slots, current: slots.current - 1 })}>−</Button>
+      <Button aria-label="Потратить ячейку" disabled={!slots.current} onClick={() => { const next = spendSpellSlot(actor, slotLevel); if (next) onChange(next); }}>−</Button>
       <output aria-label="Ячейки">{slots.current} / {slots.max}</output>
       <Button aria-label="Восстановить ячейку" disabled={slots.current >= slots.max} onClick={() => updateSlots({ ...slots, current: slots.current + 1 })}>+</Button>
     </div>

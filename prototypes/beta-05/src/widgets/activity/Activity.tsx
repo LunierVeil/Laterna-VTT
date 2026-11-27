@@ -1,4 +1,4 @@
-import { DiceVisual } from './DiceVisual';
+import { DiceGlyph, DiceVisual, type DiceStyle } from './DiceVisual';
 import { controlsActor } from '../../entities/model';
 import { AnchoredPopover } from '../../shared/ui/AnchoredPopover';
 import { FloatingWindow } from '../../shared/ui/FloatingWindow';
@@ -46,11 +46,11 @@ export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend
       {expanded ? <ChevronRight size={17}/> : <ChevronLeft size={17}/>}
     </IconButton>
     <nav className="side-tabs" aria-label="Разделы правой панели">
-      <Button aria-pressed={tab === 'chat'} onClick={() => { setTab('chat'); if (!expanded) onToggle(); }}><MessageCircle size={16}/>Чат</Button>
-      <Button aria-pressed={tab === 'actors'} onClick={() => { setTab('actors'); if (!expanded) onToggle(); }}><Users size={16}/>Персонажи</Button>
+      <Button data-guide="chat" aria-pressed={tab === 'chat'} onClick={() => { setTab('chat'); if (!expanded) onToggle(); }}><MessageCircle size={16}/>Чат</Button>
+      <Button data-guide="actors" aria-pressed={tab === 'actors'} onClick={() => { setTab('actors'); if (!expanded) onToggle(); }}><Users size={16}/>Персонажи</Button>
       {role === 'gm' && <Button aria-pressed={tab === 'party'} onClick={() => { setTab('party'); if (!expanded) onToggle(); }}><HeartPulse size={16}/>Партия</Button>}
       {!expanded && battle && <Button aria-pressed={tab === 'combat'} onClick={() => { setTab('combat'); onToggle(); }}><Swords size={16}/>Раунд {battle.round}</Button>}
-      {role === 'gm' && <Button aria-pressed={tab === 'scenes'} onClick={() => { setTab('scenes'); if (!expanded) onToggle(); }}><Layers size={16}/>Сцены</Button>}
+      {role === 'gm' && <Button data-guide="scenes" aria-pressed={tab === 'scenes'} onClick={() => { setTab('scenes'); if (!expanded) onToggle(); }}><Layers size={16}/>Сцены</Button>}
     </nav>
     {expanded && (tab === 'scenes' && role === 'gm' ? scenes : tab === 'party' && role === 'gm' ?
       <PartyOverview actors={actors} tokens={sceneTokens} sceneName={sceneName} onSheet={onSheet} onHeroHp={onHeroHp} onTokenHp={onTokenHp}/>
@@ -172,7 +172,7 @@ function InitiativeEditor({ actors, sceneActorIds, battle, onCancel, onSave, onR
   </form>;
 }
 
-export function RollResults({ entries, role, expanded, animate }: { entries: Entry[]; role: Role; expanded: boolean; animate: boolean }) {
+export function RollResults({ entries, role, expanded, animate, style = 'lantern' }: { entries: Entry[]; role: Role; expanded: boolean; animate: boolean; style?: DiceStyle }) {
   const seen = useRef(new Set(entries.map(entry => entry.id)));
   const [queue, setQueue] = useState<Entry[]>([]);
   const result = queue.find(entry => role === 'gm' || !entry.secret);
@@ -193,12 +193,12 @@ export function RollResults({ entries, role, expanded, animate }: { entries: Ent
   const { dice, sides, bonus, mode, faces, critical } = result.roll;
   const chosen = mode === 'advantage' ? Math.max(...dice) : mode === 'disadvantage' ? Math.min(...dice) : dice[0];
   const natural = sides === 20 && (dice.length === 1 || mode !== 'normal') && (chosen === 1 || chosen === 20);
-  return <aside className={`roll-result glass ${expanded ? '' : 'roll-result-collapsed'} ${natural && critical ? 'roll-critical-' + chosen : ''}`}
+  return <aside className={`roll-result roll-${style} glass ${expanded ? '' : 'roll-result-collapsed'} ${natural && critical ? 'roll-critical-' + chosen : ''}`}
       aria-label="Глобальный результат броска" aria-live="polite" role="status">
     <div><strong>{result.text}</strong>
       <span className="roll-dice" key={result.id}>
         {dice.map((value, i) => <span key={i} className={mode !== 'normal' && value !== chosen ? 'roll-discarded' : ''}>
-          {i < 4 && <DiceVisual sides={faces?.[i] ?? sides} value={value} animate={animate}/>}
+          {style !== 'readout' && i < 4 && <DiceVisual sides={faces?.[i] ?? sides} value={value} animate={animate}/>}
           <small>d{faces?.[i] ?? sides}: <b>{value}</b></small>
         </span>)}
       </span>
@@ -219,6 +219,7 @@ const savedPools: { groups: Record<number, number>; bonus: number; formula: stri
 
 export function DiceOverlay({ role, onRoll, onPool, onClose, staticDice, onStatic }: { role: Role; onRoll: Roll; onPool: RollPool; onClose: () => void; staticDice: boolean; onStatic: (value: boolean) => void }) {
   const [die, setDie] = useState(20);
+  const [count, setCount] = useState(1);
   const [mode, setMode] = useState<Parameters<Roll>[1]>('normal');
   const [secret, setSecret] = useState(false);
   const [composer, setComposer] = useState(false);
@@ -232,21 +233,23 @@ export function DiceOverlay({ role, onRoll, onPool, onClose, staticDice, onStati
   }
   const terms = Object.entries(groups).filter(([, count]) => count > 0).map(([face, count]) => `${count}d${face}`);
   const formula = terms.join(' + ') + (bonus ? ` ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)}` : '');
-  return <FloatingWindow id="dice" label="Быстрый бросок" className="dice-overlay glass">
+  return <FloatingWindow id="dice" label="Быстрый бросок" className="dice-overlay dice-play glass">
     <header><div className="segmented">
-      <Button aria-pressed={!composer} onClick={() => setComposer(false)}>Быстрый</Button>
-      <Button aria-pressed={composer} onClick={() => setComposer(true)}>Конструктор</Button>
+      <Button aria-pressed={!composer} onClick={() => setComposer(false)}>Один тип</Button>
+      <Button aria-pressed={composer} onClick={() => setComposer(true)}>Смешанный набор</Button>
     </div><IconButton label="Закрыть кубики" onClick={onClose}><X size={16}/></IconButton></header>
     {composer ? <div className="dice-list">
       {sides.map(size => <div className="dice-count" key={size}>
         <Button aria-label={`Добавить d${size}`} aria-pressed={Boolean(groups[size])} onClick={() => adjustDie(size, 1)}
-          onContextMenu={event => { event.preventDefault(); adjustDie(size, -1); }}>d{size} <small>×{groups[size] ?? 0}</small></Button>
+          onContextMenu={event => { event.preventDefault(); adjustDie(size, -1); }}><DiceGlyph sides={size}/>d{size} <small>×{groups[size] ?? 0}</small></Button>
         {Boolean(groups[size]) && <IconButton label={`Убрать d${size}`} onClick={() => adjustDie(size, -1)}>−</IconButton>}
       </div>)}
-    </div> : <div className="dice-list">{sides.map(size => <Button key={size} aria-pressed={size === die} onClick={() => { setDie(size); if (size !== 20) setMode('normal'); }}>d{size}</Button>)}</div>}
+    </div> : <div className="dice-list">{sides.map(size => <Button key={size} aria-pressed={size === die} onClick={() => { setDie(size); if (size !== 20) setMode('normal'); }}><DiceGlyph sides={size}/>d{size}</Button>)}</div>}
     <div className="form-grid">
+      {!composer && <label>Количество<input aria-label="Количество кубиков" type="number" min={1} max={20} value={count}
+        onChange={event => { const next=Math.max(1,Math.min(20,Math.trunc(Number(event.target.value))||1));setCount(next);if(next!==1)setMode('normal'); }}/></label>}
       <label>Модификатор<input type="number" value={bonus} onChange={event => setBonus(Math.trunc(Number(event.target.value)) || 0)}/></label>
-      {!composer && <select aria-label="Режим броска" value={mode} disabled={die !== 20} onChange={e => setMode(e.target.value as Parameters<Roll>[1])}><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select>}
+      {!composer && <select aria-label="Режим броска" value={mode} disabled={die !== 20 || count !== 1} onChange={e => setMode(e.target.value as Parameters<Roll>[1])}><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select>}
       <label className="checkline"><input type="checkbox" checked={staticDice} onChange={event => onStatic(event.target.checked)}/>Без анимации</label>
       {role === 'gm' && <label className="checkline"><input type="checkbox" checked={secret} onChange={e => setSecret(e.target.checked)}/>Скрытый</label>}
     </div>
@@ -264,8 +267,8 @@ export function DiceOverlay({ role, onRoll, onPool, onClose, staticDice, onStati
       }}><option value="">Загрузить комбинацию</option>{saved.map(item => <option key={item.formula}>{item.formula}</option>)}</select>}
     </>}
     <div className="dice-submit"><Button className="primary" disabled={composer && !terms.length}
-      onClick={() => setResult(composer ? onPool(groups, bonus, secret, formula) : onRoll(die, mode, secret, bonus))}>
-      {composer ? 'Бросить комбинацию' : `Бросить d${die}`}
+      onClick={() => setResult(composer ? onPool(groups, bonus, secret, formula) : count > 1 ? onPool({[die]:count}, bonus, secret, `${count}d${die}`) : onRoll(die, mode, secret, bonus))}>
+      {composer ? 'Бросить комбинацию' : `Бросить ${count > 1 ? count : ''}d${die}`}
     </Button>{result !== undefined && <output aria-label="Результат броска">{result}</output>}</div>
   </FloatingWindow>;
 }
