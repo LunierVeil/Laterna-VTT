@@ -1,5 +1,6 @@
 """PB-08C tests use isolated installations and DataHome fixtures."""
 import asyncio
+from contextlib import closing
 import errno
 import hashlib
 from pathlib import Path
@@ -395,6 +396,43 @@ def test_missing_registration_cannot_be_recreated_for_retired_alpha(installation
         cutover.prepare(server, legacy, fresh)
     assert not (state / "operation.json").exists()
     assert not fresh.exists()
+
+
+@pytest.mark.parametrize("entry", ["launcher", "backend"])
+def test_lost_registration_after_replacing_package_holds(installation, monkeypatch, entry):
+    from app import main
+
+    server, legacy, target = installation
+    cutover.prepare(server, legacy, target)
+    cutover.activate(server)
+    with closing(sqlite3.connect(target / "lanterna.db")) as db, db:
+        db.execute("UPDATE campaigns SET name='confirmed before ZIP replacement'")
+    server.parent.rename(server.parent.with_name("previous-zip"))
+    server.mkdir(parents=True)
+    root = cutover.state_path(server)
+    root.rename(root.with_name("unavailable-registration"))
+    assert root.with_suffix(root.suffix + ".lock").is_file()
+    fresh = target.with_name("fresh-default")
+
+    if entry == "launcher":
+        with pytest.raises(pre_upgrade.UpgradeBlocked, match="HOLD"):
+            cutover.selected_home(server)
+    else:
+        monkeypatch.setattr(main.config, "SERVER_DIR", server)
+        monkeypatch.setattr(main.config, "STARTUP_CWD", server)
+        monkeypatch.setattr(main.config, "STORAGE_PATHS", cutover.paths_for(fresh, server))
+
+        async def run():
+            async with main.lifespan(main.app):
+                pytest.fail("Runtime started and initialized an empty table")
+
+        with pytest.raises(pre_upgrade.UpgradeBlocked, match="HOLD"):
+            asyncio.run(run())
+    assert not (fresh / "lanterna.db").exists()
+    assert not (fresh / "gm_key.txt").exists()
+    assert not (fresh / "uploads").exists()
+    with closing(sqlite3.connect(target / "lanterna.db")) as db:
+        assert db.execute("SELECT name FROM campaigns").fetchone() == ("confirmed before ZIP replacement",)
 
 
 def test_historical_code_fingerprint_accepts_only_line_ending_conversion(tmp_path):

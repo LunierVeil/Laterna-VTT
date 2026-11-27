@@ -51,10 +51,16 @@ def _enrollment(server: Path) -> Path:
     return server / ".laterna-cutover-bound"
 
 
+def _lease_path(root: Path) -> Path:
+    return root.with_name(root.name + ".lock")
+
+
 def _state_exists(server: Path) -> bool:
-    if _present(state_path(server)):
+    root = state_path(server)
+    if _present(root):
         return True
-    if _present(_enrollment(server)):
+    lease = _lease_path(root)
+    if _present(_enrollment(server)) or (_entry(lease, directory=False) and lease.stat().st_size):
         raise UpgradeBlocked("Утрачена регистрация обновлённой установки. HOLD.")
     return False
 
@@ -115,7 +121,7 @@ def _write(path: Path, record: dict, *, replace: bool = False) -> None:
 
 @contextmanager
 def _installation_lease(root: Path, *, shared: bool):
-    lock_path = root.with_name(root.name + ".lock")
+    lock_path = _lease_path(root)
     _entry(lock_path, directory=False)
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
@@ -126,7 +132,7 @@ def _installation_lease(root: Path, *, shared: bool):
             lock_installation(fd, shared=shared)
         except OSError as exc:
             raise UpgradeBlocked("Установка занята запуском или обновлением. HOLD.") from exc
-        yield
+        yield fd
     finally:
         os.close(fd)
 
@@ -141,10 +147,22 @@ def runtime_lease(server: Path):
 def _operation(root: Path, *, create: bool = False):
     if sys.platform != "linux" and not (sys.platform == "win32" and windows_upgrade_allowed()):
         raise UpgradeBlocked("Windows Alpha upgrade закрыт до проверки долговечности публикации.")
-    with _installation_lease(root, shared=False):
+    with _installation_lease(root, shared=False) as lease:
+        if create and os.fstat(lease).st_size and not _present(root):
+            raise UpgradeBlocked("Утрачена регистрация обновлённой установки. HOLD.")
         _private(root, create=create)
         _mount_id(root)
-        yield
+        yield lease
+
+
+def _record_enrollment(root: Path, lease: int) -> None:
+    # The existing lock survives ZIP replacement. A nonempty file can only
+    # deny startup when registration is unavailable.
+    identity = _directory_id(root.parent)
+    if not os.fstat(lease).st_size and os.write(lease, b"1") != 1:
+        raise UpgradeBlocked("Не удалось записать признак регистрации. HOLD.")
+    os.fsync(lease)
+    _sync_directory(root.parent, identity)
 
 
 def _present(path: Path) -> bool:
@@ -312,11 +330,11 @@ def prepare(server: Path, legacy: Path, target: Path) -> UpgradeSnapshot:
             _check_code(actual, digest)
     if "LANTERNA_GM_KEY" in os.environ:
         raise UpgradeBlocked("Для переноса требуется файловый ключ ГМ.")
-    with _operation(root, create=True):
+    with _operation(root, create=True) as lease:
         _same_volume(root, server, legacy, legacy.parent, target.parent)
         operation = root / "operation.json"
         previous = _request(root) if _present(operation) else None
-        if not previous and (_present(_enrollment(server)) or any(
+        if not previous and (os.fstat(lease).st_size or _present(_enrollment(server)) or any(
             _present(archived) for _, archived, _, _, _ in _legacy_paths(root, legacy)
         )):
             raise UpgradeBlocked("Утрачена регистрация существующей попытки. HOLD.")
@@ -343,6 +361,7 @@ def prepare(server: Path, legacy: Path, target: Path) -> UpgradeSnapshot:
             _sync_directory(root, _directory_id(root))
         request = {"id": identifier, "legacy": str(legacy), "source": str(source), "target": str(target),
                    "cancelled": False, "sealed": False}
+        _record_enrollment(root, lease)
         _write(operation, request, replace=previous is not None)
         binding = _enrollment(server)
         if not _present(binding):
@@ -386,7 +405,7 @@ def _decision(root: Path, request: dict) -> dict:
 
 def activate(server: Path) -> None:
     root = state_path(server)
-    with _operation(root):
+    with _operation(root) as lease:
         request = _request(root)
         if request["cancelled"]:
             raise UpgradeBlocked("Попытка отменена.")
@@ -398,6 +417,7 @@ def activate(server: Path) -> None:
             target = Path(_activation_record(root, request)["target"])
             with own_storage(paths_for(target, server)):
                 _selected(root)
+                _record_enrollment(root, lease)
                 _confirm(root)
             return
         source, target = Path(request["source"]), Path(request["target"])
@@ -405,6 +425,7 @@ def activate(server: Path) -> None:
             _retire(root, Path(request["legacy"]), prepare=True)
             _same_volume(root, source, target)
             _prepared(request, target)
+            _record_enrollment(root, lease)
             _sync_directory(target, _directory_id(target))
             _sync_directory(target.parent, _directory_id(target.parent))
             # Negative evidence only: this barrier permanently closes abort

@@ -148,7 +148,7 @@ def unpack_windows_candidate(candidate: Path | None, application: Path):
                         encoding="utf-8")
 
 
-def provision(root: Path, candidate: Path | None, mode: str):
+def provision(root: Path, candidate: Path | None, mode: str, historical_archive: Path | None):
     alpha, beta, profile = (root / name for name in ("Alpha", "Beta", "Profile"))
     profile.mkdir()
     alpha.mkdir()
@@ -162,7 +162,8 @@ def provision(root: Path, candidate: Path | None, mode: str):
                         ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copy2(ROOT / "laterna.sh", beta / "laterna.sh")
     files = ["server/app", "windows/laterna.bat", "windows/laterna.ps1", "laterna.sh"]
-    historical = subprocess.check_output(["git", "archive", HISTORICAL, *files], cwd=ROOT)
+    historical = (historical_archive.read_bytes() if historical_archive else
+                  subprocess.check_output(["git", "archive", HISTORICAL, *files], cwd=ROOT))
     with tarfile.open(fileobj=io.BytesIO(historical)) as archive:
         archive.extractall(alpha, filter="data")
     if os.name == "nt":
@@ -182,7 +183,15 @@ windows_flush(root)
 """, str(root))
     execute(source, env, BOOT)
     (source / "uploads" / ("1" * 32 + ".png")).write_bytes(b"PB-08C synthetic media")
-    sync_json(root / "fixture.json", {"original": inventory(source), "mode": mode})
+    with closing(sqlite3.connect(source / "lanterna.db")) as db, db:
+        db.execute("UPDATE scenes SET background_url = ?", ("/uploads/" + "1" * 32 + ".png",))
+        db.execute(
+            """INSERT INTO characters (id, campaign_id, name, system, data_json, created_at, updated_at)
+               SELECT ?, id, 'PB08C sheet', 'dnd5e', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM campaigns""",
+            ("93be5a40-7cb4-448a-983b-d0e539ec871b", '{"level":3}'),
+        )
+    sync_json(root / "fixture.json", {"original": inventory(source), "mode": mode,
+                                      "contents": table_contents(source)})
     execute(beta / "server", env, """from pathlib import Path
 from app.pre_upgrade import _directory_id, _sync_directory, _sync_file
 root = Path(sys.argv[1])
@@ -228,6 +237,53 @@ def confirmed_write(destination: Path):
         connection.commit()
     finally:
         connection.close()
+
+
+def table_contents(home: Path):
+    with closing(sqlite3.connect((home / "lanterna.db").as_uri() + "?mode=ro", uri=True)) as db:
+        records = {
+            "campaigns": db.execute("SELECT id, active_scene_id FROM campaigns ORDER BY id").fetchall(),
+            "scenes": db.execute(
+                "SELECT id, campaign_id, name, background_url FROM scenes ORDER BY id").fetchall(),
+            "sheets": db.execute(
+                "SELECT id, campaign_id, name, system, data_json FROM characters ORDER BY id").fetchall(),
+        }
+        assert all(records.values())
+    return {name: [list(row) for row in rows] for name, rows in records.items()}
+
+
+def verify_contents(home: Path, evidence):
+    assert table_contents(home) == evidence["contents"]
+    payload = inventory(home)
+    payload.pop("lanterna.db")
+    assert payload == {name: value for name, value in evidence["original"].items() if name != "lanterna.db"}
+
+
+def check_empty_start_held(root, server, env):
+    fresh = root / "UnexpectedDataHome"
+    result = execute(server, {**env, "LANTERNA_DATA_HOME": str(fresh)}, BOOT, success=False)
+    assert "HOLD" in result.stderr
+    assert not any((fresh / entry).exists() for entry in ("lanterna.db", "gm_key.txt", "uploads"))
+
+
+def check_windows_barrier_failure(root, server, destination, env):
+    before = inventory(destination)
+    for code in ("1117", "112"):  # ERROR_IO_DEVICE, ERROR_DISK_FULL
+        result = execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, """
+import ctypes
+from pathlib import Path
+from app import offline_cutover
+state = Path(sys.argv[1])
+original = offline_cutover._sync_directory
+def sync(directory, identity):
+    if directory == state:
+        raise ctypes.WinError(int(sys.argv[2]))
+    original(directory, identity)
+offline_cutover._sync_directory = sync
+""" + BOOT, str(root / f".{server.parent.name}.laterna-cutover"), code, success=False)
+        assert f"[WinError {code}]" in result.stderr
+        assert inventory(destination) == before
+    check_empty_start_held(root, server, env)
 
 
 def verify_beta(server, destination, env, *, expect_record=False):
@@ -338,10 +394,12 @@ def check_rebind(root, server, destination, env):
     restored_files.pop("lanterna.db")
     retained_files.pop("lanterna.db")
     assert restored_files == retained_files
+    return restored
 
 
-def trial(root, candidate, mode):
-    server, source, destination, env = provision(root, candidate, mode)
+def trial(root, candidate, mode, historical_archive):
+    server, source, destination, env = provision(root, candidate, mode, historical_archive)
+    _, _, _, _, evidence = paths(root)
     check_runtime_exclusion(root, server, source, destination, env)
     prepare(server, source, destination, env)
     assert inventory(destination)["gm_key.txt"] == inventory(source)["gm_key.txt"]
@@ -360,12 +418,27 @@ def trial(root, candidate, mode):
         server.parent.rename(previous)
         unpack_windows_candidate(candidate, server.parent)
         verify_beta(server, destination, env, expect_record=True)
+        check_windows_barrier_failure(root, server, destination, env)
+        print(f"PASS: {mode} Windows I/O and disk-full errors blocked backend admission")
         print(f"PASS: {mode} active DataHome retained after replacing the Windows ZIP")
     for journal in ("DELETE", "WAL"):
         check_replay(server, destination, env, journal)
-    check_rebind(root, server, destination, env)
-    expected = json.loads((root / "fixture.json").read_text(encoding="utf-8"))["original"]
-    assert inventory(source) == expected
+        verify_contents(destination, evidence)
+    restored = check_rebind(root, server, destination, env)
+    verify_contents(restored, evidence)
+    if os.name == "nt":
+        state = root / f".{server.parent.name}.laterna-cutover"
+        state.rename(root / "UnavailableRegistration")
+        assert state.with_name(state.name + ".lock").is_file()
+        fresh_profile = root / "FreshProfile"
+        result = shell(server, {**env, "LOCALAPPDATA": str(fresh_profile)}, "-Action", "Paths", "-Storage",
+                       "Profile", success=False)
+        assert "HOLD" in result.stderr
+        assert not (fresh_profile / "LaternaVTT").exists()
+        check_empty_start_held(root, server, env)
+        verify_contents(restored, evidence)
+        print(f"PASS: {mode} lost registration after ZIP replacement held launcher and direct startup")
+    assert inventory(source) == evidence["original"]
     print(f"PASS: {mode} preparation, explicit activation, historic entries, startup, SQLite recovery, and rebind")
 
 
@@ -417,12 +490,17 @@ def verify_restart(root: Path, point: str):
             cli(server, env, "cancel", success=False)
         execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, BOOT, success=False)
     execute(server, {**env, "LANTERNA_DATA_HOME": str(source)}, BOOT, success=False)
+    check_empty_start_held(root, server, env)
+    if point in {"after-activation", "confirmed-write", "sqlite-rollback", "sqlite-wal", "recovery"}:
+        verify_contents(destination, evidence)
     print(f"PASS: post-restart invariants for {point}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--zip", type=Path)
+    parser.add_argument("--historical-archive", type=Path)
+    parser.add_argument("--require-standard-user", action="store_true")
     parser.add_argument("--scratch", type=Path, required=True)
     parser.add_argument("--mode", choices=("Profile", "Portable"), default="Profile")
     parser.add_argument("--pause", choices=("before-source-fence", "after-source-fence", "staging",
@@ -430,6 +508,12 @@ def main():
                         "after-activation", "confirmed-write", "sqlite-rollback", "sqlite-wal", "recovery"))
     parser.add_argument("--resume", type=Path)
     args = parser.parse_args()
+    if args.require_standard_user:
+        import ctypes
+
+        if os.name != "nt" or ctypes.windll.shell32.IsUserAnAdmin():
+            parser.error("Windows qualification must run as a standard user")
+        print("PB08C_WINDOWS_STANDARD_USER", flush=True)
     if args.resume:
         if not args.pause or args.resume.parent.resolve() != args.scratch.resolve() or not args.resume.name.startswith("pb08c-"):
             parser.error("--resume requires a previous fixture and its --pause")
@@ -438,11 +522,11 @@ def main():
     root = Path(mkdtemp(prefix="pb08c-", dir=args.scratch))
     print(f"PB08C_VM_FIXTURE {root}", flush=True)
     if args.pause:
-        provision(root, args.zip, args.mode)
+        provision(root, args.zip, args.mode, args.historical_archive)
         launch_pause(root, args.pause)
     else:
         try:
-            trial(root, args.zip, args.mode)
+            trial(root, args.zip, args.mode, args.historical_archive)
         finally:
             shutil.rmtree(root)
 

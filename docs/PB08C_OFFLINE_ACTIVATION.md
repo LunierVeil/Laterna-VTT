@@ -23,9 +23,11 @@ mount. Известный Linux launcher и конфигурация истор�
 служебный source fence. DataHome или код между томами не переносится автоматически.
 
 Состояние установки хранится рядом с каталогом приложения в
-`.<имя-установки>.laterna-cutover`. Привязка внутри установки позволяет обнаружить
-пропажу внешней регистрации и отклонить первый запуск пустого стола. Привязка
-сама по себе не разрешает запись. Дополнительно backend требует совпадения
+`.<имя-установки>.laterna-cutover`. Существующий соседний файл блокировки
+получает долговечный признак регистрации под исключительной блокировкой до
+публикации операции. После полной замены ZIP он сохраняется. При утрате
+внешней регистрации признак переводит launcher и backend в HOLD до создания
+SQLite, seed и ключа. Допуск выдаёт только `activation.json`. Backend требует совпадения
 DataHome, файловых путей, тома, идентичностей каталога и SQLite и target fence.
 Если регистрация доступна, обычная замена файлов Beta в том же пути не меняет
 выбранный DataHome. Перемещение установки или потеря доказательств требует
@@ -116,9 +118,11 @@ Prepare принимает абсолютные `-AlphaServer` и `-Destination`
 `Windows release` с `candidate_ref` равным точному SHA, `publish=false` и
 `pb08c_qualification=true`. Квалификация распаковывает пакет в изолированную
 копию, включает допуск только внутри неё и использует подлинные исходники Alpha.
-Она проверяет реальный Win32 API, сохранность активной цели при замене ZIP и
-явный rebind на отдельную цель после проверенного восстановления.
-Отзыва или снятия production gate при этом нет.
+Квалификация запускает Profile и Portable под временной обычной локальной
+учётной записью. Она проверяет реальный Win32 API, сохранность активной цели
+при замене ZIP, HOLD при последующей потере регистрации и явный rebind после
+восстановления. Ошибки Win32 I/O и заполнения диска внедряются в барьер допуска.
+Production gate остаётся закрытым.
 
 Для проверки после reboot и остановки VM нужен постоянный локальный диск гостя
 (Btrfs/ext4/XFS для Linux, фиксированный NTFS для Windows), рабочая копия репозитория
@@ -132,8 +136,9 @@ python scripts/pb08c-qualification.py --scratch <durable-fixture-parent> --mode 
 python scripts/pb08c-qualification.py --scratch <durable-fixture-parent> --mode Profile --pause <point> --resume <PB08C_VM_FIXTURE>
 ```
 
-Для Windows добавить `--zip <candidate.zip>` к первой команде и повторить
-с `--mode Portable`. Для каждой пары профиль/точка создать новый fixture.
+Для Windows добавить `--require-standard-user` к обеим командам и
+`--zip <candidate.zip>` к первой, затем повторить с `--mode Portable`.
+Для каждой пары профиль/точка создать новый fixture.
 Доступные точки включают before-source-fence, after-source-fence, staging,
 before-target-publish, after-target-publish, activation, after-activation,
 confirmed-write, sqlite-rollback, sqlite-wal и recovery. Обе точки SQLite
@@ -144,8 +149,10 @@ confirmed-write, sqlite-rollback, sqlite-wal и recovery. Обе точки SQLi
 перезагрузить гостя штатно, либо выключить VM со стороны гипервизора без
 гостевого shutdown. Эти результаты фиксируются отдельно. Скрипт проверяет
 хеши Alpha, отсутствие ошибочного запуска, а после активации также текущую
-ревизию, SQLite integrity и FK, доступ к выбранному DataHome и подтверждённую
-запись там, где она уже была сделана.
+ревизию, SQLite integrity и FK, UUID кампании, сцены и листа, связь активной
+сцены, данные листа, хеши медиа и ключа ГМ. Проверяется подтверждённая запись
+там, где она уже была сделана. Попытка прямого запуска с пустым DataHome
+должна завершиться HOLD до создания SQLite, seed, медиа и ключа.
 
 [PB-05 DataHome](PB05_DATAHOME.md) · [PB-06 backup/restore](PB06_BACKUP.md) ·
 [PB-07 snapshot](PB07_AUTOMATIC_BACKUP.md) · [PB-08B подготовка](PB08_ALEMBIC.md)

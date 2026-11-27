@@ -146,14 +146,7 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin 4d2797d4589d42c11ac7e6fb6b13d338d011190f
           if ($LASTEXITCODE -ne 0) { throw 'Historical Alpha sources unavailable' }
-          $PSNativeCommandUseErrorActionPreference = $false
-          python scripts/pb08c-qualification.py --zip "dist/$env:PACKAGE_NAME.zip" --scratch "$env:RUNNER_TEMP" --mode Profile
-          $profileExit = $LASTEXITCODE
-          python scripts/pb08c-qualification.py --zip "dist/$env:PACKAGE_NAME.zip" --scratch "$env:RUNNER_TEMP" --mode Portable
-          $portableExit = $LASTEXITCODE
-          if ($profileExit -ne 0 -or $portableExit -ne 0) {
-            throw "Windows qualification failed (Profile=$profileExit Portable=$portableExit)"
-          }
+          ./scripts/test-pb08c-standard-user.ps1 -ZipPath "dist/$env:PACKAGE_NAME.zip"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
