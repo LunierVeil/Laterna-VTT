@@ -161,18 +161,26 @@ def windows_directory_permissions(path: Path, *, private: bool) -> None:
     result = _powershell_json("ACL", r"""
 $acl = Get-Acl -LiteralPath $env:LATERNA_PROBE_ARG_0
 $sidType = [System.Security.Principal.SecurityIdentifier]
-$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$allowed = @($user, 'S-1-5-18', 'S-1-5-32-544')
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$user = $identity.User.Value
+$administrators = 'S-1-5-32-544'
+$principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
+$isAdministrator = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 $owner = $acl.GetOwner($sidType).Value
+$ownerIsTrusted = $owner -eq $user -or ($owner -eq $administrators -and $isAdministrator)
+# S-1-3-4 (OWNER RIGHTS) grants access to the already-checked owner.
+$allowed = @($user, 'S-1-5-18', $administrators, 'S-1-3-4')
 $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
     $other = $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowed
     $inheritOnly = $_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly
     $canModify = ([long]$_.FileSystemRights -band 0x500D0156) -ne 0
     $other -and ($env:LATERNA_PROBE_ARG_1 -eq 'private' -or (-not $inheritOnly -and $canModify))
 })
-@{ok = ($owner -eq $user -and $bad.Count -eq 0)} | ConvertTo-Json -Compress
+@{owner = $ownerIsTrusted; restricted = ($bad.Count -eq 0)} | ConvertTo-Json -Compress
 """, str(path), "private" if private else "parent")
-    if result != {"ok": True}:
+    if not isinstance(result, dict) or result.get("owner") is not True:
+        raise OSError("Владелец каталога обновления Windows не подтверждён.")
+    if result.get("restricted") is not True:
         raise OSError("ACL каталога Windows допускает доступ вне проверяемой локальной установки.")
 
 
