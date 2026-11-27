@@ -47,7 +47,8 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
     {page === 'scenes' && <SceneLibrary campaign={campaign} onActivate={onActivate} onSave={(next, active) => { commands.writeScene(next, active); commands.notify('Сцена сохранена'); }} onDelete={commands.removeScene} onFolder={name => addFolder('sceneFolders', name)}/>}
     {page === 'assets' && <AssetLibrary assets={campaign.assets} folders={campaign.assetFolders}
       onUpload={asset => { commands.updateCampaign(current => ({ ...current, assets: [...current.assets, asset] })); commands.notify('Ассет добавлен'); }}
-      onFolder={name => addFolder('assetFolders', name)} onPlace={placeAsset} onPortrait={onPortrait}
+      onFolder={name => addFolder('assetFolders', name)}
+      onDecal={(name, decal) => onPlace({ kind: 'prop', name, decal, symbol: 'map', color: '#ac8c67' })} onPlace={placeAsset} onPortrait={onPortrait}
       onMove={(id, folder) => commands.updateCampaign(current => ({
         ...current, assets: current.assets.map(asset => asset.id === id ? { ...asset, folder } : asset),
       }))}

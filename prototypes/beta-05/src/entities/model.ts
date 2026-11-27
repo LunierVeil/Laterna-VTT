@@ -6,6 +6,7 @@ export type ObjectKind = 'token' | 'prop' | 'wall' | 'door' | 'window' | 'light'
 export const tokenSizes = { small: "Маленький", medium: "Средний", large: "Большой", giant: "Гигантский" } as const;
 export type TokenSize = keyof typeof tokenSizes;
 export type WallMode = 'line' | 'curve' | 'rectangle' | 'circle' | 'ellipse';
+export interface DecalPattern { kind: 'tracks' | 'stones' | 'cracks' | 'leaves' | 'embers'; size: number; rotation: number; variant: number }
 export interface MapObject extends Point {
   id: string;
   kind: ObjectKind;
@@ -30,6 +31,7 @@ export interface MapObject extends Point {
   size?: TokenSize;
   hp?: number;
   image?: string;
+  decal?: DecalPattern;
 }
 export interface Scene {
   id: string;
@@ -148,7 +150,7 @@ export interface Entry {
 }
 export interface CombatParticipant { id: string; initiative: number }
 export interface Combat { order: string[]; initiative: Record<string, number>; turn: number; round: number }
-export interface Placement { name: string; kind: 'prop' | 'token'; symbol: string; color: string; actorId?: string; image?: string }
+export interface Placement { name: string; kind: 'prop' | 'token'; symbol: string; color: string; actorId?: string; image?: string; decal?: DecalPattern }
 
 export const uid = () => crypto.randomUUID();
 export const participant = 'Элара';

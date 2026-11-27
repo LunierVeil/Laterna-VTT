@@ -66,6 +66,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   const object = scene.objects.find(item => item.id === selected && (gm || !item.secret));
   const inspectedToken = scene.objects.find(item => item.id === tokenDetails && (gm || !item.secret));
   const contextual = scene.objects.find(item => item.id === context?.id && (gm || !item.secret));
+  const contextActor = contextual?.kind === 'token' ? campaign.actors.find(actor => actor.id === contextual.actorId) : undefined;
   const hero = campaign.actors.find(actor => actor.id === playerHeroId(campaign)) ?? (gm ? campaign.actors.find(a => a.kind === 'hero') : undefined);
   const materials = campaign.materials.filter(m => canRead(m, 'player'));
   const featuredLetter = materials.find(m => m.shown) ?? materials.find(m => m.kind === 'letter');
@@ -129,6 +130,9 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         if (event.key === 'Escape' && ['sheet', 'roster', 'hero-create', 'journal', 'assets', 'spells'].includes(page)) setPage(null);
         return;
       }
+      if (event.key === 'Escape' && (context || deleting || deleteGroup)) {
+        setContext(undefined); setDeleting(false); setDeleteGroup(false); return;
+      }
       if (event.key === 'Escape') {
         setPlacement(null); setTool('select'); setContext(undefined); setDeleting(false); setGroup([]); return;
       }
@@ -151,7 +155,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
     }
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [page, editing, hotkeys, gm, scene, hero, commands]);
+  }, [page, editing, hotkeys, gm, scene, hero, commands, context, deleting, deleteGroup]);
 
   const brief = placement ? `Разместить: ${placement.name}` : tips[tool];
   const workbench = page && <Workbench key={`${page}/${actorId ?? ''}/${materialId ?? ''}/${quickCreate}/${book}`} expandedSidebar={activity} page={page} campaign={campaign} role={role} quickCreate={quickCreate} openBook={book} srd={srd} actorId={actorId} materialId={materialId} connection={connection} onExit={onExit} reduceMotion={reduceMotion} onMotion={setMotion}
@@ -255,6 +259,11 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
     {context && contextual && <div className="context-menu glass" style={{ left: Math.min(context.x, window.innerWidth - 235), top: Math.min(context.y, window.innerHeight - 170) }} onClick={e => e.stopPropagation()}>
       <strong>{contextual.name}</strong>
       {contextual.actorId && (gm || controls(contextual.actorId)) && <Button className="ghost" onClick={() => openSheet(contextual.actorId)}><Users size={15}/>Открыть лист</Button>}
+      {contextActor && (gm || controls(contextActor.id)) && <div className="inline-form" aria-label="Хиты токена">
+        <IconButton label="Уменьшить хиты" onClick={() => contextActor.kind === 'hero' ? adjustHeroHp(contextActor, -1) : adjustTokenHp(contextual, contextActor, -1)} disabled={!gm && contextActor.kind !== 'hero'}>−</IconButton>
+        <output>{contextActor.kind === 'hero' ? contextActor.hp : contextual.hp ?? contextActor.maxHp} / {contextActor.maxHp} HP</output>
+        <IconButton label="Увеличить хиты" onClick={() => contextActor.kind === 'hero' ? adjustHeroHp(contextActor, 1) : adjustTokenHp(contextual, contextActor, 1)} disabled={!gm && contextActor.kind !== 'hero'}>+</IconButton>
+      </div>}
       {gm && contextual.kind === 'token' && <TokenSizeSelect object={contextual} onObject={updateObject}/>}
       {gm && contextual.kind === 'door' && <Button disabled={contextual.locked} className="ghost" onClick={() => { updateObject({ ...contextual, open: !contextual.open }); setContext(undefined); }}><DoorOpen size={15}/>{contextual.open ? 'Закрыть дверь' : 'Открыть дверь'}</Button>}
       {gm && contextual.kind === 'door' && <Button onClick={() => {

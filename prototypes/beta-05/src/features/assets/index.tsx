@@ -1,11 +1,12 @@
+import { DecalPatterns } from './DecalPatterns';
 import { useState } from 'react';
 import { Folder, ImagePlus, Plus, Search } from 'lucide-react';
-import { uid, type Asset } from '../../entities/model';
+import { uid, type Asset, type DecalPattern } from '../../entities/model';
 import { Button, Empty, Glyph } from '../../shared/ui';
 
 const categories = ['Все', 'Объекты', 'Декали', 'Портреты'] as const;
-export function AssetLibrary({ assets, folders, onUpload, onFolder, onPlace, onPortrait, onRemove, onMove }: {
-  assets: Asset[]; folders: string[]; onUpload: (asset: Asset) => void; onFolder: (name: string) => void;
+export function AssetLibrary({ assets, folders, onUpload, onFolder, onPlace, onPortrait, onRemove, onMove, onDecal }: {
+  onDecal: (name: string, pattern: DecalPattern) => void; assets: Asset[]; folders: string[]; onUpload: (asset: Asset) => void; onFolder: (name: string) => void;
   onPlace: (asset: Asset) => void; onPortrait?: (asset: Asset) => void; onRemove: (id: string) => void; onMove: (id: string, folder: string) => void;
 }) {
   const [kind, setKind] = useState<typeof categories[number]>('Все');
@@ -65,6 +66,7 @@ export function AssetLibrary({ assets, folders, onUpload, onFolder, onPlace, onP
       <button className="button primary" type="submit"><ImagePlus size={15}/>Добавить в библиотеку</button>
     </form>}
     <div className="segmented filter-tabs">{categories.map(category => <Button aria-pressed={kind === category} key={category} onClick={() => setKind(category)}>{category}</Button>)}</div>
+    {kind === 'Декали' && <DecalPatterns onPlace={onDecal}/>}
     {active && <div className="asset-preview">
       <div className="asset-icon" style={{ color: active.color }}><Glyph name={active.symbol} size={30}/></div>
       <div><strong>{active.name}</strong><p>{active.kind} · {active.folder} · {active.source ?? (active.folder === 'Стартовый набор' ? 'Стартовая графика Laterna' : 'Демонстрационная пиктограмма')}</p></div>

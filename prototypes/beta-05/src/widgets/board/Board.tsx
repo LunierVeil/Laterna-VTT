@@ -1,5 +1,6 @@
+import { DecalMark } from '../../shared/map-art/DecalMark';
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type WheelEvent } from 'react';
-import { Compass, DoorClosed, DoorOpen, PanelsTopLeft, Focus, Hand, Minus, Plus } from 'lucide-react';
+import { Compass, DoorClosed, DoorOpen, PanelsTopLeft, Focus, Hand, LockKeyhole, Minus, Plus } from 'lucide-react';
 import { controlsActor, objectKinds, uid, type Actor, type MapObject, type Placement, type Point, type Role, type Scene, type Tool, type WallMode } from '../../entities/model';
 import { MapArt } from '../../shared/map-art';
 import { Glyph, IconButton } from '../../shared/ui';
@@ -239,6 +240,7 @@ export function Board({ actors, heroId, activeActorId, scene, role, editing, too
             {(o.kind === 'door' || o.kind === 'window') && (role === 'player' || o.showGeometryIcon !== false) && <g transform={`translate(${(end.x - p.x) / 2}, ${(end.y - p.y) / 2})`} aria-hidden="true">
               <rect x={-12} y={-12} width={24} height={24} rx={5} fill="#17181e" stroke={lineColors[o.kind]}/>
               <GeometryIcon x={-8} y={-8} width={16} height={16} color={lineColors[o.kind]}/>
+              {role === 'gm' && o.locked && <LockKeyhole x={8} y={-17} width={13} height={13} color="#ffe0a5"/>}
             </g>}
             {editing && active && tool === 'select' && (['start', 'end'] as const).map(endpoint =>
               <circle key={endpoint} data-endpoint={endpoint} className="segment-endpoint"
@@ -265,7 +267,12 @@ export function Board({ actors, heroId, activeActorId, scene, role, editing, too
               {active && <circle r={o.radius ?? 120} fill="none" stroke={o.color} strokeDasharray="5 5"/>}
               <circle r="14" fill="#362b1a" stroke={o.color} strokeWidth={active ? 3 : 1.5}/><g transform="translate(-8 -8)" style={{ color: o.color }}><Glyph name="flame" size={16}/></g>
             </>}
-            {(o.kind === 'token' || o.kind === 'prop') && <g transform={o.kind === 'token' ? `scale(${({ small: .7, medium: 1, large: 2, giant: 3 })[o.size ?? 'medium']})` : undefined}>
+            {o.decal && <g>
+              <rect x={-o.decal.size / 2} y={-o.decal.size / 2} width={o.decal.size} height={o.decal.size} fill="transparent"
+                stroke={active ? '#f0b14a' : 'none'} strokeDasharray="4 4"/>
+              <DecalMark pattern={o.decal}/>
+            </g>}
+            {!o.decal && (o.kind === 'token' || o.kind === 'prop') && <g transform={o.kind === 'token' ? `scale(${({ small: .7, medium: 1, large: 2, giant: 3 })[o.size ?? 'medium']})` : undefined}>
               {activeActorId && o.actorId === activeActorId && <circle r="29" stroke="#efb550" strokeWidth="2" fill="none"/>}
               <circle cy="3" r="24" fill="#0b0c10" opacity=".65"/>
               {group.includes(o.id) && <circle r="27" fill="none" stroke="#f0b14a" strokeWidth="2" strokeDasharray="4 3" pointerEvents="none"/>}
