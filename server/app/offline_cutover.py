@@ -220,8 +220,11 @@ def _check_code(path: Path, expected: str) -> None:
     if not _entry(path, directory=False):
         raise UpgradeBlocked("Не найдена историческая точка входа Alpha.")
     with _regular_file(path) as file:
-        if hashlib.sha256(file.read(MAX_RECORD + 1)).hexdigest() != expected:
-            raise UpgradeBlocked("Не распознана историческая точка входа Alpha.")
+        encoded = file.read(MAX_RECORD + 1)
+    # Git archives and Windows packages apply eol=crlf to the launchers.
+    # Pin the canonical text while retaining BOM and every other byte.
+    if len(encoded) > MAX_RECORD or hashlib.sha256(encoded.replace(b"\r\n", b"\n")).hexdigest() != expected:
+        raise UpgradeBlocked(f"Не распознана историческая точка входа Alpha: {path.name}.")
 
 
 def _legacy_paths(root: Path, legacy: Path):

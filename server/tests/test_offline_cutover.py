@@ -395,3 +395,14 @@ def test_missing_registration_cannot_be_recreated_for_retired_alpha(installation
         cutover.prepare(server, legacy, fresh)
     assert not (state / "operation.json").exists()
     assert not fresh.exists()
+
+
+def test_historical_code_fingerprint_accepts_only_line_ending_conversion(tmp_path):
+    known = b"\xef\xbb\xbf\nfirst\nsecond\n"
+    expected = hashlib.sha256(known).hexdigest()
+    launcher = tmp_path / "laterna.ps1"
+    launcher.write_bytes(known.replace(b"\n", b"\r\n"))
+    cutover._check_code(launcher, expected)
+    launcher.write_bytes(known.replace(b"second", b"another"))
+    with pytest.raises(pre_upgrade.UpgradeBlocked, match="laterna.ps1"):
+        cutover._check_code(launcher, expected)
