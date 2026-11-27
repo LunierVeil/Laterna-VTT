@@ -13,23 +13,32 @@ from time import monotonic
 from uuid import uuid4
 
 from .alpha_upgrade import _validate_equivalence, prepare_alpha_upgrade
+from .cutover_platform import (
+    lock_installation, windows_identity, windows_move,
+    windows_require_legacy_stopped, windows_upgrade_allowed,
+)
 from .data_home import StoragePaths, resolve_storage
 from .instance_backup import (
     MAX_BYTES, _inspect, _measure, _publish, _regular_file, _upload_paths, create_backup, verify_backup,
 )
-from .instance_restore import restore_backup
+from .instance_restore import _restore_backup, lock_restore_destination, restore_backup
 from .pre_upgrade import (
     FENCE, SOURCE_REVISION, UpgradeBlocked, UpgradeSnapshot, _directory_id, _mount_id,
-    _require_known_schema, _sync_directory, _write_exclusive, assert_no_pending_upgrade,
+    _require_known_schema, _require_owned_directory, _sync_directory, _sync_file,
+    _write_exclusive, assert_no_pending_upgrade,
 )
 from .schema_catalog import SchemaState, inspect_schema
 from .schema_migrations import INITIAL_REVISION
-from .storage_lock import _lock, own_storage
+from .storage_lock import own_storage
 from .storage_preflight import _SQLITE_SIDECARS, _entry, check_storage, open_quiescent_sqlite
 
 # Config of the historical Linux tree whose data catalog PB-08B accepts.
 ALPHA_CONFIG = "e45bfb4209b3a6a7898126de5205dcf90b4cdd64b1d8d60e76ae7baf6ca2edda"
 ALPHA_LAUNCHER = "392b33d1db5704d0c7f9e68cfda40520f53a0e3f70a8be240ea2df9072205696"
+ALPHA_WINDOWS_LAUNCHERS = {
+    "laterna.bat": "c665a887ae0b6707ffaa08b11cddc70c6dbc4ab2875cae07f0010ee5646c3e7d",
+    "laterna.ps1": "f8703c55a70d37de8312fd421657775b524d1c323b9daa4a6d8ae4c006b78983",
+}
 MAX_RECORD = 16384
 
 
@@ -56,13 +65,10 @@ def paths_for(home: Path, server: Path) -> StoragePaths:
 
 def _private(path: Path, *, create: bool = False) -> None:
     if create:
-        if not _entry(path.parent, directory=True) or path.parent.stat().st_uid != os.geteuid() or path.parent.stat().st_mode & 0o022:
-            raise UpgradeBlocked("Родитель каталога обновления должен контролироваться оператором.")
+        _require_owned_directory(path.parent)
         path.mkdir(mode=0o700, exist_ok=True)
         _sync_directory(path.parent, _directory_id(path.parent))
-    if (not _entry(path, directory=True) or path.stat().st_uid != os.geteuid()
-            or path.stat().st_mode & 0o077):
-        raise UpgradeBlocked("Каталог состояния обновления должен быть приватным.")
+    _require_owned_directory(path, private=True)
 
 
 def _read(path: Path) -> dict:
@@ -73,7 +79,7 @@ def _read(path: Path) -> dict:
         return result
 
     if not _entry(path, directory=False):
-        raise UpgradeBlocked("Нужна проверяемая запись обновления.")
+        raise UpgradeBlocked("Нужна проверяемая запись обновления. HOLD.")
     with _regular_file(path) as file:
         raw = file.read(MAX_RECORD + 1)
     if len(raw) > MAX_RECORD:
@@ -81,9 +87,9 @@ def _read(path: Path) -> dict:
     try:
         value = json.loads(raw, object_pairs_hook=pairs)
     except (ValueError, RecursionError) as exc:
-        raise UpgradeBlocked("Повреждена запись обновления.") from exc
+        raise UpgradeBlocked("Повреждена запись обновления. HOLD.") from exc
     if not isinstance(value, dict):
-        raise UpgradeBlocked("Повреждена запись обновления.")
+        raise UpgradeBlocked("Повреждена запись обновления. HOLD.")
     return value
 
 
@@ -96,7 +102,10 @@ def _write(path: Path, record: dict, *, replace: bool = False) -> None:
     try:
         _write_exclusive(scratch, payload)
         if replace:
-            os.replace(scratch, path)
+            if sys.platform == "win32":
+                windows_move(scratch, path, replace=True)
+            else:
+                os.replace(scratch, path)
         else:
             _publish(scratch, path)
         _sync_directory(path.parent, identity)
@@ -105,21 +114,37 @@ def _write(path: Path, record: dict, *, replace: bool = False) -> None:
 
 
 @contextmanager
-def _operation(root: Path, *, create: bool = False):
-    if sys.platform != "linux":
-        raise UpgradeBlocked("Windows Alpha upgrade закрыт до проверки долговечности публикации.")
-    _private(root, create=create)
-    _mount_id(root)
-    fd = os.open(root / "operation.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+def _installation_lease(root: Path, *, shared: bool):
+    lock_path = root.with_name(root.name + ".lock")
+    _entry(lock_path, directory=False)
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
-        name = root / "operation.lock"
-        if (os.fstat(fd).st_nlink != 1 or not _entry(name, directory=False)
-                or not os.path.samestat(os.fstat(fd), name.stat())):
-            raise UpgradeBlocked("Неверная блокировка обновления.")
-        _lock(fd)
+        if (os.fstat(fd).st_nlink != 1 or not _entry(lock_path, directory=False)
+                or not os.path.samestat(os.fstat(fd), lock_path.stat())):
+            raise UpgradeBlocked("Неверная блокировка установки.")
+        try:
+            lock_installation(fd, shared=shared)
+        except OSError as exc:
+            raise UpgradeBlocked("Установка занята запуском или обновлением. HOLD.") from exc
         yield
     finally:
         os.close(fd)
+
+
+def runtime_lease(server: Path):
+    # Shared until the backend has stopped and disposed all writers. Ordinary
+    # independent DataHomes still use their own existing PB-05 locks.
+    return _installation_lease(state_path(server), shared=True)
+
+
+@contextmanager
+def _operation(root: Path, *, create: bool = False):
+    if sys.platform != "linux" and not (sys.platform == "win32" and windows_upgrade_allowed()):
+        raise UpgradeBlocked("Windows Alpha upgrade закрыт до проверки долговечности публикации.")
+    with _installation_lease(root, shared=False):
+        _private(root, create=create)
+        _mount_id(root)
+        yield
 
 
 def _present(path: Path) -> bool:
@@ -140,14 +165,15 @@ def _home(value: str) -> Path:
 
 def _request(root: Path) -> dict:
     request = _read(root / "operation.json")
-    if (set(request) != {"id", "legacy", "source", "target", "cancelled"}
+    if (set(request) != {"id", "legacy", "source", "target", "cancelled", "sealed"}
             or not isinstance(request["id"], str) or not re.fullmatch(r"[0-9a-f]{32}", request["id"])
             or not all(isinstance(request[key], str) for key in ("legacy", "source", "target"))
-            or not isinstance(request["cancelled"], bool)):
-        raise UpgradeBlocked("Некорректная регистрация обновления.")
+            or not isinstance(request["cancelled"], bool)
+            or not isinstance(request["sealed"], bool)):
+        raise UpgradeBlocked("Некорректная регистрация обновления. HOLD.")
     for key in ("legacy", "source", "target"):
         _home(request[key])
-    _same_volume(root, Path(request["legacy"]), Path(request["source"]), Path(request["target"]).parent)
+    _same_volume(root, Path(request["legacy"]), Path(request["source"]))
     return request
 
 
@@ -158,6 +184,9 @@ def _same_volume(root: Path, *paths: Path) -> None:
 
 
 def _legacy_stopped(legacy: Path) -> None:
+    if sys.platform == "win32":
+        windows_require_legacy_stopped(legacy)
+        return
     # The supported legacy entrypoints start from this tree or use its
     # absolute --app-dir. The operator must have stopped external writers.
     for process in Path("/proc").iterdir():
@@ -195,11 +224,16 @@ def _check_code(path: Path, expected: str) -> None:
             raise UpgradeBlocked("Не распознана историческая точка входа Alpha.")
 
 
+def _legacy_paths(root: Path, legacy: Path):
+    launchers = ALPHA_WINDOWS_LAUNCHERS if sys.platform == "win32" else {"laterna.sh": ALPHA_LAUNCHER}
+    yield legacy / "app", root / "alpha-app", True, legacy / "app" / "config.py", ALPHA_CONFIG
+    for name, digest in launchers.items():
+        launcher = legacy.parent / name
+        yield launcher, root / f"alpha-{name}", False, launcher, digest
+
+
 def _retire(root: Path, legacy: Path, *, prepare: bool = False) -> None:
-    paths = (
-        (legacy / "app", root / "alpha-app", True, legacy / "app" / "config.py", ALPHA_CONFIG),
-        (legacy.parent / "laterna.sh", root / "alpha-laterna.sh", False, legacy.parent / "laterna.sh", ALPHA_LAUNCHER),
-    )
+    paths = tuple(_legacy_paths(root, legacy))
     if prepare:
         _legacy_stopped(legacy)
         for original, archived, _, check_path, expected in paths:
@@ -270,21 +304,31 @@ def prepare(server: Path, legacy: Path, target: Path) -> UpgradeSnapshot:
         raise UpgradeBlocked("Целевой DataHome уже существует.")
     if not _entry(legacy / "lanterna.db", directory=False):
         raise UpgradeBlocked("Указанный каталог не содержит SQLite исторического сервера Alpha.")
-    if not _present(root / "alpha-app"):
-        _check_code(legacy / "app" / "config.py", ALPHA_CONFIG)
-    if not _present(root / "alpha-laterna.sh"):
-        _check_code(legacy.parent / "laterna.sh", ALPHA_LAUNCHER)
+    for _, archived, _, actual, digest in _legacy_paths(root, legacy):
+        if not _present(archived):
+            _check_code(actual, digest)
     if "LANTERNA_GM_KEY" in os.environ:
         raise UpgradeBlocked("Для переноса требуется файловый ключ ГМ.")
     with _operation(root, create=True):
         _same_volume(root, server, legacy, legacy.parent, target.parent)
         operation = root / "operation.json"
-        if _present(root / "activation.json"):
-            raise UpgradeBlocked("Beta уже активирована. Используйте recovery.")
         previous = _request(root) if _present(operation) else None
+        if not previous and (_present(_enrollment(server)) or any(
+            _present(archived) for _, archived, _, _, _ in _legacy_paths(root, legacy)
+        )):
+            raise UpgradeBlocked("Утрачена регистрация существующей попытки. HOLD.")
+        if _present(root / "activation.json") or (previous and previous["sealed"]):
+            raise UpgradeBlocked("Активация могла быть выполнена. Используйте recovery. HOLD.")
         if previous and (not previous["cancelled"] or previous["legacy"] != str(legacy)
                          or previous["target"] == str(target)):
             raise UpgradeBlocked("Сначала проверьте и отмените предыдущую попытку. Для повтора нужна новая цель.")
+        if not previous:
+            paths = paths_for(legacy, server)
+            with own_storage(paths):
+                # Diagnose incompatible data before archiving either entrypoint.
+                schema = _require_known_schema(legacy / "lanterna.db")
+                if check_storage(paths, server_dir=server, cwd=server, env={}, schema=schema) != "existing":
+                    raise UpgradeBlocked("Исходный DataHome неполон. HOLD.")
         identifier = uuid4().hex
         source = legacy
         if previous and _present(Path(previous["source"]) / FENCE):
@@ -295,7 +339,7 @@ def prepare(server: Path, legacy: Path, target: Path) -> UpgradeSnapshot:
             restore_backup(snapshot, source, schema)
             _sync_directory(root, _directory_id(root))
         request = {"id": identifier, "legacy": str(legacy), "source": str(source), "target": str(target),
-                   "cancelled": False}
+                   "cancelled": False, "sealed": False}
         _write(operation, request, replace=previous is not None)
         binding = _enrollment(server)
         if not _present(binding):
@@ -308,17 +352,30 @@ def prepare(server: Path, legacy: Path, target: Path) -> UpgradeSnapshot:
 
 
 def _identity(path: Path) -> list[int]:
+    if sys.platform == "win32":
+        return list(windows_identity(path))
     return [os.statvfs(path).f_fsid, path.stat().st_ino]
 
 
-def _decision(root: Path, request: dict) -> dict:
+def _activation_record(root: Path, request: dict) -> dict:
     decision = _read(root / "activation.json")
-    target = Path(request["target"])
-    if (request["cancelled"] or set(decision) != {"id", "target", "directory", "database", "marker"}
-            or decision["id"] != request["id"] or decision["target"] != str(target)
-            or not _entry(target, directory=True) or not _entry(target / "lanterna.db", directory=False)):
+    if (request["cancelled"] or not request["sealed"]
+            or set(decision) != {"id", "target", "directory", "database", "marker"}
+            or decision["id"] != request["id"] or not isinstance(decision["target"], str)
+            or not isinstance(decision["marker"], dict)):
         raise UpgradeBlocked("Нельзя подтвердить активный DataHome. HOLD.")
-    if (_identity(target) != decision["directory"] or _identity(target / "lanterna.db") != decision["database"]
+    _home(decision["target"])
+    return decision
+
+
+def _decision(root: Path, request: dict) -> dict:
+    decision = _activation_record(root, request)
+    target = Path(decision["target"])
+    database = target / "lanterna.db"
+    if not _entry(target, directory=True) or not _entry(database, directory=False):
+        raise UpgradeBlocked("Активный DataHome отсутствует. HOLD.")
+    _same_volume(root, target)
+    if (_identity(target) != decision["directory"] or _identity(database) != decision["database"]
             or _read(target / FENCE) != decision["marker"]):
         raise UpgradeBlocked("Активный DataHome или его fence изменён. HOLD.")
     return decision
@@ -332,17 +389,24 @@ def activate(server: Path) -> None:
             raise UpgradeBlocked("Попытка отменена.")
         if _read(_enrollment(server)) != {"state": root.name}:
             raise UpgradeBlocked("Привязка установки к регистрации повреждена. HOLD.")
-        source, target = Path(request["source"]), Path(request["target"])
-        with own_storage(paths_for(target, server)), own_storage(paths_for(source, server)):
-            if _present(root / "activation.json"):
+        if request["sealed"]:
+            if not _present(root / "activation.json"):
+                raise UpgradeBlocked("Не подтверждён исход активации. HOLD.")
+            target = Path(_activation_record(root, request)["target"])
+            with own_storage(paths_for(target, server)):
                 _selected(root)
                 _confirm(root)
-                return
+            return
+        source, target = Path(request["source"]), Path(request["target"])
+        with own_storage(paths_for(target, server)), own_storage(paths_for(source, server)):
             _retire(root, Path(request["legacy"]), prepare=True)
             _same_volume(root, source, target)
             _prepared(request, target)
             _sync_directory(target, _directory_id(target))
             _sync_directory(target.parent, _directory_id(target.parent))
+            # Negative evidence only: this barrier permanently closes abort
+            # and retry, even if the only grant of activation later disappears.
+            _write(root / "operation.json", {**request, "sealed": True}, replace=True)
             _write(root / "activation.json", {
                 "id": request["id"], "target": str(target),
                 "directory": _identity(target), "database": _identity(target / "lanterna.db"),
@@ -351,8 +415,7 @@ def activate(server: Path) -> None:
 
 
 def _confirm(root: Path) -> None:
-    with _regular_file(root / "activation.json") as file:
-        os.fsync(file.fileno())
+    _sync_file(root / "activation.json")
     _sync_directory(root, _directory_id(root))
 
 
@@ -360,11 +423,12 @@ def cancel(server: Path) -> None:
     root = state_path(server)
     with _operation(root):
         request = _request(root)
-        if _present(root / "activation.json"):
-            raise UpgradeBlocked("Активация существует. Отмена и возврат к Alpha запрещены.")
+        if request["sealed"] or _present(root / "activation.json"):
+            raise UpgradeBlocked("Активация могла быть выполнена. Отмена запрещена. HOLD.")
         target, source = Path(request["target"]), Path(request["source"])
         with own_storage(paths_for(target, server)), own_storage(paths_for(source, server)):
-            if _present(root / "alpha-app") or _present(root / "alpha-laterna.sh") or _present(source / FENCE):
+            if (_present(source / FENCE)
+                    or any(_present(archived) for _, archived, _, _, _ in _legacy_paths(root, Path(request["legacy"])))):
                 _retire(root, Path(request["legacy"]), prepare=True)
             if _present(source / FENCE):
                 _prepared(request, target if _present(target) else None)
@@ -374,6 +438,8 @@ def cancel(server: Path) -> None:
 
 
 def status(server: Path) -> str:
+    if sys.platform == "win32" and not windows_upgrade_allowed():
+        return "HOLD: Windows Alpha upgrade закрыт до проверки долговечности публикации."
     root = state_path(server)
     if not _state_exists(server):
         return "UNREGISTERED"
@@ -383,46 +449,52 @@ def status(server: Path) -> str:
         _retire(root, Path(request["legacy"]))
         _decision(root, request)
         return "HOLD" if _present(root / "recovery.json") else "ACTIVATED"
+    if request["sealed"]:
+        return "HOLD"
     if request["cancelled"]:
         return "CANCELLED"
     return "PENDING"
 
 
 def _selected(root: Path) -> Path:
+    if sys.platform == "win32" and not windows_upgrade_allowed():
+        raise UpgradeBlocked("Windows Alpha upgrade закрыт до проверки долговечности публикации.")
+    _private(root)
     request = _request(root)
     _retire(root, Path(request["legacy"]))
-    _decision(root, request)
+    decision = _decision(root, request)
     if _present(root / "recovery.json"):
         raise UpgradeBlocked("Требуется завершить восстановление. HOLD.")
-    return Path(request["target"])
+    return Path(decision["target"])
 
 
 def selected_home(server: Path) -> Path | None:
     root = state_path(server)
     if not _state_exists(server):
         return None
-    with _operation(root):
+    with runtime_lease(server):
         target = _selected(root)
         _confirm(root)
         return target
 
 
 def check_admission(paths: StoragePaths, server: Path) -> bool:
-    """Called under PB-05 locks, before normal startup can write."""
+    """Called under the runtime lease and PB-05 locks, before writes."""
     root = state_path(server)
     if not _state_exists(server):
         assert_no_pending_upgrade(paths)
         return False
-    # This acquisition is nonblocking. Offline takes operation → storage,
-    # so a concurrent operation denies startup instead of deadlocking.
-    with _operation(root):
-        target = _selected(root)
-        expected = paths_for(target, server)
-        if (paths.data_home != target or paths.database_url != expected.database_url
-                or paths.uploads != expected.uploads or paths.gm_key != expected.gm_key
-                or "LANTERNA_GM_KEY" in os.environ):
-            raise UpgradeBlocked("Запуск разрешён только для активированного DataHome. HOLD.")
-        _confirm(root)
+    target = _selected(root)
+    expected = paths_for(target, server)
+    if (paths.data_home != target or paths.database_url != expected.database_url
+            or paths.uploads != expected.uploads or paths.gm_key != expected.gm_key
+            or "LANTERNA_GM_KEY" in os.environ):
+        raise UpgradeBlocked("Запуск разрешён только для активированного DataHome. HOLD.")
+    _confirm(root)
+    proof = root / "rebind-proof.json"
+    if _present(proof):
+        proof.unlink()
+        _sync_directory(root, _directory_id(root))
     return True
 
 
@@ -456,8 +528,7 @@ def _capture_database(database: Path, bundle: Path, deadline: float) -> None:
             continue
         destination = bundle / source.name
         used += _measure(source, deadline, target=destination, limit=MAX_BYTES - used)["size"]
-        with _regular_file(destination) as stream:
-            os.fsync(stream.fileno())
+        _sync_file(destination)
     _sync_directory(bundle, _directory_id(bundle))
 
 
@@ -467,11 +538,11 @@ def recover(server: Path) -> Path:
     pending = root / "recovery.json"
     with _operation(root):
         request = _request(root)
-        target = Path(request["target"])
+        target = Path(_activation_record(root, request)["target"])
         paths = paths_for(target, server)
         with own_storage(paths):
             _retire(root, Path(request["legacy"]))
-            _decision(root, request)
+            decision = _decision(root, request)
             _confirm(root)
             deadline = monotonic() + 120
             database = target / "lanterna.db"
@@ -497,8 +568,7 @@ def recover(server: Path) -> Path:
                 _write(pending, checkpoint)
             # Even a visible checkpoint whose publication was interrupted must
             # be durable before the live SQLite set is opened for recovery.
-            with _regular_file(pending) as file:
-                os.fsync(file.fileno())
+            _sync_file(pending)
             _sync_directory(root, _directory_id(root))
             if _digest_db(database, deadline) != checkpoint["digest"]:
                 raise UpgradeBlocked("SQLite не соответствует проверенной рабочей копии. HOLD.")
@@ -516,8 +586,7 @@ def recover(server: Path) -> Path:
                 raise UpgradeBlocked("Данные изменились при завершении SQLite recovery. HOLD.")
             _decision(root, request)
             with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as db:
-                schema = {row[0]: {col[1] for col in db.execute("SELECT * FROM pragma_table_info(?)", (row[0],))}
-                          for row in db.execute("SELECT name FROM sqlite_schema WHERE type='table'")}
+                schema = _schema(db)
             if check_storage(paths, server_dir=server, cwd=server, env={}, schema=schema,
                              require_supported_catalog=True) != "existing":
                 raise UpgradeBlocked("Восстановленный стол неполон. HOLD.")
@@ -525,14 +594,16 @@ def recover(server: Path) -> Path:
             backup = root / f"verified-recovery-{uuid4().hex}"
             create_backup(paths, backup, schema, external_key=False)
             manifest = verify_backup(backup, schema)
-            for name in manifest["files"]:
-                with _regular_file(backup / name) as stream:
-                    os.fsync(stream.fileno())
+            for name in (*manifest["files"], "manifest.json"):
+                _sync_file(backup / name)
             for directory in (backup / "uploads", backup, target):
                 _sync_directory(directory, _directory_id(directory))
-            with _regular_file(database) as stream:
-                os.fsync(stream.fileno())
+            _sync_file(database)
             _sync_directory(root, _directory_id(root))
+            _write(root / "rebind-proof.json", {
+                "decision": decision, "backup": backup.name,
+                "manifest": _file_sha256(backup / "manifest.json"),
+            }, replace=True)
             pending.unlink()
             _sync_directory(root, _directory_id(root))
             return backup
@@ -543,3 +614,62 @@ def _probe_bundle(root: Path, bundle: Path, name: str, deadline: float) -> str:
         scratch = Path(temporary)
         _capture_database(bundle / name, scratch, deadline)
         return _digest_db(scratch / name, deadline)
+
+
+
+def _file_sha256(path: Path) -> str:
+    with _regular_file(path) as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def rebind(server: Path, destination: Path) -> None:
+    """Use an exact offline recovery snapshot when no later writer was admitted."""
+    root = state_path(server)
+    destination = _home(str(destination))
+    with _operation(root):
+        request = _request(root)
+        old = _activation_record(root, request)
+        _retire(root, Path(request["legacy"]))
+        target = Path(old["target"])
+        protected = (target, Path(request["source"]), Path(request["legacy"]), root, server.parent)
+        if any(destination == p or destination in p.parents or p in destination.parents for p in protected):
+            raise UpgradeBlocked("Назначение восстановления должно быть независимым. HOLD.")
+        if _present(target) or _present(root / "recovery.json"):
+            raise UpgradeBlocked("Для перепривязки требуется утраченная цель и завершённый recovery. HOLD.")
+        _same_volume(root, destination.parent)
+        proof = _read(root / "rebind-proof.json")
+        if (set(proof) != {"decision", "backup", "manifest"} or proof["decision"] != old
+                or not isinstance(proof["backup"], str)
+                or not re.fullmatch(r"verified-recovery-[0-9a-f]{32}", proof["backup"])):
+            raise UpgradeBlocked("Нет доказательства полноты последней копии Beta. HOLD.")
+        backup = root / proof["backup"]
+        if _file_sha256(backup / "manifest.json") != proof["manifest"]:
+            raise UpgradeBlocked("Резервная копия изменилась. HOLD.")
+        with open_quiescent_sqlite(backup / "lanterna.db") as db:
+            if inspect_schema(db) is not SchemaState.CURRENT:
+                raise UpgradeBlocked("Резервная копия имеет несовместимую ревизию. HOLD.")
+            schema = _schema(db)
+        deadline = monotonic() + 120
+        manifest = verify_backup(backup, schema, deadline=deadline)
+
+        def fence_copy(staging: Path, verified: dict, _: float) -> None:
+            _write(staging / FENCE, old["marker"])
+            for name in verified["files"]:
+                _sync_file(staging / name)
+            for directory in (staging / "uploads", staging):
+                _sync_directory(directory, _directory_id(directory))
+
+        with lock_restore_destination(destination) as parent:
+            _restore_backup(backup, destination, schema, manifest, parent_identity=parent,
+                            deadline=deadline, env={}, prepare_upgrade=fence_copy,
+                            sync_publication=lambda: _sync_directory(
+                                destination.parent, _directory_id(destination.parent)))
+            _write(root / "activation.json", {
+                **old, "target": str(destination), "directory": _identity(destination),
+                "database": _identity(destination / "lanterna.db"),
+            }, replace=True)
+
+
+def _schema(db: sqlite3.Connection) -> dict[str, set[str]]:
+    return {row[0]: {col[1] for col in db.execute("SELECT * FROM pragma_table_info(?)", (row[0],))}
+            for row in db.execute("SELECT name FROM sqlite_schema WHERE type='table'")}

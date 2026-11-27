@@ -57,8 +57,8 @@ fi
 if [ "${UPGRADE:-}" = 1 ]; then
   if [ "$#" -eq 0 ]; then
     set -- status
-  elif [ "$1" != prepare ] && [ "$1" != status ] && [ "$1" != activate ] && [ "$1" != cancel ] && [ "$1" != recover ]; then
-    echo "Используйте upgrade status, prepare, activate, cancel или recover." >&2
+  elif [ "$1" != prepare ] && [ "$1" != status ] && [ "$1" != activate ] && [ "$1" != cancel ] && [ "$1" != recover ] && [ "$1" != rebind ]; then
+    echo "Используйте upgrade status, prepare, activate, cancel, recover или rebind." >&2
     exit 2
   fi
   cd "$ROOT/server"

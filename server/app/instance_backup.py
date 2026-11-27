@@ -239,7 +239,12 @@ def verify_backup(directory: Path, schema: dict[str, set[str]], *, deadline: flo
 
 def _publish(staging: Path, destination: Path) -> None:
     if sys.platform == "win32":
-        os.rename(staging, destination)  # Windows refuses an existing target.
+        from .cutover_platform import windows_move, windows_upgrade_allowed
+
+        if windows_upgrade_allowed():
+            windows_move(staging, destination)
+        else:
+            os.rename(staging, destination)  # Refuses an existing target on Windows.
     elif sys.platform == "linux":
         rename = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
         if rename is None:

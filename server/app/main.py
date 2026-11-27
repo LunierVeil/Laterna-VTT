@@ -58,7 +58,7 @@ from .backup_control import control_directory, serve_backups
 from .automatic_backup import BackupPolicy, serve_automatic_backups
 from .upload_files import publish_upload
 from .storage_lock import own_storage
-from .offline_cutover import check_admission
+from .offline_cutover import check_admission, runtime_lease
 from .storage_preflight import StorageError, check_storage, prepare_storage
 
 
@@ -67,7 +67,7 @@ log = logging.getLogger("laterna")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    with own_storage(config.STORAGE_PATHS):
+    with runtime_lease(config.SERVER_DIR), own_storage(config.STORAGE_PATHS):
         try:
             activated = check_admission(config.STORAGE_PATHS, config.SERVER_DIR)
             schema = {table.name: set(table.columns.keys()) for table in Base.metadata.sorted_tables}

@@ -18,7 +18,7 @@ from .instance_backup import MAX_MANIFEST, _deadline_check, _measure, _regular_f
 from .instance_restore import _restore_backup, lock_restore_destination
 from .pre_upgrade import (
     FENCE, UpgradeBlocked, UpgradeSnapshot, _directory_id, _mount_id,
-    _require_known_schema, _sync_directory, _write_exclusive, run_pre_upgrade,
+    _require_known_schema, _require_owned_directory, _sync_directory, _sync_file, _write_exclusive, run_pre_upgrade,
 )
 from .schema_catalog import INITIAL_REVISION, SchemaState, inspect_schema
 from .schema_migrations import stamp_alpha_staging
@@ -61,8 +61,7 @@ def _validate_equivalence(snapshot: Path, staging: Path, schema: dict[str, set[s
         path = staging / name
         if name != "lanterna.db" and _measure(path, deadline, limit=expected["size"]) != expected:
             raise UpgradeBlocked("Медиа или ключ изменились при stamp.")
-        with _regular_file(path) as stream:
-            os.fsync(stream.fileno())
+        _sync_file(path)
 
 
 def prepare_alpha_upgrade(paths: StoragePaths, destination: Path, *, server_dir: Path,
@@ -81,9 +80,7 @@ def prepare_alpha_upgrade(paths: StoragePaths, destination: Path, *, server_dir:
         raise UpgradeBlocked("Цель и исходный DataHome должны быть независимыми.")
     parent = destination.parent
     mount = _mount_id(parent)
-    metadata = parent.lstat()
-    if metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022:
-        raise UpgradeBlocked("Родительский каталог цели должен контролироваться владельцем.")
+    _require_owned_directory(parent)
     if os.path.lexists(destination):
         raise UpgradeBlocked("Целевой DataHome уже существует.")
     if shutil.disk_usage(parent).free < _RESERVE + MAX_MANIFEST:
