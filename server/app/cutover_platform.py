@@ -116,39 +116,57 @@ def windows_flush(path: Path) -> None:
             raise ctypes.WinError(ctypes.get_last_error())
 
 
-def _powershell_json(script: str, *arguments: str):
+def _powershell_json(check: str, script: str, *arguments: str):
+    import base64
     import json
+    import re
     import subprocess
 
     env = dict(os.environ)
     # Values are transported as data, never interpolated into PowerShell code.
     for index, value in enumerate(arguments):
         env[f"LATERNA_PROBE_ARG_{index}"] = value
-    proc = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-         "$ErrorActionPreference='Stop'; "
-         "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); " + script],
-        env=env, capture_output=True, encoding="utf-8", errors="strict", timeout=25,
+    command = (
+        "$ErrorActionPreference='Stop'\n"
+        "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)\n"
+        "try {\n" + script + "\n} catch {\n"
+        "    [Console]::Error.WriteLine($_.FullyQualifiedErrorId)\n"
+        "    exit 1\n"
+        "}\n"
     )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    try:
+        proc = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+            env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=25,
+        )
+    except subprocess.TimeoutExpired:
+        raise OSError(f"Истекло время проверки Windows ({check}).") from None
     if proc.returncode != 0:
-        raise OSError("Не удалось проверить локальное состояние Windows.")
-    return json.loads(proc.stdout)
+        # Keep paths, command lines and localized output out of the diagnostic.
+        error_id = next((line for line in proc.stderr.splitlines()
+                         if re.fullmatch(r"[a-zA-Z0-9.,_+-]{1,160}", line)), "PowerShellExit")
+        raise OSError(f"Не удалось выполнить проверку Windows ({check}, {error_id}).")
+    try:
+        return json.loads(proc.stdout)
+    except ValueError:
+        raise OSError(f"Неверный ответ проверки Windows ({check}).") from None
 
 
 def windows_directory_permissions(path: Path, *, private: bool) -> None:
     # Compare SIDs, not localized account names. Inherit-only ACEs cannot
     # authorize operations on a directory. Private state also protects files.
-    result = _powershell_json(r"""
+    result = _powershell_json("ACL", r"""
 $acl = Get-Acl -LiteralPath $env:LATERNA_PROBE_ARG_0
 $sidType = [System.Security.Principal.SecurityIdentifier]
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $allowed = @($user, 'S-1-5-18', 'S-1-5-32-544')
 $owner = $acl.GetOwner($sidType).Value
 $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
-    $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowed -and
-    ($env:LATERNA_PROBE_ARG_1 -eq 'private' -or
-     (($_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0 -and
-      ([long]$_.FileSystemRights -band 852310) -ne 0))
+    $other = $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowed
+    $inheritOnly = $_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly
+    $canModify = ([long]$_.FileSystemRights -band 852310) -ne 0
+    $other -and ($env:LATERNA_PROBE_ARG_1 -eq 'private' -or (-not $inheritOnly -and $canModify))
 })
 @{ok = ($owner -eq $user -and $bad.Count -eq 0)} | ConvertTo-Json -Compress
 """, str(path), "private" if private else "parent")
@@ -157,7 +175,7 @@ $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
 
 
 def windows_require_legacy_stopped(legacy: Path) -> None:
-    result = _powershell_json(r"""
+    result = _powershell_json("Alpha processes", r"""
 $root = [IO.Path]::GetFullPath($env:LATERNA_PROBE_ARG_0).TrimEnd('\') + '\'
 $found = Get-CimInstance Win32_Process | Where-Object {
     $exe = $_.ExecutablePath
