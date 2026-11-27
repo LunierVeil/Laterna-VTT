@@ -135,22 +135,26 @@ def sync_json(path: Path, value: dict):
         os.fsync(stream.fileno())
 
 
+def unpack_windows_candidate(candidate: Path | None, application: Path):
+    if candidate is None:
+        raise ValueError("A Windows candidate ZIP is required")
+    with zipfile.ZipFile(candidate) as archive:
+        archive.extractall(application)
+    platform = application / "server" / "app" / "cutover_platform.py"
+    source = platform.read_text(encoding="utf-8")
+    assert source.count("WINDOWS_UPGRADE_ACCEPTED = False") == 1
+    platform.write_text(source.replace("WINDOWS_UPGRADE_ACCEPTED = False", "WINDOWS_UPGRADE_ACCEPTED = True"),
+                        encoding="utf-8")
+
+
 def provision(root: Path, candidate: Path | None, mode: str):
     alpha, beta, profile = (root / name for name in ("Alpha", "Beta", "Profile"))
     profile.mkdir()
     alpha.mkdir()
     beta.mkdir()
     if os.name == "nt":
-        if candidate is None:
-            raise ValueError("A Windows candidate ZIP is required")
-        with zipfile.ZipFile(candidate) as archive:
-            archive.extractall(beta)
+        unpack_windows_candidate(candidate, beta)
         shutil.copytree(beta / "python", alpha / "python")
-        platform = beta / "server" / "app" / "cutover_platform.py"
-        source = platform.read_text(encoding="utf-8")
-        assert source.count("WINDOWS_UPGRADE_ACCEPTED = False") == 1
-        platform.write_text(source.replace("WINDOWS_UPGRADE_ACCEPTED = False", "WINDOWS_UPGRADE_ACCEPTED = True"),
-                            encoding="utf-8")
     else:
         (beta / "server").mkdir()
         shutil.copytree(ROOT / "server" / "app", beta / "server" / "app",
@@ -317,6 +321,24 @@ def check_replay(server, destination, env, mode):
     verify_beta(server, destination, env, expect_record=True)
 
 
+def check_rebind(root, server, destination, env):
+    cli(server, env, "recover")
+    unavailable = root / "RetainedBetaData"
+    destination.rename(unavailable)
+    cli(server, env, "select", success=False)
+    restored = root / "ReboundData"
+    if os.name == "nt":
+        shell(server, env, "-Action", "Upgrade", "-Upgrade", "Rebind", "-Destination", str(restored))
+    else:
+        cli(server, env, "rebind", "--destination", str(restored))
+    verify_beta(server, restored, env, expect_record=True)
+    restored_files = inventory(restored)
+    retained_files = inventory(unavailable)
+    restored_files.pop("lanterna.db")
+    retained_files.pop("lanterna.db")
+    assert restored_files == retained_files
+
+
 def trial(root, candidate, mode):
     server, source, destination, env = provision(root, candidate, mode)
     check_runtime_exclusion(root, server, source, destination, env)
@@ -331,11 +353,19 @@ def trial(root, candidate, mode):
         assert not (source.parent / "laterna.sh").exists()
     activate(server, env)
     verify_beta(server, destination, env)
+    if os.name == "nt":
+        confirmed_write(destination)
+        previous = root / "PreviousZip"
+        server.parent.rename(previous)
+        unpack_windows_candidate(candidate, server.parent)
+        verify_beta(server, destination, env, expect_record=True)
+        print(f"PASS: {mode} active DataHome retained after replacing the Windows ZIP")
     for journal in ("DELETE", "WAL"):
         check_replay(server, destination, env, journal)
+    check_rebind(root, server, destination, env)
     expected = json.loads((root / "fixture.json").read_text(encoding="utf-8"))["original"]
     assert inventory(source) == expected
-    print(f"PASS: {mode} native preparation, explicit activation, historic entries, startup, and SQLite recovery")
+    print(f"PASS: {mode} preparation, explicit activation, historic entries, startup, SQLite recovery, and rebind")
 
 
 def launch_pause(root: Path, point: str):
