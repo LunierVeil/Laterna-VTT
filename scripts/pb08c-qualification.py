@@ -95,7 +95,7 @@ def inventory(home: Path) -> dict:
 def clean_env(profile: Path) -> dict:
     env = {k: v for k, v in os.environ.items()
            if k not in {"DATABASE_URL", "UPLOAD_DIR", "GM_KEY_FILE", "PUBLIC_URL", "UVICORN_WORKERS", "WEB_CONCURRENCY"}
-           and not k.startswith("LANTERNA_")}
+           and k.upper() != "PSMODULEPATH" and not k.startswith("LANTERNA_")}
     env.update(LOCALAPPDATA=str(profile), PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", LANTERNA_AUTO_BACKUP="0")
     return env
 

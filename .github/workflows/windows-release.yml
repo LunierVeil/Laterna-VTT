@@ -131,6 +131,13 @@ jobs:
         env:
           PACKAGE_NAME: ${{ steps.package.outputs.artifact }}
         run: ./scripts/test-windows-package.ps1 -ZipPath "dist/$env:PACKAGE_NAME.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ steps.package.outputs.artifact }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
       - name: Qualify PB-08C Windows upgrade on native NTFS
         if: github.event_name == 'workflow_dispatch' && inputs.pb08c_qualification && needs.candidate.outputs.publish != 'true'
         shell: pwsh
@@ -147,13 +154,6 @@ jobs:
           if ($profileExit -ne 0 -or $portableExit -ne 0) {
             throw "Windows qualification failed (Profile=$profileExit Portable=$portableExit)"
           }
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ${{ steps.package.outputs.artifact }}
-          path: |
-            dist/*.zip
-            dist/*.sha256
-          if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:

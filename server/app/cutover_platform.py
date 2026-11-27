@@ -122,7 +122,9 @@ def _powershell_json(check: str, script: str, *arguments: str):
     import re
     import subprocess
 
-    env = dict(os.environ)
+    # PowerShell 7 module paths inherited through Python can shadow the
+    # Windows PowerShell 5.1 modules for ACL, CIM, and JSON.
+    env = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
     # Values are transported as data, never interpolated into PowerShell code.
     for index, value in enumerate(arguments):
         env[f"LATERNA_PROBE_ARG_{index}"] = value
@@ -165,7 +167,7 @@ $owner = $acl.GetOwner($sidType).Value
 $bad = @($acl.GetAccessRules($true, $true, $sidType) | Where-Object {
     $other = $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowed
     $inheritOnly = $_.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly
-    $canModify = ([long]$_.FileSystemRights -band 852310) -ne 0
+    $canModify = ([long]$_.FileSystemRights -band 0x500D0156) -ne 0
     $other -and ($env:LATERNA_PROBE_ARG_1 -eq 'private' -or (-not $inheritOnly -and $canModify))
 })
 @{ok = ($owner -eq $user -and $bad.Count -eq 0)} | ConvertTo-Json -Compress
