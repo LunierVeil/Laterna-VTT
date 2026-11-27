@@ -134,7 +134,10 @@ python scripts/pb08c-qualification.py --scratch <durable-fixture-parent> --mode 
 с `--mode Portable`. Для каждой пары профиль/точка создать новый fixture.
 Доступные точки включают before-source-fence, after-source-fence, staging,
 before-target-publish, after-target-publish, activation, after-activation,
-confirmed-write и recovery. На checkpoint выполнить один из трёх сценариев
+confirmed-write, sqlite-rollback, sqlite-wal и recovery. Обе точки SQLite
+останавливают процесс в незавершённой пишущей транзакции после отдельного
+подтверждённого commit. После перезапуска запускается явный recovery.
+На checkpoint выполнить один из трёх сценариев
 и повторить второй вызов после возврата управления: завершить только процесс,
 перезагрузить гостя штатно, либо выключить VM со стороны гипервизора без
 гостевого shutdown. Эти результаты фиксируются отдельно. Скрипт проверяет

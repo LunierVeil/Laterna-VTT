@@ -22,10 +22,14 @@ import zipfile
 HISTORICAL = "4d2797d4589d42c11ac7e6fb6b13d338d011190f"
 ROOT = Path(__file__).resolve().parents[1]
 BOOT = """import asyncio
+from app.db import engine
 from app.main import app, lifespan
 async def run():
-    async with lifespan(app):
-        pass
+    try:
+        async with lifespan(app):
+            pass
+    finally:
+        await engine.dispose()
 asyncio.run(run())
 """
 PAUSE = """
@@ -277,8 +281,7 @@ def check_runtime_exclusion(root, server, source, destination, env):
                 process.wait(timeout=15)
 
 
-def check_replay(server, destination, env, mode):
-    writer = """import os,sqlite3,sys
+INTERRUPTED_TRANSACTION = """import os,sqlite3,sys,time
 db=sqlite3.connect(sys.argv[1])
 assert db.execute("PRAGMA journal_mode=" + sys.argv[2]).fetchone()[0].upper() == sys.argv[2]
 db.execute("PRAGMA synchronous=FULL")
@@ -288,10 +291,17 @@ db.execute("UPDATE campaigns SET name='PB08C confirmed'")
 db.commit()
 db.execute("BEGIN IMMEDIATE")
 db.execute("UPDATE campaigns SET name=?", ('uncommitted' * 65536,))
+if len(sys.argv) == 4:
+    print("PB08C_VM_CHECKPOINT " + sys.argv[3], flush=True)
+    while True:
+        time.sleep(1)
 os._exit(37)
 """
+
+
+def check_replay(server, destination, env, mode):
     database = destination / "lanterna.db"
-    result = execute(server, env, writer, str(database), mode, success=False)
+    result = execute(server, env, INTERRUPTED_TRANSACTION, str(database), mode, success=False)
     assert result.returncode == 37, result.stderr
     suffix = "-wal" if mode == "WAL" else "-journal"
     sidecar = destination / (database.name + suffix)
@@ -330,16 +340,23 @@ def trial(root, candidate, mode):
 
 def launch_pause(root: Path, point: str):
     server, source, destination, env, _ = paths(root)
-    if point in {"activation", "after-activation", "recovery", "confirmed-write"}:
+    sqlite_mode = {"sqlite-rollback": "DELETE", "sqlite-wal": "WAL"}.get(point)
+    if sqlite_mode or point in {"activation", "after-activation", "recovery", "confirmed-write"}:
         prepare(server, source, destination, env)
-    if point in {"recovery", "confirmed-write"}:
+    if sqlite_mode or point in {"recovery", "confirmed-write"}:
         activate(server, env)
+    if point in {"recovery", "confirmed-write"}:
         confirmed_write(destination)
     if point == "confirmed-write":
         print("PB08C_VM_CHECKPOINT confirmed-write", flush=True)
         while True:
             time.sleep(1)
     python = server.parent / "python" / "python.exe" if os.name == "nt" else Path(sys.executable)
+    if sqlite_mode:
+        subprocess.run([str(python), "-X", "utf8", "-c", INTERRUPTED_TRANSACTION,
+                        str(destination / "lanterna.db"), sqlite_mode, point],
+                       cwd=server, env=env, check=True)
+        raise RuntimeError("SQLite checkpoint exited without interruption")
     argv = [str(python), "-X", "utf8", "-c", "import sys; sys.path.insert(0, sys.argv.pop(1));\n" + PAUSE,
             str(server), point]
     if point in {"activation", "after-activation"}:
@@ -356,6 +373,9 @@ def verify_restart(root: Path, point: str):
     assert inventory(source) == evidence["original"]
     if point in {"after-activation", "confirmed-write"}:
         verify_beta(server, destination, env, expect_record=point == "confirmed-write")
+    elif point in {"sqlite-rollback", "sqlite-wal"}:
+        cli(server, env, "recover")
+        verify_beta(server, destination, env, expect_record=True)
     elif point == "recovery":
         execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, BOOT, success=False)
         cli(server, env, "recover")
@@ -376,7 +396,7 @@ def main():
     parser.add_argument("--mode", choices=("Profile", "Portable"), default="Profile")
     parser.add_argument("--pause", choices=("before-source-fence", "after-source-fence", "staging",
                         "before-target-publish", "after-target-publish", "activation",
-                        "after-activation", "confirmed-write", "recovery"))
+                        "after-activation", "confirmed-write", "sqlite-rollback", "sqlite-wal", "recovery"))
     parser.add_argument("--resume", type=Path)
     args = parser.parse_args()
     if args.resume:
