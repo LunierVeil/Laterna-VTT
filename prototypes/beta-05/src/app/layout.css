@@ -359,3 +359,24 @@
 @keyframes lantern-flicker { 0%,100% {filter:brightness(.97)} 28% {filter:brightness(var(--flicker-low,.86))} 51% {filter:brightness(1.03)} 64% {filter:brightness(var(--flicker-low,.86))} }
 .gm-screen { background: color-mix(in srgb, var(--panel) 88%, transparent); border-color: #8090a945; }
 .gm-screen .screen-resize { bottom: 0; right: 0; width: 16px; height: 16px; }
+.exploration-reset { position:absolute; right:16px; top:58px; padding:6px 10px; border-radius:7px; z-index:2; max-width:260px; }
+.exploration-reset[open] { display:grid; gap:6px; background:var(--panel); }
+.exploration-reset small { display:block; color:var(--muted); }
+.table-quick-actions { position:absolute; left:16px; bottom:76px; z-index:3; width:min(340px,calc(100% - 32px)); max-height:65%; overflow:auto; display:grid; gap:5px; padding:8px; border-radius:8px; background:var(--panel); }
+.table-quick-actions header,.quick-action-row { display:flex; align-items:center; gap:5px; }
+.table-quick-actions header strong,.quick-action-row > .button:first-child { flex:1; min-width:0; white-space:normal; }
+.translucent-screen .gm-screen:not(:hover):not(:focus-within) { opacity:.8; }
+.quick-actions-docked .table-quick-actions { left:50%; transform:translateX(-50%); }
+.dice-visual { display:inline-grid; place-items:center; width:38px; height:38px; flex:none; perspective:190px; }
+.dice-cube { width:24px; height:24px; display:block; position:relative; transform-style:preserve-3d; transform:rotateX(-14deg) rotateY(18deg); }
+.dice-cube b { position:absolute; inset:0; display:grid; place-items:center; border:1px solid #f5c776; background:linear-gradient(145deg,#a2723a,#4f3421); color:#fff3d3; font:13px var(--mono); border-radius:3px; backface-visibility:hidden; }
+.dice-cube b:nth-child(1) { transform:translateZ(12px); }
+.dice-cube b:nth-child(2) { transform:rotateY(90deg) translateZ(12px); }
+.dice-cube b:nth-child(3) { transform:rotateY(180deg) translateZ(12px); }
+.dice-cube b:nth-child(4) { transform:rotateY(-90deg) translateZ(12px); }
+.dice-cube b:nth-child(5) { transform:rotateX(90deg) translateZ(12px); }
+.dice-cube b:nth-child(6) { transform:rotateX(-90deg) translateZ(12px); }
+.dice-turn { animation:laterna-dice-turn .9s cubic-bezier(.17,.7,.37,1) both; }
+@keyframes laterna-dice-turn { from { transform:translateY(-9px) rotateX(-374deg) rotateY(378deg); } 78% { transform:translateY(2px) rotateX(-22deg) rotateY(23deg); } to { transform:rotateX(-14deg) rotateY(18deg); } }
+@media (prefers-reduced-motion:reduce) { .dice-turn { animation:none; } }
+.reduced-motion .dice-turn { animation:none; }

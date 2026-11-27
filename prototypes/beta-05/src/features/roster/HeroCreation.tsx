@@ -14,7 +14,7 @@ const abilityNames = ['Сила', 'Ловкость', 'Телосложение'
 
 export function HeroCreation({ onSave }: { onSave: (actor: Actor) => void }) {
   const [source, setSource] = useState<'manual' | 'json'>();
-  const [layout, setLayout] = useState<'full' | 'compact'>('full');
+  const [layout, setLayout] = useState<'full' | 'compact' | 'classic'>('full');
   const [name, setName] = useState('');
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -54,8 +54,8 @@ export function HeroCreation({ onSave }: { onSave: (actor: Actor) => void }) {
       <Button aria-pressed={source === 'manual'} onClick={() => setSource('manual')}><Pencil size={16}/>Создать героя</Button>
       <Button aria-pressed={source === 'json'} onClick={() => setSource('json')}><Upload size={16}/>Импортировать JSON</Button>
     </div>
-    {source && <label>Раскладка листа<select value={layout} onChange={event => setLayout(event.target.value === 'compact' ? 'compact' : 'full')}>
-      <option value="full">Полная</option><option value="compact">Компактная</option>
+    {source && <label>Раскладка листа<select value={layout} onChange={event => setLayout(event.target.value === 'classic' ? 'classic' : event.target.value === 'compact' ? 'compact' : 'full')}>
+      <option value="full">Полная</option><option value="compact">Компактная</option><option value="classic">Classic 2014</option>
     </select></label>}
     {source === 'manual' && <section className="character-block">
       <p className="sheet-subtitle" aria-live="polite">Шаг {step + 1} из {steps.length} · {steps[step]}</p>

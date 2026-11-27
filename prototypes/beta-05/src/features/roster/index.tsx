@@ -143,10 +143,10 @@ export function Roster({ actors, srd, onSheet, onSave, onPlace, quickCreate, con
 const abilityNames = ['СИЛ', 'ЛОВ', 'ТЕЛ', 'ИНТ', 'МДР', 'ХАР'];
 const signed = (value: number) => value < 0 ? `−${Math.abs(value)}` : `+${value}`;
 
-export function Sheet({ actor, role, onChange, onRoll, onCompact, compact, materials, onMaterial }: {
+export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, compact, materials, onMaterial }: {
   actor?: Actor; role: Role; onChange: (actor: Actor) => void; onRoll: Roll;
   materials: Material[]; onMaterial: (id: string) => void;
-  onCompact: (compact: boolean) => void; compact: boolean;
+  onClassic: () => void; onCompact: (compact: boolean) => void; compact: boolean;
 }) {
   const [tab, setTab] = useState<SheetTab>('Главное');
   const [advancing, setAdvancing] = useState(false);
@@ -209,12 +209,15 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, compact, mater
     <IconButton label="Восстановить заряд" disabled={actor.resource >= 99} onClick={() => onChange({ ...actor, resource: actor.resource + 1 })}><Plus size={15}/></IconButton>
   </div>;
 
-  return <div className="sheet">
+  const classic = actor.sheetLayout === 'classic';
+  return <div className={`sheet ${classic ? 'sheet-classic' : ''}`}>
     <header className="character-heading">
       <div className="character-portrait">{actor.characterIdentity?.portrait || actor.id === 'elara' ? <img src={actor.characterIdentity?.portrait ?? portrait} alt=""/> : <ActorMedal actor={actor} size={35}/>}</div>
       <div><h2>{actor.name}</h2><p className="sheet-subtitle">{title || 'Персонаж кампании'} · D&D 5e {actor.importedEdition ?? '2014'}</p></div>
       <div className="character-actions"><AnchoredPopover className="" label="Действия листа" trigger={<><Settings2 size={16}/>Лист</>}>{close => <>
         <Button onClick={() => { close(); onCompact(!compact); setTab('Главное'); setChecks(compact ? 'abilities' : 'skills'); }}><Columns2 size={16}/>{compact ? 'Полный лист' : 'Компактный лист'}</Button>
+        <Button aria-pressed={classic} onClick={() => { close(); onClassic(); setTab('Главное'); }}>Classic 2014</Button>
+        <Button aria-pressed={!classic && !compact} onClick={() => { close(); onCompact(false); setTab('Главное'); }}>Laterna · Map-safe</Button>
         {progression && !actor.importedEdition && progression.level < 20 && <Button aria-pressed={advancing} onClick={() => { close(); setAdvancing(value => !value); }}><ArrowUp size={16}/>Повысить уровень</Button>}
         <Button aria-pressed={editing} onClick={() => { close(); setEditing(value => !value); }}><Pencil size={16}/>{editing ? 'Готово' : 'Редактировать'}</Button>
       </>}</AnchoredPopover>
@@ -223,6 +226,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, compact, mater
     {advancing && progression ? <LevelReview key={progression.level} onRoll={() => onRoll(20, 'normal', false, 0, 'Прибавка HP')} actor={actor} progression={progression}
       onCancel={() => setAdvancing(false)} onSave={updated => { onChange(updated); setAdvancing(false); setTab('Умения'); }}/>
     : <>
+    <div className={classic ? 'classic-hud' : undefined}>
     <div className="stats sheet-stats">
       <div><small><Heart size={12}/> Хиты</small><strong>{actor.hp} / {actor.maxHp}</strong><progress max={actor.maxHp} value={actor.hp} aria-label="Здоровье"/></div>
       <div><small><Shield size={12}/> КД</small><strong>{actor.ac}</strong></div>
@@ -239,6 +243,11 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, compact, mater
         onChange={event => onChange({ ...actor, tempHp: Math.max(0, Math.min(999, Number(event.target.value))) })}/></label>
         : <small>Временные HP: {actor.tempHp ?? 0}</small>}
     </div>
+    {classic && <div className="classic-combat inline-form" aria-label="Боевые действия Classic">
+      {attacks.split('\n').filter(Boolean).slice(0,2).map(action => <Button key={action} onClick={()=>rollCheck(action,Number(/[+-]\d+/.exec(action)?.[0]??0))}>{action}</Button>)}
+      {charges}
+    </div>}
+    </div>
     {editing && <section className="character-block"><h3>Редактирование листа</h3><div className="creature-stat-fields">
       <label>Имя персонажа<input value={actor.name} maxLength={80} onChange={e => onChange({ ...actor, name: e.target.value })}/></label>
       <label>Максимум HP<input type="number" min={1} max={999} value={actor.maxHp} onChange={e => {
@@ -250,6 +259,14 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, compact, mater
         onChange({ ...actor, sheetProfile: { ...profile, speed: Math.max(0, Math.min(250, Number(e.target.value))) } })}/></label>}
     </div></section>}
     <nav className="character-tabs" aria-label="Разделы листа">{tabs.map(name => <Button aria-pressed={tab === name} key={name} onClick={() => setTab(name)}>{name}</Button>)}</nav>
+    {classic && <details className="character-block"><summary>Где находится элемент?</summary>
+      <div className="inline-form">
+        <Button onClick={() => setTab('Инвентарь')}>Предметы и экипировка</Button>
+        <Button onClick={() => setTab('Заклинания')}>Магия</Button>
+        <Button onClick={() => setTab('Умения')}>Особенности и ресурсы</Button>
+        <Button onClick={() => { onCompact(false); setEditing(true); }}>Открыть универсальный редактор</Button>
+      </div>
+    </details>}
     {tab === 'Главное' && <>
       <div className="character-columns">
         <div>

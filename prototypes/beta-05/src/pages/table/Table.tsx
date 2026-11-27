@@ -1,3 +1,5 @@
+import { TableGuide } from './TableGuide';
+import { QuickActions } from '../../widgets/activity/QuickActions';
 import type { CreatureStart } from '../../features/roster';
 import { controlsActor, playerHeroId } from '../../entities/model';
 import { useEffect, useState } from 'react';
@@ -33,6 +35,10 @@ const tips: Partial<Record<Tool, string>> = {
 };
 
 export function Table({ campaign, scene, role, setRole, entries, battle, srd, canUndo, commands, onExit }: Props) {
+  const [guide,setGuide] = useState(false);
+  const [lowOpacity,setLowOpacity] = useState(false);
+  const [dockActions,setDockActions] = useState(false);
+  const [quickActions, setQuickActions] = useState(false);
   const [hotkeys, setHotkeys] = useState(false);
   const [hotkeyQuery, setHotkeyQuery] = useState('');
   const [book, setBook] = useState(false);
@@ -72,6 +78,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
   const featuredLetter = materials.find(m => m.shown) ?? materials.find(m => m.kind === 'letter');
 
   function changeRole(next: Role) {
+    setQuickActions(false);
     if (role === next) return;
     setTokenDetails(undefined); setRole(next); setPage(null); setTool('select'); setSelected(null);
     setPlacement(null); setScreen(false); setDice(false); setContext(undefined); setDeleting(false);
@@ -124,12 +131,14 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
     function key(event: KeyboardEvent) {
       if (event.key !== 'Escape' && event.target instanceof HTMLElement && (['INPUT','SELECT','TEXTAREA'].includes(event.target.tagName) || event.target.isContentEditable)) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (guide) return;
       if (event.key === '/' && !hotkeys) { event.preventDefault(); setHotkeyQuery(''); setHotkeys(true); return; }
       if (hotkeys) { if (event.key === 'Escape') { event.preventDefault(); setHotkeys(false); } return; }
       if (page) {
         if (event.key === 'Escape' && ['sheet', 'roster', 'hero-create', 'journal', 'assets', 'spells'].includes(page)) setPage(null);
         return;
       }
+      if (event.key === 'Escape' && quickActions) { setQuickActions(false); return; }
       if (event.key === 'Escape' && (context || deleting || deleteGroup)) {
         setContext(undefined); setDeleting(false); setDeleteGroup(false); return;
       }
@@ -155,7 +164,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
     }
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [page, editing, hotkeys, gm, scene, hero, commands, context, deleting, deleteGroup]);
+  }, [page, editing, hotkeys, gm, scene, hero, commands, context, deleting, deleteGroup, quickActions, guide]);
 
   const brief = placement ? `Разместить: ${placement.name}` : tips[tool];
   const workbench = page && <Workbench key={`${page}/${actorId ?? ''}/${materialId ?? ''}/${quickCreate}/${book}`} expandedSidebar={activity} page={page} campaign={campaign} role={role} quickCreate={quickCreate} openBook={book} srd={srd} actorId={actorId} materialId={materialId} connection={connection} onExit={onExit} reduceMotion={reduceMotion} onMotion={setMotion}
@@ -164,16 +173,17 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         setPage(null); commands.notify('Портрет токена обновлён');
       } : undefined}
       onClose={() => setPage(null)} onPlace={arm} onActivate={activate} onSheet={openSheet} onMaterial={openMaterial} commands={commands}/>;
-  return <div className={`table-shell ${reduceMotion ? 'reduced-motion' : ''}`}>
+  return <div className={`table-shell ${reduceMotion ? 'reduced-motion' : ''} ${lowOpacity ? 'translucent-screen' : ''} ${dockActions ? 'quick-actions-docked' : ''}`}>
     <TableHeader scene={scene} campaign={campaign} role={role} onRole={changeRole} onPage={openPage} onScreen={() => setScreen(value => !value)} screen={screen} onExit={onExit}
       onConnection={() => { openPage('settings'); setConnection(true); }}/>
     <main className={`table-main ${activity || page === 'assets' ? 'with-right' : 'with-collapsed-right'}`} onClick={() => { if (context) setContext(undefined); }}>
       <MapToolbar editing={editing} tool={tool} onTool={chooseTool} onAssets={() => openPage('assets')}/>
-      <Board heroId={playerHeroId(campaign)} actors={campaign.actors} activeActorId={battle?.order[battle.turn]} key={scene.id} scene={scene} role={role} editing={editing} tool={tool} wallMode={wallMode} selected={selected} placement={placement}
+      <Board campaignId={campaign.id} heroName={hero?.name} heroId={playerHeroId(campaign)} actors={campaign.actors} activeActorId={battle?.order[battle.turn]} key={`${scene.id}/${playerHeroId(campaign)}`} scene={scene} role={role} editing={editing} tool={tool} wallMode={wallMode} selected={selected} placement={placement}
         group={group} onGroup={setGroup} onSelect={setSelected} onUseDoor={useDoor} onChange={commands.changeObjects} onPlaced={() => { commands.notify('Объект размещён на сцене'); setPlacement(null); }}
         toolbar={<div className="quickbar" onDoubleClick={() => {
           setDice(false); setPage(null); setScreen(false); setCloseCombatRequest(count => count + 1);
         }}>
+          <Button aria-label="Быстрые действия" aria-pressed={quickActions} onClick={() => setQuickActions(value=>!value)}>Действия</Button>
           <Button title="Кубики (B)" aria-pressed={dice} onClick={() => setDice(value => !value)}><Dice5 size={17}/>Кубики</Button>
           <Button title="Лист персонажа (C)" onClick={() => hero ? openSheet(hero.id) : openPage('hero-create')}><Users size={17}/>{gm ? 'Лист героя' : 'Мой лист'}</Button>
           <Button onClick={() => openMaterial(!gm ? featuredLetter?.id : undefined)}><BookOpen size={17}/>{gm ? 'Материалы' : 'Раздатки'}</Button>
@@ -190,7 +200,10 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
           else { openPage(null); setTokenDetails(item.id); }
         }}
         onContext={(item, x, y) => { setDeleting(false); setContext({ id: item.id, x, y }); }}>
+        {quickActions && <QuickActions actors={campaign.actors.filter(actor=>gm || controls(actor.id))} onSave={commands.saveActor}
+          onRoll={commands.roll} onSheet={id=>{setQuickActions(false);openSheet(id);}} onClose={()=>setQuickActions(false)}/>}
         <div className="board-controls">
+          <Button onClick={()=>setGuide(true)}>Гид</Button>
           {gm && <>
             {editing && <IconButton label="Отменить действие" onClick={commands.undo} disabled={!canUndo}><Undo2 size={17}/></IconButton>}
             <Button className="edit-toggle" title="Редактировать карту (E)" aria-pressed={editing} onClick={() => { setEdit(value => !value); chooseTool('select'); }}>
@@ -255,6 +268,7 @@ export function Table({ campaign, scene, role, setRole, entries, battle, srd, ca
         </section>;
       })}
     </Dialog>}
+    {guide && <TableGuide onClose={()=>setGuide(false)} lowOpacity={lowOpacity} onOpacity={setLowOpacity} dock={dockActions} onDock={setDockActions}/>}
     <RollResults entries={entries} role={role} expanded={activity}/>
     {context && contextual && <div className="context-menu glass" style={{ left: Math.min(context.x, window.innerWidth - 235), top: Math.min(context.y, window.innerHeight - 170) }} onClick={e => e.stopPropagation()}>
       <strong>{contextual.name}</strong>

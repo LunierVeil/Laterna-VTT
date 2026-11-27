@@ -1,12 +1,13 @@
+import { explorationCell, useExploration } from './exploration';
 import { DecalMark } from '../../shared/map-art/DecalMark';
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode, type WheelEvent } from 'react';
 import { Compass, DoorClosed, DoorOpen, PanelsTopLeft, Focus, Hand, LockKeyhole, Minus, Plus } from 'lucide-react';
 import { controlsActor, objectKinds, uid, type Actor, type MapObject, type Placement, type Point, type Role, type Scene, type Tool, type WallMode } from '../../entities/model';
 import { MapArt } from '../../shared/map-art';
-import { Glyph, IconButton } from '../../shared/ui';
+import { Button, Glyph, IconButton } from '../../shared/ui';
 
 interface Props {
-  actors: Actor[]; heroId: string; activeActorId?: string;
+  actors: Actor[]; campaignId: string; heroName?: string; heroId: string; activeActorId?: string;
   scene: Scene; role: Role; editing: boolean; tool: Tool; wallMode: WallMode; selected: string | null;
   placement: Placement | null; onSelect: (id: string | null) => void;
   onChange: (objects: MapObject[]) => void; onPlaced: () => void;
@@ -21,7 +22,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 const lineColors = { wall: '#eb9a6c', door: '#f0ca7c', window: '#89c6e2' };
 const closeEnough = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) < 5;
 
-export function Board({ actors, heroId, activeActorId, scene, role, editing, tool, wallMode, selected, placement, onSelect, onChange, onPlaced, onOpenToken, group, onGroup, onUseDoor, onContext, children, toolbar }: Props) {
+export function Board({ actors, campaignId, heroName, heroId, activeActorId, scene, role, editing, tool, wallMode, selected, placement, onSelect, onChange, onPlaced, onOpenToken, group, onGroup, onUseDoor, onContext, children, toolbar }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const world = useRef<SVGGElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -35,7 +36,10 @@ export function Board({ actors, heroId, activeActorId, scene, role, editing, too
   const [panning, setPanning] = useState(false);
   useEffect(() => { setAnchor(null); setControl(null); setCursor(null); }, [tool, wallMode, editing, role, scene.id]);
   const visible = scene.objects.filter(o => role === 'gm' || !o.secret);
-  const observer = visible.find(o => o.actorId === heroId);
+  const observer = visible.find(o => o.actorId === heroId && !o.secret);
+  const exploration = useExploration(`laterna-beta05:explored:${campaignId}:${scene.id}:${heroId}`, observer, role === 'player' && scene.explored && scene.vision);
+  const [confirmReset, setConfirmReset] = useState(false);
+  useEffect(() => setConfirmReset(false), [role, heroId, scene.id]);
   const view = observer && drag?.id === observer.id && !drag.members ? drag.current : observer ?? { x: 470, y: 590 };
   const lit = visible.filter(o => o.kind === 'light' && o.lightEnabled !== false);
   const controlled = (id?: string) => controlsActor(actors.find(actor => actor.id === id), heroId);
@@ -209,7 +213,7 @@ export function Board({ actors, heroId, activeActorId, scene, role, editing, too
         <pattern id="board-grid" width={scene.grid} height={scene.grid} x={scene.background?.x} y={scene.background?.y} patternUnits="userSpaceOnUse"><path d={`M${scene.grid} 0H0V${scene.grid}`} fill="none" stroke="#d2dece" strokeOpacity=".23" strokeWidth="1"/></pattern>
         <radialGradient id="fog-falloff"><stop offset=".56" stopColor="black"/><stop offset="1" stopColor="white"/></radialGradient>
         <mask id="fog-mask"><rect width="1100" height="760" fill="white"/>
-          {scene.explored && <ellipse cx="480" cy="575" rx="191" ry="145" fill="#919191"/>}
+          {role === 'player' && scene.explored && exploration.memory.map(cell => <rect key={cell} {...explorationCell(cell)} fill="#9b9b9b"/>)}
           <circle cx={view.x} cy={view.y} r="155" fill="url(#fog-falloff)"/>
           {lit.map(o => <circle key={o.id} cx={o.x} cy={o.y} r={(o.radius ?? 120) * .63} fill="url(#fog-falloff)"/>)}
         </mask>
@@ -309,6 +313,13 @@ export function Board({ actors, heroId, activeActorId, scene, role, editing, too
         </g>}
       </g>
     </svg>
+    {role === 'gm' && editing && <details className="exploration-reset glass">
+      <summary>Разведка</summary>
+      <small>{heroName ?? 'Активный игрок'} · {scene.name}</small>
+      {confirmReset ? <div className="inline-form"><Button onClick={() => setConfirmReset(false)}>Отмена</Button>
+        <Button className="danger" onClick={() => { exploration.reset(); setConfirmReset(false); }}>Подтвердить сброс</Button></div>
+        : <Button onClick={() => setConfirmReset(true)}>Сбросить разведку игрока</Button>}
+    </details>}
     {children}
     <div className="board-footer">
     <div className="board-compass"><Compass size={30} strokeWidth={1}/><span>С</span></div>

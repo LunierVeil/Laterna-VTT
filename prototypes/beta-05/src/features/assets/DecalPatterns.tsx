@@ -18,6 +18,8 @@ export function DecalPatterns({ onPlace }: { onPlace: (name: string, pattern: De
       <Button onClick={() => setPattern(current => ({ ...current, variant: (current.variant + 1 + Math.floor(Math.random() * 9999)) % 10000 }))}>Случайный вариант</Button>
     </div>
     <svg className="decal-preview" viewBox="-120 -100 240 200" role="img" aria-label="Предпросмотр декали"><DecalMark pattern={pattern}/></svg>
-    <Button className="primary" onClick={() => onPlace(decalNames[pattern.kind], pattern)}>Разместить декаль</Button>
+    <small aria-live="polite">{decalNames[pattern.kind]} · вариант {pattern.variant + 1} · {pattern.size} × {pattern.size} · {pattern.rotation}°</small>
+    <div className="inline-form"><Button onClick={() => setPattern({ ...pattern, size: 80, rotation: 0, variant: 0 })}>По умолчанию</Button>
+      <Button className="primary" onClick={() => onPlace(decalNames[pattern.kind], pattern)}>Разместить декаль</Button></div>
   </details>;
 }

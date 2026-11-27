@@ -23,6 +23,16 @@ export interface CampaignCommands {
 }
 const titles = { scenes: 'Библиотека сцен', assets: 'Библиотека ассетов', spells: 'Книга заклинаний', roster: 'NPC и чудовища', 'hero-create': 'Добавить героя', sheet: 'Лист персонажа', journal: 'Материалы кампании', settings: 'Настройки стола', import: 'Импорт Universal VTT' };
 
+function getLayout(key: string): Actor['sheetLayout'] {
+  try {
+    const value = localStorage.getItem(key);
+    if (value === 'full' || value === 'compact' || value === 'classic') return value;
+  } catch { /* optional browser preference */ }
+}
+function setLayout(key: string, value: NonNullable<Actor['sheetLayout']>) {
+  try { localStorage.setItem(key, value); } catch { /* actor still stores the active layout */ }
+}
+
 export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId, materialId, quickCreate, openBook, connection, onPortrait, reduceMotion, onMotion, onClose, onExit, onPlace, onActivate, onSheet, onMaterial, commands }: {
   page: NonNullable<Page>; expandedSidebar: boolean; campaign: Campaign; role: Role; srd: Actor[];
   actorId?: string; materialId?: string; quickCreate?: CreatureStart; openBook: boolean; connection: boolean; onPortrait?: (asset: Asset) => void;
@@ -31,8 +41,16 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
 }) {
   const gm = role === 'gm';
   if (!gm && page !== 'sheet' && page !== 'journal' && page !== 'hero-create' && page !== 'spells' && !(page === 'roster' && quickCreate?.startsWith('companion'))) return null;
-  const actor = gm ? campaign.actors.find(item => item.id === actorId) ?? campaign.actors.find(a => a.kind === 'hero') : campaign.actors.find(item => item.id === (actorId ?? playerHeroId(campaign)) && controlsActor(item, playerHeroId(campaign)));
+  const selectedActor = gm ? campaign.actors.find(item => item.id === actorId) ?? campaign.actors.find(a => a.kind === 'hero') : campaign.actors.find(item => item.id === (actorId ?? playerHeroId(campaign)) && controlsActor(item, playerHeroId(campaign)));
+  const layoutKey = (id: string) => `laterna-beta05:sheet:${campaign.id}:${id}`;
+  const remembered = selectedActor ? getLayout(layoutKey(selectedActor.id)) : undefined;
+  const actor = selectedActor && remembered ? { ...selectedActor, sheetLayout: remembered } : selectedActor;
   const compact = actor?.sheetLayout === 'compact';
+  function changeLayout(value: NonNullable<Actor['sheetLayout']>) {
+    if (!actor) return;
+    setLayout(layoutKey(actor.id), value);
+    commands.saveActor({ ...actor, sheetLayout: value });
+  }
   function addFolder(key: 'sceneFolders' | 'materialFolders' | 'assetFolders', name: string) {
     if (name.toLowerCase() === 'без папки' || campaign[key].some(folder => folder.toLowerCase() === name.toLowerCase())) return;
     commands.updateCampaign(current => current[key].includes(name) ? current : { ...current, [key]: [...current[key], name] });
@@ -65,7 +83,7 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
     }}/>}
     {page === 'spells' && <GlobalSpellbook actors={gm ? campaign.actors : campaign.actors.filter(a => controlsActor(a, playerHeroId(campaign)))}
       targets={campaign.actors.filter(a => gm || controlsActor(a, playerHeroId(campaign)))} onSave={commands.saveActor} onClose={onClose}/>}
-    {page === 'sheet' && <Sheet materials={campaign.materials.filter(material => canRead(material, role))} onMaterial={onMaterial} actor={actor} role={role} onChange={commands.saveActor} onRoll={commands.roll} compact={compact} onCompact={value => actor && commands.saveActor({ ...actor, sheetLayout: value ? 'compact' : 'full' })}/>}
+    {page === 'sheet' && <Sheet materials={campaign.materials.filter(material => canRead(material, role))} onMaterial={onMaterial} actor={actor} role={role} onChange={commands.saveActor} onRoll={commands.roll} compact={compact} onClassic={() => changeLayout('classic')} onCompact={value => changeLayout(value ? 'compact' : 'full')}/>}
     {page === 'journal' && <Materials materials={campaign.materials} folders={campaign.materialFolders} role={role} initialId={materialId} openBook={openBook}
       onSave={material => { commands.saveMaterial(material); commands.notify('Материал сохранён'); }}
       onShow={commands.showMaterial} onDelete={id => { commands.updateCampaign(current => ({ ...current, materials: current.materials.filter(material => material.id !== id) })); commands.notify('Материал удалён'); }}
@@ -80,7 +98,7 @@ export function Workbench({ page, expandedSidebar, campaign, role, srd, actorId,
     <div className="assets-workspace-body">{content}</div>
   </aside>;
   if (page === 'sheet') return <FloatingWindow id="character-sheet" label={titles.sheet} title={actor ? `${actor.name} (лист персонажа)` : titles.sheet} onClose={onClose}
-    className={`docked-workbench docked-sheet ${expandedSidebar ? '' : 'docked-sidebar-collapsed'} ${compact ? 'docked-sheet-compact' : ''}`}>
+    className={`docked-workbench docked-sheet ${expandedSidebar ? '' : 'docked-sidebar-collapsed'} ${compact ? 'docked-sheet-compact' : ''} ${actor?.sheetLayout === 'classic' ? 'docked-sheet-classic' : ''}`}>
     <div className="dialog-body">{content}</div>
   </FloatingWindow>;
   return docked ? <section className={`docked-workbench docked-${page} ${expandedSidebar ? '' : 'docked-sidebar-collapsed'}`} aria-label={titles[page]}>

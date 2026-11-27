@@ -66,10 +66,11 @@ export interface Actor {
   spellSlots?: Record<number, { current: number; max: number }>;
   materialIds?: string[];
   biography?: { goals: string; languages: string; publicNotes: string; personalNotes: string };
+  quickActions?: string[];
   reactionUsed?: boolean;
   bonusUsed?: boolean;
   characterIdentity?: { portrait?: string; background?: string; alignment?: string; proficiencies?: string };
-  sheetLayout?: 'full' | 'compact';
+  sheetLayout?: 'full' | 'compact' | 'classic';
   deathSaves?: { successes: number; failures: number; roll?: number };
   tempHp?: number;
   featureNotes?: Record<string, string>;

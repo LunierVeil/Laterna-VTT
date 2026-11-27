@@ -1,3 +1,4 @@
+import { DiceVisual } from './DiceVisual';
 import { controlsActor } from '../../entities/model';
 import { AnchoredPopover } from '../../shared/ui/AnchoredPopover';
 import { FloatingWindow } from '../../shared/ui/FloatingWindow';
@@ -186,7 +187,7 @@ export function RollResults({ entries, role, expanded }: { entries: Entry[]; rol
   const chosen = mode === 'advantage' ? Math.max(...dice) : Math.min(...dice);
   const critical = dice.length === 1 || mode !== 'normal' ? sides === 20 && [1, 20].includes(chosen) : false;
   return <aside className={`roll-result glass ${expanded ? '' : 'roll-result-collapsed'}`} aria-live="polite">
-    <Dice5 size={19}/><div><strong>{result.text}</strong>
+    {sides === 6 && dice.length === 1 ? <DiceVisual value={chosen} key={result.id}/> : <Dice5 size={19}/>}<div><strong>{result.text}</strong>
       <small>{dice.join(mode === 'normal' ? ' + ' : ' / ')}{bonus ? ` ${bonus < 0 ? '−' : '+'} ${Math.abs(bonus)}` : ''}
         {critical && ` · Натуральная ${chosen}`}{result.secret && ' · Скрытый'}</small></div>
     <output>{result.value}</output>
