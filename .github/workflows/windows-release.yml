@@ -14,6 +14,10 @@ on:
         description: Publish only after all checks (requires an existing matching tag)
         type: boolean
         default: false
+      pb08c_qualification:
+        description: Run the opt-in native NTFS upgrade qualification on synthetic data
+        type: boolean
+        default: false
       release_tag:
         description: Existing tag pointing exactly to the candidate (publication only)
         type: string
@@ -127,6 +131,22 @@ jobs:
         env:
           PACKAGE_NAME: ${{ steps.package.outputs.artifact }}
         run: ./scripts/test-windows-package.ps1 -ZipPath "dist/$env:PACKAGE_NAME.zip"
+      - name: Qualify PB-08C Windows upgrade on native NTFS
+        if: github.event_name == 'workflow_dispatch' && inputs.pb08c_qualification && needs.candidate.outputs.publish != 'true'
+        shell: pwsh
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.artifact }}
+        run: |
+          git fetch --no-tags --depth=1 origin 4d2797d4589d42c11ac7e6fb6b13d338d011190f
+          if ($LASTEXITCODE -ne 0) { throw 'Historical Alpha sources unavailable' }
+          $PSNativeCommandUseErrorActionPreference = $false
+          python scripts/pb08c-qualification.py --zip "dist/$env:PACKAGE_NAME.zip" --scratch "$env:RUNNER_TEMP" --mode Profile
+          $profileExit = $LASTEXITCODE
+          python scripts/pb08c-qualification.py --zip "dist/$env:PACKAGE_NAME.zip" --scratch "$env:RUNNER_TEMP" --mode Portable
+          $portableExit = $LASTEXITCODE
+          if ($profileExit -ne 0 -or $portableExit -ne 0) {
+            throw "Windows qualification failed (Profile=$profileExit Portable=$portableExit)"
+          }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.package.outputs.artifact }}
