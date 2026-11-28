@@ -22,8 +22,8 @@
 
 | Решение | Утверждённый сценарий | Figma | Демо |
 | --- | --- | --- | --- |
-| D01 | Полупрозрачная ширма по умолчанию, сплошной фон по выбору, свободное перемещение и размер | [613:5](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-5) | [?review=gm-screen](http://127.0.0.1:5175/?review=gm-screen) |
-| D02 | Быстрые действия над нижней полосой, роли, закрепление, порядок и видимость ресурсов | [613:6](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-6) | [ГМ](http://127.0.0.1:5175/?review=quick-actions), [игрок](http://127.0.0.1:5175/?review=quick-actions-player), [пусто](http://127.0.0.1:5175/?review=quick-actions-empty) |
+| D01 | Полупрозрачная ширма, свободное перемещение и размер, переход в журнал. Сплошной фон — SUPERSEDED (A03) | [613:5](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-5) | [?review=gm-screen](http://127.0.0.1:5175/?review=gm-screen) |
+| D02 | Избранные действия в карточке игрока и карточках вкладки «Партия». Отдельная панель — SUPERSEDED (A01–A02) | [613:6](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-6) | [ГМ](http://127.0.0.1:5175/?review=quick-actions), [игрок](http://127.0.0.1:5175/?review=quick-actions-player), [пусто](http://127.0.0.1:5175/?review=quick-actions-empty) |
 | D03 | T15, единая очередь результатов, короткий объёмный эффект, статичный режим | [613:7](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-7) | [?review=dice-overlay](http://127.0.0.1:5175/?review=dice-overlay) |
 | D04 | Однократное необязательное приглашение и гид с практикой по ролям | [613:8](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-8) | [первый вход](http://127.0.0.1:5175/?review=guide), [практика игрока](http://127.0.0.1:5175/?review=guide-player) |
 | D05 | Сброс памяти выбранного игрока или партии на текущей сцене | [613:9](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-9) | [?review=exploration-reset](http://127.0.0.1:5175/?review=exploration-reset) |
@@ -31,6 +31,8 @@
 | D07 | Кровь, грязь, следы, каменная россыпь и трещины | [613:11](https://www.figma.com/design/K3w1rS1t3ugjZQcpJGoHEY?node-id=613-11) | [?review=decal-patterns](http://127.0.0.1:5175/?review=decal-patterns) |
 
 Ссылки Figma ведут на записи решения и связанные исходные фреймы. Для нового гида, панели действий, результатов T15 и подтверждения сброса интерактивный сценарий показывает более свежую реализацию. Исторические страницы, компоненты и переходы сохранены.
+
+Книжная система v0.5 — **NEEDS REVIEW** в [отдельном файле Figma](https://www.figma.com/design/nBOZDRluDt2iXWMOK5OXhX?node-id=92-413). Перенос книжных решений в React — **DEFERRED** до визуальной приёмки и отдельного разрешения владельца.
 
 ## Все 24 страницы и порядок сохранения
 
