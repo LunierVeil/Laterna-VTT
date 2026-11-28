@@ -102,10 +102,14 @@ def clean_env(profile: Path) -> dict:
     return env
 
 
-def execute(server: Path, env: dict, code: str, *arguments: str, success=True):
+def python_command(server: Path, code: str, *arguments: str):
     python = (server.parent / "python" / "python.exe") if os.name == "nt" else Path(sys.executable)
     entry = "import sys; sys.path.insert(0, sys.argv.pop(1));\n" + code
-    result = subprocess.run([str(python), "-X", "utf8", "-c", entry, str(server), *arguments],
+    return [str(python), "-X", "utf8", "-c", entry, str(server), *arguments]
+
+
+def execute(server: Path, env: dict, code: str, *arguments: str, success=True):
+    result = subprocess.run(python_command(server, code, *arguments),
                             cwd=server, env=env, capture_output=True, text=True,
                             encoding="utf-8", errors="replace", timeout=120)
     if (result.returncode == 0) != success:
@@ -247,8 +251,8 @@ def activate(server, env):
         cli(server, env, "activate")
 
 
-def confirmed_write(server: Path, destination: Path, env: dict):
-    execute(server, {**env, "LANTERNA_DATA_HOME": str(destination)}, """
+def confirmed_write(server: Path, destination: Path, env: dict, *, pause=False):
+    writer = """
 import asyncio
 from sqlalchemy import text
 from app.db import SessionLocal
@@ -261,9 +265,17 @@ async def write():
             result = await session.execute(text("UPDATE campaigns SET name='PB08C confirmed'"))
             assert result.rowcount > 0
             await session.commit()
+            if len(sys.argv) > 1:
+                print("PB08C_VM_CHECKPOINT confirmed-write", flush=True)
+                await asyncio.Event().wait()
 
 asyncio.run(write())
-""")
+"""
+    active_env = {**env, "LANTERNA_DATA_HOME": str(destination)}
+    if pause:
+        subprocess.run(python_command(server, writer, "pause"), cwd=server, env=active_env, check=True)
+        raise RuntimeError("Confirmed-write checkpoint exited without VM interruption")
+    execute(server, active_env, writer)
 
 
 def table_contents(home: Path):
@@ -475,12 +487,11 @@ def launch_pause(root: Path, point: str):
         prepare(server, source, destination, env)
     if sqlite_mode or point in {"recovery", "confirmed-write"}:
         activate(server, env)
-    if sqlite_mode or point in {"recovery", "confirmed-write"}:
-        confirmed_write(server, destination, env)
     if point == "confirmed-write":
-        print("PB08C_VM_CHECKPOINT confirmed-write", flush=True)
-        while True:
-            time.sleep(1)
+        confirmed_write(server, destination, env, pause=True)
+        return
+    if sqlite_mode or point == "recovery":
+        confirmed_write(server, destination, env)
     python = server.parent / "python" / "python.exe" if os.name == "nt" else Path(sys.executable)
     if sqlite_mode:
         subprocess.run([str(python), "-X", "utf8", "-c", INTERRUPTED_TRANSACTION,
