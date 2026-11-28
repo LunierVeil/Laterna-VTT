@@ -14,6 +14,10 @@ on:
         description: Publish only after all checks (requires an existing matching tag)
         type: boolean
         default: false
+      pb08c_qualification:
+        description: Run the opt-in native NTFS upgrade qualification on synthetic data
+        type: boolean
+        default: false
       release_tag:
         description: Existing tag pointing exactly to the candidate (publication only)
         type: string
@@ -134,6 +138,15 @@ jobs:
             dist/*.zip
             dist/*.sha256
           if-no-files-found: error
+      - name: Qualify PB-08C Windows upgrade on native NTFS
+        if: github.event_name == 'workflow_dispatch' && inputs.pb08c_qualification && needs.candidate.outputs.publish != 'true'
+        shell: pwsh
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.artifact }}
+        run: |
+          git fetch --no-tags --depth=1 origin 4d2797d4589d42c11ac7e6fb6b13d338d011190f
+          if ($LASTEXITCODE -ne 0) { throw 'Historical Alpha sources unavailable' }
+          ./scripts/test-pb08c-standard-user.ps1 -ZipPath "dist/$env:PACKAGE_NAME.zip"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:

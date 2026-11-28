@@ -70,6 +70,26 @@ def test_first_run_then_existing_database_and_assets_preserved(install):
     assert {"lanterna.db", "uploads/map.png", "gm_key.txt"} <= before.keys()
 
 
+def test_file_backed_runtime_syncs_commit_directory(install):
+    assert launch(install).returncode == 0
+    server, _, env = install
+    code = """
+import asyncio
+from app.main import app, lifespan
+from app.db import engine
+
+async def check():
+    async with lifespan(app):
+        async with engine.connect() as conn:
+            assert (await conn.exec_driver_sql("PRAGMA synchronous")).scalar_one() == 3
+
+asyncio.run(check())
+"""
+    result = subprocess.run([sys.executable, "-c", code], cwd=server, env=env,
+                            capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize("artifact", ["lanterna.db", "gm_key.txt", "uploads", "lanterna.db-wal"])
 def test_legacy_artifacts_block_a_new_home(install, artifact):
     server, home, _ = install

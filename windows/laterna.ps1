@@ -1,9 +1,11 @@
 ﻿param(
     [ValidateSet("Profile", "Portable", "NewPortable")][string]$Storage,
-    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths", "Verify", "Restore")][string]$Action = "Menu",
+    [ValidateSet("Menu", "Lan", "GmLink", "Backup", "Paths", "Verify", "Restore", "UpgradeStatus", "Upgrade")][string]$Action = "Menu",
     [string]$BackupPath,
     [string]$Destination,
-    [string]$RestoredDataHome
+    [string]$RestoredDataHome,
+    [ValidateSet("Status", "Prepare", "Activate", "Cancel", "Recover", "Rebind")][string]$Upgrade = "Status",
+    [string]$AlphaServer
 )
 
 # Laterna VTT для Windows: меню запуска (его открывает laterna.bat).
@@ -33,6 +35,25 @@ raise SystemExit(main())
 function Invoke-BackupCommand([string[]]$Arguments) {
     & $Python -X utf8 -c $BackupEntry $Server @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Операция резервного копирования не выполнена." }
+}
+
+$UpgradeEntry = @'
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+from app.migration_cli import main
+raise SystemExit(main())
+'@
+function Invoke-UpgradeCommand([string[]]$Arguments) {
+    $result = & $Python -X utf8 -c $UpgradeEntry $Server @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "Операция обновления остановлена. Проверьте диагностику выше." }
+    $result
+}
+if ($Action -in @("UpgradeStatus", "Upgrade")) {
+    $arguments = @(if ($Action -eq "UpgradeStatus") { "status" } else { $Upgrade.ToLowerInvariant() })
+    if ($AlphaServer) { $arguments += @("--source", $AlphaServer) }
+    if ($Destination) { $arguments += @("--destination", $Destination) }
+    Invoke-UpgradeCommand $arguments
+    return
 }
 
 if ($Action -eq "Verify") {
@@ -70,7 +91,15 @@ if ($Saved -and $Storage -and $Storage -ne $Saved) {
 if ($Storage -eq "NewPortable" -and $Action -notin @("Menu", "Lan")) {
     throw "Для создания portable запустите меню или режим LAN."
 }
-$Selected = if ($RestoredDataHome) {
+$ActiveHome = Invoke-UpgradeCommand @("select")
+$Selected = if ($ActiveHome) {
+    if ($Storage -or $RestoredDataHome -or $env:LANTERNA_GM_KEY) {
+        throw "Активированный стол уже выбран. Для смены используйте проверяемое восстановление."
+    }
+    $env:LANTERNA_DATA_HOME = $ActiveHome
+    $env:LANTERNA_REQUIRE_EXISTING = "1"
+    "Managed"
+} elseif ($RestoredDataHome) {
     if ($Storage -or $Action -notin @("Lan", "Menu")) { throw "RestoredDataHome поддерживается при запуске меню или LAN без -Storage." }
     $env:LANTERNA_DATA_HOME = $RestoredDataHome
     $env:LANTERNA_REQUIRE_EXISTING = "1"
@@ -89,7 +118,7 @@ $Selected = if ($RestoredDataHome) {
 if ($env:LANTERNA_GM_KEY -and $Selected -ne "Restored") {
     throw "Внешний LANTERNA_GM_KEY поддерживается для явно выбранного восстановленного стола."
 }
-$env:LANTERNA_PORTABLE = if ($Selected -in @("Profile", "Restored")) { "0" } else { "1" }
+$env:LANTERNA_PORTABLE = if ($Selected -in @("Profile", "Restored", "Managed")) { "0" } else { "1" }
 $Resolve = @'
 import json, os, sys
 from pathlib import Path
@@ -122,7 +151,7 @@ if ($Selected -eq "Profile") {
 } elseif ($Selected -ne "Restored" -and -not (Test-Path -LiteralPath $Paths.database -PathType Leaf)) {
     throw "Portable SQLite отсутствует: $($Paths.database). Верните полный комплект данных."
 }
-if (-not $Saved -and $Selected -ne "Restored") {
+if (-not $Saved -and $Selected -notin @("Restored", "Managed")) {
     $Token = if ($Selected -eq "Profile") { "Profile" } else { "Portable" }
     $Stream = [IO.File]::Open($Marker, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     try {

@@ -15,6 +15,9 @@ import sys
 from time import monotonic
 from uuid import uuid4
 
+from .cutover_platform import (
+    windows_directory_permissions, windows_flush, windows_identity, windows_upgrade_allowed, windows_volume,
+)
 from .data_home import StoragePaths
 from .instance_backup import (
     MAX_BYTES, MAX_MANIFEST, BackupError, _regular_file, _stamp, _upload_paths,
@@ -60,6 +63,10 @@ def assert_no_pending_upgrade(paths: StoragePaths) -> None:
 
 
 def _mount_id(path: Path) -> int:
+    if sys.platform == "win32" and windows_upgrade_allowed():
+        if not _entry(path, directory=True):
+            raise UpgradeBlocked("Каталог локального тома NTFS отсутствует.")
+        return windows_volume(path)
     if sys.platform != "linux":
         raise UpgradeBlocked("Долговечность предобновительной публикации на этой платформе не подтверждена.")
     # Use the mount attached to the opened directory. st_dev can differ
@@ -89,13 +96,39 @@ def _mount_id(path: Path) -> int:
 def _directory_id(path: Path) -> tuple[int, int]:
     if not _entry(path, directory=True):
         raise UpgradeBlocked("Каталог предобновительного снимка отсутствует.")
+    if sys.platform == "win32":
+        return windows_identity(path)
     info = path.lstat()
     return info.st_dev, info.st_ino
+
+
+def _require_owned_directory(path: Path, *, private: bool = False) -> None:
+    if not _entry(path, directory=True):
+        raise UpgradeBlocked("Каталог обновления отсутствует.")
+    if sys.platform == "win32":
+        windows_directory_permissions(path, private=private)
+    else:
+        info = path.lstat()
+        if info.st_uid != os.geteuid() or info.st_mode & (0o077 if private else 0o022):
+            raise UpgradeBlocked("Каталог обновления должен контролироваться владельцем.")
+
+
+def _sync_file(path: Path) -> None:
+    with _regular_file(path) as stream:
+        if sys.platform == "win32":
+            windows_flush(path)
+        else:
+            os.fsync(stream.fileno())
 
 
 def _sync_directory(path: Path, expected: tuple[int, int]) -> None:
     if _directory_id(path) != expected:
         raise UpgradeBlocked("Каталог изменился до синхронизации.")
+    if sys.platform == "win32":
+        windows_flush(path)
+        if _directory_id(path) != expected:
+            raise UpgradeBlocked("Каталог заменён во время синхронизации.")
+        return
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         info = os.fstat(fd)
@@ -107,7 +140,7 @@ def _sync_directory(path: Path, expected: tuple[int, int]) -> None:
 
 
 def _write_exclusive(path: Path, contents: bytes) -> tuple:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0), 0o600)
     with os.fdopen(fd, "wb") as output:
         output.write(contents)
         output.flush()
@@ -163,7 +196,10 @@ def _sync_snapshot(snapshot: Path, manifest: dict, stamps: dict[Path, tuple]) ->
         with _regular_file(path) as stream:
             if _stamp(os.fstat(stream.fileno())) != stamp:
                 raise UpgradeBlocked("Снимок изменился во время независимой проверки.")
-            os.fsync(stream.fileno())
+            if sys.platform == "win32":
+                windows_flush(path)
+            else:
+                os.fsync(stream.fileno())
             if path == manifest_path:
                 payload = stream.read(MAX_MANIFEST + 1)
                 if len(payload) > MAX_MANIFEST or json.loads(payload) != manifest:
@@ -196,8 +232,8 @@ def _prepare(paths: StoragePaths, home: Path, server_dir: Path, cwd: Path,
     root = home.parent / (".laterna-pre-upgrade-" + source_key)
     root.mkdir(mode=0o700, exist_ok=True)
     root_id = _directory_id(root)
-    info = root.lstat()
-    if info.st_uid != os.geteuid() or info.st_mode & 0o077 or _mount_id(root) != snapshot_mount:
+    _require_owned_directory(root, private=True)
+    if _mount_id(root) != snapshot_mount:
         raise UpgradeBlocked("Каталог предобновительных снимков не приватен или находится на другом mount.")
     identifier = uuid4().hex
     attempt = root / identifier
@@ -281,9 +317,8 @@ def run_pre_upgrade(paths: StoragePaths, *, server_dir: Path, cwd: Path, env: Ma
             resources.enter_context(own_storage(paths))
             if not _entry(home, directory=True):
                 raise UpgradeBlocked("DataHome для обновления отсутствует.")
-            info = home.lstat()
-            if os.name != "nt" and (info.st_uid != os.geteuid() or info.st_mode & 0o022):
-                raise UpgradeBlocked("DataHome должен контролироваться владельцем.")
+            if sys.platform != "win32" or windows_upgrade_allowed():
+                _require_owned_directory(home)
             snapshot = _prepare(paths, home, server_dir, cwd, env, target_revision)
         except UpgradeBlocked:
             raise
