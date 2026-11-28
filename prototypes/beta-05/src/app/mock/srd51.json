@@ -1,0 +1,798 @@
+[
+  {
+    "id": "srd-wolf",
+    "name": "Волк",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 11,
+    "ac": 13,
+    "initiative": 2,
+    "speed": 40,
+    "challenge": "1/4",
+    "page": 393,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-skeleton",
+    "name": "Скелет",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 13,
+    "ac": 13,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1/4",
+    "page": 346,
+    "actions": [
+      "Короткий меч",
+      "Короткий лук"
+    ]
+  },
+  {
+    "id": "srd-owl",
+    "name": "Сова",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 1,
+    "ac": 11,
+    "initiative": 1,
+    "speed": 5,
+    "challenge": "0",
+    "page": 385,
+    "actions": [
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-ape",
+    "name": "Обезьяна",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 19,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1/2",
+    "page": 366,
+    "actions": [
+      "Мультиатака",
+      "Кулак",
+      "Бросок камня"
+    ]
+  },
+  {
+    "id": "srd-badger",
+    "name": "Барсук",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 3,
+    "ac": 10,
+    "initiative": 0,
+    "speed": 20,
+    "challenge": "0",
+    "page": 367,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-bat",
+    "name": "Летучая мышь",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 1,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 5,
+    "challenge": "0",
+    "page": 367,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-black-bear",
+    "name": "Чёрный медведь",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 19,
+    "ac": 11,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "1/2",
+    "page": 367,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-boar",
+    "name": "Кабан",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 11,
+    "ac": 11,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "1/4",
+    "page": 368,
+    "actions": [
+      "Клыки"
+    ]
+  },
+  {
+    "id": "srd-brown-bear",
+    "name": "Бурый медведь",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 34,
+    "ac": 11,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "1",
+    "page": 369,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-cat",
+    "name": "Кошка",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 2,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 40,
+    "challenge": "0",
+    "page": 369,
+    "actions": [
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-crocodile",
+    "name": "Крокодил",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 19,
+    "ac": 12,
+    "initiative": 0,
+    "speed": 20,
+    "challenge": "1/2",
+    "page": 370,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-deer",
+    "name": "Олень",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 4,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 50,
+    "challenge": "0",
+    "page": 370,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-dire-wolf",
+    "name": "Лютый волк",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 37,
+    "ac": 14,
+    "initiative": 2,
+    "speed": 50,
+    "challenge": "1",
+    "page": 371,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-eagle",
+    "name": "Орёл",
+    "category": "Зверь",
+    "size": "Маленький",
+    "hp": 3,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 10,
+    "challenge": "0",
+    "page": 371,
+    "actions": [
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-elk",
+    "name": "Лось",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 13,
+    "ac": 10,
+    "initiative": 0,
+    "speed": 50,
+    "challenge": "1/4",
+    "page": 372,
+    "actions": [
+      "Таран",
+      "Копыта"
+    ]
+  },
+  {
+    "id": "srd-giant-badger",
+    "name": "Гигантский барсук",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 13,
+    "ac": 10,
+    "initiative": 0,
+    "speed": 30,
+    "challenge": "1/4",
+    "page": 373,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-giant-bat",
+    "name": "Гигантская летучая мышь",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 22,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 10,
+    "challenge": "1/4",
+    "page": 373,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-giant-eagle",
+    "name": "Гигантский орёл",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 26,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 10,
+    "challenge": "1",
+    "page": 375,
+    "actions": [
+      "Мультиатака",
+      "Клюв",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-giant-owl",
+    "name": "Гигантская сова",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 19,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 5,
+    "challenge": "1/4",
+    "page": 377,
+    "actions": [
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-giant-rat",
+    "name": "Гигантская крыса",
+    "category": "Зверь",
+    "size": "Маленький",
+    "hp": 7,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1/8",
+    "page": 378,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-giant-spider",
+    "name": "Гигантский паук",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 26,
+    "ac": 14,
+    "initiative": 3,
+    "speed": 30,
+    "challenge": "1",
+    "page": 379,
+    "actions": [
+      "Укус",
+      "Паутина"
+    ]
+  },
+  {
+    "id": "srd-riding-horse",
+    "name": "Верховая лошадь",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 13,
+    "ac": 10,
+    "initiative": 0,
+    "speed": 60,
+    "challenge": "1/4",
+    "page": 388,
+    "actions": [
+      "Копыта"
+    ]
+  },
+  {
+    "id": "srd-hyena",
+    "name": "Гиена",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 5,
+    "ac": 11,
+    "initiative": 1,
+    "speed": 50,
+    "challenge": "0",
+    "page": 382,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-lion",
+    "name": "Лев",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 26,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 50,
+    "challenge": "1",
+    "page": 383,
+    "actions": [
+      "Укус",
+      "Коготь"
+    ]
+  },
+  {
+    "id": "srd-panther",
+    "name": "Пантера",
+    "category": "Зверь",
+    "size": "Средний",
+    "hp": 13,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 50,
+    "challenge": "1/4",
+    "page": 385,
+    "actions": [
+      "Укус",
+      "Коготь"
+    ]
+  },
+  {
+    "id": "srd-polar-bear",
+    "name": "Белый медведь",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 42,
+    "ac": 12,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "2",
+    "page": 386,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-raven",
+    "name": "Ворон",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 1,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 10,
+    "challenge": "0",
+    "page": 387,
+    "actions": [
+      "Клюв"
+    ]
+  },
+  {
+    "id": "srd-scorpion",
+    "name": "Скорпион",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 1,
+    "ac": 11,
+    "initiative": 0,
+    "speed": 10,
+    "challenge": "0",
+    "page": 388,
+    "actions": [
+      "Жало"
+    ]
+  },
+  {
+    "id": "srd-tiger",
+    "name": "Тигр",
+    "category": "Зверь",
+    "size": "Большой",
+    "hp": 37,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 40,
+    "challenge": "1",
+    "page": 391,
+    "actions": [
+      "Укус",
+      "Коготь"
+    ]
+  },
+  {
+    "id": "srd-weasel",
+    "name": "Ласка",
+    "category": "Зверь",
+    "size": "Крошечный",
+    "hp": 1,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 30,
+    "challenge": "0",
+    "page": 392,
+    "actions": [
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-zombie",
+    "name": "Зомби",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 22,
+    "ac": 8,
+    "initiative": -2,
+    "speed": 20,
+    "challenge": "1/4",
+    "page": 356,
+    "actions": [
+      "Удар"
+    ]
+  },
+  {
+    "id": "srd-ghoul",
+    "name": "Упырь",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 22,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1",
+    "page": 312,
+    "actions": [
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-ghast",
+    "name": "Гаст",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 36,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 30,
+    "challenge": "2",
+    "page": 311,
+    "actions": [
+      "Укус",
+      "Когти"
+    ]
+  },
+  {
+    "id": "srd-ghost",
+    "name": "Призрак",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 45,
+    "ac": 11,
+    "initiative": 1,
+    "speed": 0,
+    "challenge": "4",
+    "page": 311,
+    "actions": [
+      "Иссушающее прикосновение",
+      "Ужасный облик"
+    ]
+  },
+  {
+    "id": "srd-wight",
+    "name": "Умертвие",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 45,
+    "ac": 14,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "3",
+    "page": 354,
+    "actions": [
+      "Мультиатака",
+      "Вытягивание жизни",
+      "Длинный меч",
+      "Длинный лук"
+    ]
+  },
+  {
+    "id": "srd-wraith",
+    "name": "Привидение",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 67,
+    "ac": 13,
+    "initiative": 3,
+    "speed": 0,
+    "challenge": "5",
+    "page": 355,
+    "actions": [
+      "Вытягивание жизни",
+      "Создание призрака"
+    ]
+  },
+  {
+    "id": "srd-shadow",
+    "name": "Тень",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 16,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 40,
+    "challenge": "1/2",
+    "page": 344,
+    "actions": [
+      "Вытягивание силы"
+    ]
+  },
+  {
+    "id": "srd-mummy",
+    "name": "Мумия",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 58,
+    "ac": 11,
+    "initiative": -1,
+    "speed": 20,
+    "challenge": "3",
+    "page": 333,
+    "actions": [
+      "Мультиатака",
+      "Гниющий кулак",
+      "Леденящий взгляд"
+    ]
+  },
+  {
+    "id": "srd-vampire-spawn",
+    "name": "Порождение вампира",
+    "category": "Нежить",
+    "size": "Средний",
+    "hp": 82,
+    "ac": 15,
+    "initiative": 3,
+    "speed": 30,
+    "challenge": "5",
+    "page": 354,
+    "actions": [
+      "Мультиатака",
+      "Когти",
+      "Укус"
+    ]
+  },
+  {
+    "id": "srd-goblin",
+    "name": "Гоблин",
+    "category": "Гуманоид",
+    "size": "Маленький",
+    "hp": 7,
+    "ac": 15,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1/4",
+    "page": 315,
+    "actions": [
+      "Скимитар",
+      "Короткий лук"
+    ]
+  },
+  {
+    "id": "srd-kobold",
+    "name": "Кобольд",
+    "category": "Гуманоид",
+    "size": "Маленький",
+    "hp": 5,
+    "ac": 12,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1/8",
+    "page": 324,
+    "actions": [
+      "Кинжал",
+      "Праща"
+    ]
+  },
+  {
+    "id": "srd-orc",
+    "name": "Орк",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 15,
+    "ac": 13,
+    "initiative": 1,
+    "speed": 30,
+    "challenge": "1/2",
+    "page": 339,
+    "actions": [
+      "Секира",
+      "Метательное копьё"
+    ]
+  },
+  {
+    "id": "srd-hobgoblin",
+    "name": "Хобгоблин",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 11,
+    "ac": 18,
+    "initiative": 1,
+    "speed": 30,
+    "challenge": "1/2",
+    "page": 322,
+    "actions": [
+      "Длинный меч",
+      "Длинный лук"
+    ]
+  },
+  {
+    "id": "srd-bugbear",
+    "name": "Багбир",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 27,
+    "ac": 16,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "1",
+    "page": 266,
+    "actions": [
+      "Моргенштерн",
+      "Метательное копьё"
+    ]
+  },
+  {
+    "id": "srd-gnoll",
+    "name": "Гнолл",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 22,
+    "ac": 15,
+    "initiative": 1,
+    "speed": 30,
+    "challenge": "1/2",
+    "page": 314,
+    "actions": [
+      "Укус",
+      "Копьё",
+      "Длинный лук"
+    ]
+  },
+  {
+    "id": "srd-bandit",
+    "name": "Бандит",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 11,
+    "ac": 12,
+    "initiative": 1,
+    "speed": 30,
+    "challenge": "1/8",
+    "page": 396,
+    "actions": [
+      "Скимитар",
+      "Лёгкий арбалет"
+    ]
+  },
+  {
+    "id": "srd-guard",
+    "name": "Стражник",
+    "category": "Гуманоид",
+    "size": "Средний",
+    "hp": 11,
+    "ac": 16,
+    "initiative": 1,
+    "speed": 30,
+    "challenge": "1/8",
+    "page": 399,
+    "actions": [
+      "Копьё"
+    ]
+  },
+  {
+    "id": "srd-adult-red-dragon",
+    "name": "Взрослый красный дракон",
+    "category": "Дракон",
+    "size": "Огромный",
+    "hp": 256,
+    "ac": 19,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "17",
+    "page": 287,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Коготь",
+      "Хвост",
+      "Устрашающее присутствие",
+      "Огненное дыхание"
+    ]
+  },
+  {
+    "id": "srd-young-white-dragon",
+    "name": "Молодой белый дракон",
+    "category": "Дракон",
+    "size": "Большой",
+    "hp": 133,
+    "ac": 17,
+    "initiative": 0,
+    "speed": 40,
+    "challenge": "6",
+    "page": 290,
+    "actions": [
+      "Мультиатака",
+      "Укус",
+      "Коготь",
+      "Ледяное дыхание"
+    ]
+  },
+  {
+    "id": "srd-black-dragon-wyrmling",
+    "name": "Детёныш чёрного дракона",
+    "category": "Дракон",
+    "size": "Средний",
+    "hp": 33,
+    "ac": 17,
+    "initiative": 2,
+    "speed": 30,
+    "challenge": "2",
+    "page": 282,
+    "actions": [
+      "Укус",
+      "Кислотное дыхание"
+    ]
+  }
+]
