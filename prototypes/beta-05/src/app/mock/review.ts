@@ -5,9 +5,17 @@ import { decalNames } from '../../shared/map-art/DecalMark';
 export function reviewCampaigns(review: ReviewCase | undefined, campaigns: Campaign[]) {
   const sheets = review === 'overflow-sheet' || review === 'hp-hud';
   const quickActions = review?.startsWith('quick-actions');
-  if (!sheets && review !== 'decal-patterns' && !quickActions) return campaigns;
+  if (!sheets && review !== 'decal-patterns' && review !== 'objects' && !quickActions) return campaigns;
   return campaigns.map(campaign => {
     if (campaign.id !== 'graywick') return campaign;
+    if (review === 'quick-actions-tokens') return { ...campaign, scenes: campaign.scenes.map(scene => {
+      const base = scene.objects.find(object => object.kind === 'token' && object.name === 'Пепельный страж');
+      return scene.id !== 'abbey' || !base ? scene : { ...scene, objects: [
+        ...scene.objects.filter(object => object.id !== base.id),
+        { ...base, id: 'review-guard-a', name: 'Пепельный страж I', hp: 8 },
+        { ...base, id: 'review-guard-b', name: 'Пепельный страж II', hp: 21, x: base.x + 120 },
+      ] };
+    }) };
     if (quickActions) return { ...campaign, actors: campaign.actors.map(actor => {
       if (actor.id !== 'elara') return actor;
       if (review === 'quick-actions-empty') return { ...actor, quickActions: [], resource: 0 };
@@ -18,13 +26,13 @@ export function reviewCampaigns(review: ReviewCase | undefined, campaigns: Campa
         spellSlots: {1:{current:2,max:3}},
       };
     }) };
-    if (review === 'decal-patterns') {
+    if (review === 'decal-patterns' || review === 'objects') {
       const decals: MapObject[] = (Object.keys(decalNames) as DecalPattern['kind'][]).map((kind, i) => ({
         kind:'prop', id:'review-decal-' + kind, name:decalNames[kind], x:280 + i*125, y:485,
         decal:{kind, size:108, rotation:i*19, variant:i+3},
       }));
       return {...campaign, scenes:campaign.scenes.map(scene => scene.id === 'abbey'
-        ? {...scene, objects:[...scene.objects, ...decals]} : scene)};
+        ? {...scene, objects:[...scene.objects, ...decals, ...(review === 'objects' ? [{kind:'fog' as const, id:'review-fog', name:'Ручной туман', x:250, y:275, end:{x:350,y:335}}] : [])]} : scene)};
     }
     return {...campaign, actors:campaign.actors.map(actor => actor.id === 'elara' ? {
       ...actor, ...(review === 'overflow-sheet' && { name:'Элара Вейл, хранительница переправы и последняя следопытка Семи Фонарей' }), tempHp:3,

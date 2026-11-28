@@ -1,12 +1,17 @@
 import type { Actor, Role } from '../../entities/model';
 import { Button } from '../../shared/ui';
 
-export const reviewIteration = 'Beta 0.5 · Gameplay First UX';
+export const reviewIteration = 'Beta 0.5 · Gameplay First Refinement';
 const cases = [
-  ['gm-screen', 'D01 · Ширма мастера', 'Карта видна за ширмой. Переместите окно от алтаря в тёмный край, измените размер и сравните режимы фона.'],
-  ['quick-actions', 'D02 · Быстрые действия ГМ', 'Над нижней полосой. Смените героя, закрепите или переставьте действие.'],
+  ['gm-screen', 'D01 · Ширма мастера', 'Карта видна за ширмой. Переместите окно от алтаря в тёмный край, измените размер и откройте журнал.'],
+  ['quick-actions', 'D02 · Быстрые действия ГМ', 'В карточке героя на вкладке «Партия». Закрепите или переставьте действие.'],
   ['quick-actions-player', 'D02 · Быстрые действия игрока', 'Доступны только подконтрольные персонажи. Проверьте расход и сворачивание.'],
   ['quick-actions-empty', 'D02 · Пустая панель', 'Закрепите первую команду. Нулевой ресурс недоступен.'],
+  ['quick-actions-compact', 'Компактная карточка игрока', 'Откройте действия в мини-карточке своего героя.'],
+  ['quick-actions-edit', 'Редактирование избранного игрока', 'Закрепите, открепите и переставьте команды.'],
+  ['quick-actions-tokens', 'Два экземпляра существа', 'Стражи используют один шаблон и отдельные хиты.'],
+  ['sidebar', 'Правая панель', 'Сверните панель и проверьте вкладки.'],
+  ['objects', 'Геометрия, декали и ручной туман', 'ЛКМ выделяет. ПКМ или Shift+F10 открывает меню со свойствами.'],
   ['dice-overlay', 'D03 · Результаты бросков', 'Воспроизведите одиночные, смешанные, критические и скрытые результаты поверх листа.'],
   ['guide', 'D04 · Первое знакомство', 'Приглашение открывается независимо от сохранённого выбора. Можно отказаться или открыть гид снова.'],
   ['guide-gm', 'Практика мастера', 'Откройте редактор и поставьте стену в отдельной демонстрационной вкладке.'],
@@ -30,27 +35,27 @@ export function readReview(): ReviewCase | '1' | undefined {
   const value = new URLSearchParams(location.search).get('review');
   return value === '1' ? '1' : cases.find(([id]) => id === value)?.[0];
 }
-export const reviewRole = (id?: ReviewCase): Role => id === 'quick-actions-player' || id === 'guide-player' || id === 'character-wizard' ? 'player' : 'gm';
+export const reviewRole = (id?: ReviewCase): Role => (id?.startsWith('quick-actions-') && id !== 'quick-actions-tokens') || id === 'guide-player' || id === 'character-wizard' ? 'player' : 'gm';
 export const reviewLayout = (id?: ReviewCase): Actor['sheetLayout'] =>
   id === 'classic-sheet' || id === 'classic-b' || id === 'hp-hud' || id === 'overflow-sheet' ? 'classic' : id === 'compact-sheet' ? 'compact' : id === 'laterna-sheet' ? 'full' : undefined;
 const reviewImages = 'https://github.com/LunierVeil/Laterna-VTT/blob/';
-const previousImages = reviewImages + '0a6fb11f25b0b4df6fc77967037df1750e450ca8/prototypes/beta-05/docs/review/';
+const previousImages = reviewImages + 'c8628158a1af7ed8f06c9684d9c83ffedca13cd0/prototypes/beta-05/docs/review/';
 const latestImages = reviewImages + 'prototype/beta-0.5-interface/prototypes/beta-05/docs/review/';
 const captures: Partial<Record<ReviewCase, [string, string]>> = {
-  'gm-screen':['stable-gm-screen-1366.jpg','gameplay-gm-screen.jpg'],
-  'quick-actions':['stable-quick-actions-1366.jpg','gameplay-quick-actions.jpg'],
-  'quick-actions-player':['stable-quick-actions-player-1366.jpg','gameplay-quick-actions-player.jpg'],
-  'dice-overlay':['stable-dice-advantage-1366.jpg','gameplay-dice-lantern.jpg'],
-  'classic-sheet':['stable-classic-sheet-1366.jpg','gameplay-classic-sheet.jpg'],
+  'gm-screen':['gameplay-gm-screen.jpg','refinement-gm-screen.jpg'],
+  'quick-actions':['gameplay-quick-actions.jpg','refinement-gm-actions.jpg'],
+  'quick-actions-player':['gameplay-quick-actions-player.jpg','refinement-player-actions.jpg'],
+  'dice-overlay':['gameplay-dice-lantern.jpg','refinement-dice.jpg'],
+  'classic-sheet':['gameplay-classic-sheet.jpg','refinement-classic.jpg'],
   'classic-b':['stable-classic-sheet-1366.jpg','gameplay-classic-b.jpg'],
   'hp-hud':['stable-classic-sheet-1366.jpg','gameplay-hp-hud.jpg'],
   'decal-patterns':['stable-decal-patterns-1366.jpg','gameplay-decal-tracks.jpg'],
-  'guide-gm':['stable-guide-1366.jpg','gameplay-guide-gm.jpg'],
+  'guide-gm':['gameplay-guide-gm.jpg','refinement-guide.jpg'],
 };
 const before: Partial<Record<ReviewCase, [string, string]>> = {
-  'gm-screen':['Общая кнопка журнала внутри ширмы','Прямые материалы и листы NPC'],
-  'quick-actions':['Одинаковый селектор для обеих ролей','Сводка ГМ с экземплярами текущей сцены'],
-  'quick-actions-player':['Заклинание открывало лист','Контекстный расход ячейки на столе'],
+  'gm-screen':['Переключатель фона','Полупрозрачная ширма и кнопка журнала'],
+  'quick-actions':['Отдельное окно','Действия в карточках Партии'],
+  'quick-actions-player':['Отдельное окно над столом','Действия и расход ячейки в мини-карточке'],
   'dice-overlay':['Одна малая карточка','Три направления на одном результате'],
   'classic-sheet':['Общий блок характеристик с переключателем','Характеристики и навыки видны рядом'],
   'classic-b':['Общий блок характеристик с переключателем','Короткая сетка характеристик с раскрываемыми навыками'],
@@ -59,7 +64,7 @@ const before: Partial<Record<ReviewCase, [string, string]>> = {
 export function ReviewIndex() {
   return <main className="design-review">
     <header><div className="inline-form"><a href="?play=1">Обычный игровой стол</a><a href="https://github.com/LunierVeil/Laterna-VTT/pull/104">Обсудить в Draft PR #104</a></div><h1>Design Review</h1>
-      <p>{reviewIteration}. APPROVED · требования D01–D07. NEEDS REVIEW · визуальная реализация.</p></header>
+      <p>{reviewIteration}. NEEDS REVIEW · доработка игровых сценариев A01–A09.</p></header>
     <ul>{cases.map(([id, name, description]) => <li key={id} className="character-block">
       <small>{id === 'character-wizard' ? 'PROPOSED · DEMO' : 'CHANGED · NEEDS REVIEW'}</small><h2>{name}</h2><p>{description}</p>
       {before[id] && <dl><dt>До</dt><dd>{before[id][0]}</dd><dt>После</dt><dd>{before[id][1]}</dd></dl>}

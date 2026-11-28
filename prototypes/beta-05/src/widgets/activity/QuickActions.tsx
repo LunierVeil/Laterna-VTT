@@ -1,48 +1,32 @@
 import { useState } from 'react';
-import type { Actor, MapObject, SheetSpell } from '../../entities/model';
+import type { Actor, SheetSpell } from '../../entities/model';
 import { Button, Empty, IconButton } from '../../shared/ui';
-import { ArrowDown, ArrowUp, BookOpen, EyeOff, Minus, Pin, Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pin, X } from 'lucide-react';
 import type { Roll } from '../../features/roster';
-import { attackRows, changeHp, damageRoll, skillRows, spendSpellSlot } from '../../features/roster/gameplay';
+import { attackRows, damageRoll, skillRows, spendSpellSlot } from '../../features/roster/gameplay';
 
 interface Action {
   key: string; name: string; disabled?: boolean; run: () => void;
   damage?: () => void;
 }
 
-export function QuickActions({ actors, tokens, gm, onSave, onRoll, onSheet, onTokenHp, onNotify, onClose }: {
-  actors: Actor[]; tokens: MapObject[]; gm: boolean;
-  onSave: (actor: Actor) => void; onRoll: Roll; onSheet: (id: string) => void;
-  onTokenHp: (token: MapObject, actor: Actor, delta: number) => void;
-  onNotify: (message: string) => void; onClose: () => void;
+export interface QuickActionCommands {
+  onSave: (actor: Actor) => void;
+  onRoll: Roll;
+  onNotify: (message: string) => void;
+}
+
+export function QuickActions({ actor, onSave, onRoll, onNotify, initialEditing = false }: QuickActionCommands & {
+  actor: Actor; initialEditing?: boolean;
 }) {
-  const [id, setId] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
   const [spellId, setSpellId] = useState('');
   const [slotLevel, setSlotLevel] = useState(1);
-  const [amount, setAmount] = useState(1);
-  const sceneCreatures = tokens.flatMap(token => {
-    const actor = actors.find(item => item.id === token.actorId && item.kind !== 'hero');
-    return actor ? [{ token, actor }] : [];
-  });
-  const currentToken = gm ? sceneCreatures.find(({ token }) => token.id === id) : undefined;
-  const heroes = actors.filter(actor => actor.kind === 'hero');
-  const actor = currentToken?.actor ?? (gm ? heroes : actors).find(actor => actor.id === id)
-    ?? (gm ? heroes[0] ?? sceneCreatures[0]?.actor : actors[0]);
-  const token = currentToken?.token ?? (gm && !heroes.length ? sceneCreatures[0]?.token : undefined);
-  if (!actor) return <section className="table-quick-actions glass"><Empty>Нет доступных персонажей.</Empty><Button onClick={onClose}>Закрыть</Button></section>;
-  const hp = token ? token.hp ?? actor.maxHp : actor.hp;
   const spell = actor.spells?.find(item => item.id === spellId);
   const checks = skillRows(actor);
   const attacks = attackRows(actor);
   function slotsFor(spell: SheetSpell) {
-    return Object.entries(actor!.spellSlots ?? {}).filter(([level, slot]) => Number(level) >= spell.level && slot.current > 0);
-  }
-  function modifyHp(sign: number) {
-    const delta = sign * Math.max(1, Math.trunc(amount) || 1);
-    if (token) onTokenHp(token, actor!, delta);
-    else onSave(changeHp(actor!, delta));
+    return Object.entries(actor.spellSlots ?? {}).filter(([level, slot]) => Number(level) >= spell.level && slot.current > 0);
   }
   const options: Action[] = [
     ...attacks.map(({id,name,damage}) => {
@@ -82,39 +66,15 @@ export function QuickActions({ actors, tokens, gm, onSave, onRoll, onSheet, onTo
     })),
     {key:'resource',name:`Потратить заряд · ${actor.resource}`,disabled:actor.resource<=0,run:()=>onSave({...actor,resource:actor.resource-1})},
   ];
-  const pinned=(actor.quickActions ?? options.slice(0,3).map(option=>option.key)).filter(key=>options.some(option=>option.key===key));
-  const choose = (next: string) => {setId(next);setSpellId('');setEditing(false);};
+  const pinned=(actor.quickActions ?? []).filter(key=>options.some(option=>option.key===key));
   function move(index: number, delta: number) {
     const next=[...pinned]; [next[index],next[index+delta]]=[next[index+delta],next[index]];
-    onSave({...actor!,quickActions:next});
+    onSave({...actor,quickActions:next});
   }
-  return <section className={`table-quick-actions glass ${gm?'gm-actions':'player-actions'}`} aria-label="Быстрые действия">
-    <header><strong>{gm?'Партия и существа':actor.name}</strong>
-      <IconButton label="Открыть лист персонажа" onClick={()=>onSheet(actor.id)}><BookOpen size={16}/></IconButton>
+  return <section className="card-quick-actions" aria-label="Закреплённые действия">
+    <header><strong>Закреплённые</strong>
       <IconButton label="Настроить быстрые действия" aria-pressed={editing} onClick={()=>setEditing(!editing)}><Pin size={16}/></IconButton>
-      <IconButton label="Закрыть быстрые действия" onClick={onClose}><X size={16}/></IconButton></header>
-    {gm && <>
-      <div className="gm-actors">
-        {heroes.map(hero=><Button key={hero.id} aria-pressed={actor.id===hero.id && !token} onClick={()=>choose(hero.id)}>
-          <span>{hero.name}</span><small>{hero.hp}/{hero.maxHp} HP · КД {hero.ac}</small></Button>)}
-        {sceneCreatures.map(({token:item,actor:creature})=><Button key={item.id} aria-pressed={token?.id===item.id} onClick={()=>choose(item.id)}>
-          <span>{item.secret && <EyeOff size={13} aria-label="Скрыт от игроков"/>}{item.name}</span>
-          <small>{item.hp ?? creature.maxHp}/{creature.maxHp} HP · КД {creature.ac}</small></Button>)}
-      </div>
-      <Button aria-expanded={expanded} onClick={()=>setExpanded(!expanded)}>{expanded?'Свернуть сводку':'Состояния и ресурсы'}</Button>
-      {expanded && <div className="gm-resources">{Array.from(new Map([...heroes,...sceneCreatures.map(item=>item.actor)].map(item=>[item.id,item])).values()).map(item=><p key={item.id}>
-        <strong>{item.name}</strong> · {item.conditions?.join(', ') || 'Без состояний'} · Заряды {item.resource}
-        {item.progression?.resources?.map(resource=>` · ${resource.name} ${resource.current}/${resource.max}`)}
-      </p>)}</div>}
-    </>}
-    {!gm && actors.length>1 && <select aria-label="Подконтрольный персонаж" value={actor.id} onChange={event=>choose(event.target.value)}>
-      {actors.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select>}
-    <div className="quick-health"><strong>{hp}/{actor.maxHp} HP</strong><small>КД {actor.ac}{!token && actor.tempHp ? ` · +${actor.tempHp} врем.` : ''}</small>
-      <IconButton label="Нанести урон" disabled={hp <= 0 && (Boolean(token) || !actor.tempHp)} onClick={()=>modifyHp(-1)}><Minus size={15}/></IconButton>
-      <input type="number" min={1} aria-label="Величина изменения HP" value={amount} onChange={event=>setAmount(Number(event.target.value))}/>
-      <IconButton label="Лечение" disabled={hp>=actor.maxHp} onClick={()=>modifyHp(1)}><Plus size={15}/></IconButton>
-    </div>
-    {!!actor.conditions?.length && <div className="quick-conditions">{actor.conditions.join(' · ')}</div>}
+    </header>
     <div className="quick-games">
       {pinned.map((key,index)=>{
         const action=options.find(option=>option.key===key)!;

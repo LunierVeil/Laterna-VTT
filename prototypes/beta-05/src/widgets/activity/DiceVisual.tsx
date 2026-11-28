@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 const forms: Record<number, [string, string, string]> = {
   4:['30,4 59,52 4,54','30,4 30,35 4,54','30,35 59,52 4,54'],
   6:['8,15 32,5 55,18 55,45 31,57 8,44','8,15 32,5 55,18 31,28','31,28 55,18 55,45 31,57'],
@@ -17,6 +18,6 @@ export function DiceGlyph({sides, value}: {sides:number; value?: number}) {
     {value!==undefined && <text x="31" y={sides===4?44:37} textAnchor="middle">{value}</text>}
   </svg>;
 }
-export function DiceVisual({ value, sides = 6, animate = true }: {value:number; sides?:number; animate?:boolean}) {
-  return <span className={`die-visual ${animate?'dice-turn':''}`} aria-hidden="true"><DiceGlyph sides={sides} value={value}/></span>;
+export function DiceVisual({ value, sides = 6, animate = true, legacy = false, index = 0 }: {value:number; sides?:number; animate?:boolean; legacy?:boolean; index?:number}) {
+  return <span className={`die-visual ${animate?'dice-turn':''} ${legacy?'dice-legacy':''}`} style={{'--die-delay': `${index * 42}ms`, '--die-direction': index % 2 ? -1 : 1} as CSSProperties} aria-hidden="true"><DiceGlyph sides={sides} value={value}/></span>;
 }

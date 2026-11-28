@@ -15,15 +15,15 @@ interface Props {
   onOpenToken: (object: MapObject) => void;
   group: string[]; onGroup: (ids: string[]) => void;
   onUseDoor: (object: MapObject) => void;
-  onContext: (object: MapObject, x: number, y: number) => void;
-  children: ReactNode; toolbar: ReactNode; tray?: ReactNode;
+  onContext: (object: MapObject, x: number, y: number, anchor?: SVGElement) => void;
+  children: ReactNode; toolbar: ReactNode;
 }
 const bounds = { width: 1100, height: 760 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const lineColors = { wall: '#eb9a6c', door: '#f0ca7c', window: '#89c6e2' };
 const closeEnough = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) < 5;
 
-export function Board({ actors, campaignId, reviewExploration = false, heroId, activeActorId, scene, role, editing, tool, wallMode, selected, placement, onSelect, onChange, onPlaced, onOpenToken, group, onGroup, onUseDoor, onContext, children, toolbar, tray }: Props) {
+export function Board({ actors, campaignId, reviewExploration = false, heroId, activeActorId, scene, role, editing, tool, wallMode, selected, placement, onSelect, onChange, onPlaced, onOpenToken, group, onGroup, onUseDoor, onContext, children, toolbar }: Props) {
   const svg = useRef<SVGSVGElement>(null);
   const world = useRef<SVGGElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -252,19 +252,27 @@ export function Board({ actors, campaignId, reviewExploration = false, heroId, a
                 onPointerDown={event => endpointDown(event, o, endpoint)}/>)}
           </g> : null;
           const fog = o.kind === 'fog' && o.end ? <rect x={Math.min(0, o.end.x - o.x)} y={Math.min(0, o.end.y - o.y)} width={Math.abs(o.end.x - o.x)} height={Math.abs(o.end.y - o.y)}
-            fill="#080d16" fillOpacity={role === 'gm' ? .45 : .96} stroke={editing ? '#b6a5db' : 'none'} strokeDasharray="6 4"/> : null;
+            fill="#080d16" fillOpacity={role === 'gm' ? .45 : .96} pointerEvents={editing ? 'stroke' : 'none'} stroke={editing ? '#b6a5db' : 'none'} strokeWidth={active ? 4 : 2} strokeDasharray="6 4"/> : null;
           const actor = o.kind === 'token' && (role === 'gm' || controlled(o.actorId))
             ? actors.find(item => item.id === o.actorId) : undefined;
           const hp = actor ? Math.min(actor.maxHp, actor.kind === 'hero' ? actor.hp : o.hp ?? actor.maxHp) : 0;
           const ratio = actor ? hp / actor.maxHp : 0;
-          return <g key={o.id} data-guide={o.kind==='token' && o.actorId===heroId ? 'player-token' : undefined} data-object={o.name} data-kind={o.kind} role={tool === 'select' && o.kind !== 'fog' ? 'button' : undefined}
-            tabIndex={tool === 'select' && o.kind !== 'fog' ? 0 : undefined} aria-label={role === 'player' && o.kind === 'door' ? (o.open ? 'Открытая дверь' : 'Закрытая дверь') : o.name}
+          return <g key={o.id} data-guide={o.kind==='token' && o.actorId===heroId ? 'player-token' : undefined} data-object={o.name} data-kind={o.kind} data-selected={active || undefined} role={tool === 'select' && (o.kind !== 'fog' || editing) ? 'button' : undefined}
+            tabIndex={tool === 'select' && (o.kind !== 'fog' || editing) ? 0 : undefined} aria-label={role === 'player' && o.kind === 'door' ? (o.open ? 'Открытая дверь' : 'Закрытая дверь') : o.name}
             className={`map-object ${o.secret ? 'secret-object' : ''} ${tool !== 'select' || placement ? 'passthrough' : ''}`}
             data-group-selected={group.includes(o.id) || undefined}
             transform={`translate(${p.x + (groupDelta && group.includes(o.id) ? groupDelta.x : 0)} ${p.y + (groupDelta && group.includes(o.id) ? groupDelta.y : 0)})`} onPointerDown={e => objectDown(e, o)}
             onDoubleClick={event => { if (o.kind === 'token' && tool === 'select' && !placement) { event.stopPropagation(); onOpenToken(o); } }}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (role === 'player' && o.kind === 'door') onUseDoor(o); else if (e.key === 'Enter' && o.kind === 'token') onOpenToken(o); else onSelect(o.id); } }}
-            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); if (role === 'player' && o.kind === 'door') return; onSelect(o.id); onContext(o, e.clientX, e.clientY); }}>
+            onKeyDown={e => {
+              if ((e.key === 'ContextMenu' || e.shiftKey && e.key === 'F10') && tool === 'select' && !placement) {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                if (role === 'gm' || o.kind !== 'door') { onSelect(o.id); onContext(o, rect.right, rect.top, e.currentTarget); }
+                return;
+              }
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (role === 'player' && o.kind === 'door') onUseDoor(o); else if (e.key === 'Enter' && o.kind === 'token') onOpenToken(o); else onSelect(o.id); } }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); if (role === 'player' && o.kind === 'door') return; onSelect(o.id); onContext(o, e.clientX, e.clientY, e.currentTarget); }}>
             {geometry}{fog}
             {o.kind === 'light' && <>
               {active && <circle r={o.radius ?? 120} fill="none" stroke={o.color} strokeDasharray="5 5"/>}
@@ -316,7 +324,6 @@ export function Board({ actors, campaignId, reviewExploration = false, heroId, a
       key={scene.id + '/' + heroId} campaign={campaignId} scene={scene.id} sceneName={scene.name} activeHero={heroId} review={reviewExploration}/>}
     {children}
     <div className="board-footer">
-    {tray}
     <div className="board-compass"><Compass size={30} strokeWidth={1}/><span>С</span></div>
     {toolbar}
     <div className="camera">

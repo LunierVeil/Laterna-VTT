@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { QuickActions, type QuickActionCommands } from './QuickActions';
 import { BookOpen, EyeOff, Minus, Plus } from 'lucide-react';
 import type { Actor, MapObject } from '../../entities/model';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
@@ -17,22 +19,26 @@ export function PartyHealth({ actor, numbers, onChange }: {
   </div>;
 }
 
-export function PlayerParty({ actors, heroId, showAllyNumbers, onSheet, onHp }: {
+export function PlayerParty({ actors, heroId, showAllyNumbers, onSheet, onHp, actions, initialActions, initialEditing }: {
   actors: Actor[]; heroId: string; showAllyNumbers: boolean; onSheet: (id: string) => void; onHp: (actor: Actor, delta: number) => void;
+  actions: QuickActionCommands; initialActions?: boolean; initialEditing?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(Boolean(initialActions));
   const own = actors.find(actor => actor.id === heroId);
   if (!own) return null;
   const party = [own, ...actors.filter(actor => actor.kind === 'hero' && actor.id !== heroId)];
   return <section className="player-party" aria-label="Карточки партии">
     {party.map(actor => {
       const isOwn = actor.id === heroId;
-      return <article className={`party-card glass ${isOwn ? 'party-card-own' : ''}`} key={actor.id}>
+      return <article className={`party-card glass ${isOwn ? 'party-card-own' : ''} ${isOwn && expanded ? 'party-card-expanded' : ''}`} key={actor.id}>
         <header><Glyph name={actor.symbol} size={17}/><strong>{actor.name}</strong>
           {isOwn && <IconButton label="Открыть лист из карточки партии" onClick={() => onSheet(actor.id)}><BookOpen size={16}/></IconButton>}
         </header>
         {isOwn && <small>КД {actor.ac} · {actor.progression?.className} {actor.progression?.level}</small>}
         <PartyHealth actor={actor} numbers={isOwn || showAllyNumbers} onChange={isOwn ? delta => onHp(actor, delta) : undefined}/>
         <PartyStatuses actor={actor} showSpent={isOwn}/>
+        {isOwn && <Button data-guide="actions" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>Действия</Button>}
+        {isOwn && expanded && <QuickActions actor={actor} {...actions} initialEditing={initialEditing}/>}
       </article>;
     })}
   </section>;
@@ -48,10 +54,18 @@ function PartyStatuses({ actor, showSpent }: { actor: Actor; showSpent: boolean 
   </div>;
 }
 
-export function PartyOverview({ actors, tokens, sceneName, onSheet, onHeroHp, onTokenHp }: {
+export function PartyOverview({ actors, tokens, sceneName, onSheet, onHeroHp, onTokenHp, actions, initialActor }: {
   actors: Actor[]; tokens: MapObject[]; sceneName: string; onSheet: (id: string) => void;
   onHeroHp: (actor: Actor, delta: number) => void; onTokenHp: (token: MapObject, actor: Actor, delta: number) => void;
+  actions: QuickActionCommands; initialActor?: string;
 }) {
+  const [expanded, setExpanded] = useState(initialActor);
+  function actionSection(id: string, actor: Actor) {
+    return <>
+      <Button aria-expanded={expanded === id} onClick={() => setExpanded(expanded === id ? undefined : id)}>Действия</Button>
+      {expanded === id && <QuickActions actor={actor} {...actions}/>}
+    </>;
+  }
   const heroes = actors.filter(actor => actor.kind === 'hero');
   const creatures = tokens.flatMap(token => {
     const actor = actors.find(item => item.id === token.actorId);
@@ -72,6 +86,7 @@ export function PartyOverview({ actors, tokens, sceneName, onSheet, onHeroHp, on
           <small key={level}>Ячейки {level} круга · {slot.max - slot.current} из {slot.max} потрачено</small>)}
         {actor.progression?.resources?.map(resource =>
           <small key={resource.name}>{resource.name} · {resource.current} / {resource.max}</small>)}
+        {actionSection(actor.id, actor)}
       </article>)}
     </section>
     <section aria-labelledby="party-creatures">
@@ -87,6 +102,9 @@ export function PartyOverview({ actors, tokens, sceneName, onSheet, onHeroHp, on
           <small>КД {actor.ac}</small>
           <PartyHealth actor={{ ...actor, name: token.name, hp: token.hp ?? actor.maxHp }} numbers
             onChange={delta => onTokenHp(token, actor, delta)}/>
+          <PartyStatuses actor={actor} showSpent={false}/>
+          {!!actor.resource && <small>Заряды · {actor.resource}</small>}
+          {actionSection(token.id, actor)}
         </>}
       </article>)}
     </section>

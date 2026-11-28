@@ -4,11 +4,11 @@ import type { Actor, Combat, Material, Point, Scene } from '../../entities/model
 import type { Roll } from '../../features/roster';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
-export function Screen({ opaque, onOpaque, scenes, activeScene, actors, materials, battle, onClose, onScene, onRoster, onSheet, onMaterial, onRoll, onBattle, position, onPosition, size, onSize }: {
-  opaque: boolean; onOpaque: (value: boolean) => void; scenes: Scene[]; activeScene: string; actors: Actor[]; materials: Material[]; battle?: Combat;
+export function Screen({ scenes, activeScene, actors, materials, battle, onClose, onScene, onRoster, onJournal, onSheet, onMaterial, onRoll, onBattle, position, onPosition, size, onSize }: {
+  scenes: Scene[]; activeScene: string; actors: Actor[]; materials: Material[]; battle?: Combat;
   size?: Point; onSize: (size: Point) => void;
   position?: Point; onPosition: (position?: Point) => void;
-  onClose: () => void; onScene: (id: string) => void; onRoster: () => void; onSheet: (id: string) => void;
+  onClose: () => void; onScene: (id: string) => void; onRoster: () => void; onJournal: () => void; onSheet: (id: string) => void;
   onMaterial: (id: string) => void; onRoll: Roll; onBattle: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
@@ -51,13 +51,13 @@ export function Screen({ opaque, onOpaque, scenes, activeScene, actors, material
       onLostPointerCapture={stopDrag} onDoubleClick={event => {
         if (event.target instanceof Element && !event.target.closest('button,input,label')) onPosition();
       }}>
-      <div><h2>Ширма мастера</h2><label className="checkline"><input type="checkbox" checked={opaque} onChange={event => onOpaque(event.target.checked)}/>Сплошной фон</label></div>
+      <h2>Ширма мастера</h2>
       <IconButton label="Закрыть ширму" onClick={onClose}><X size={20}/></IconButton>
     </header>
     <div className="screen-content">
       <section><h3><Swords size={16}/> Бой и кубики</h3><div className="inline-form"><Button className="primary" onClick={onBattle}><Flag size={14}/>{battle ? 'Следующий ход' : 'Начать бой'}</Button><Button onClick={() => setLastRoll(onRoll(20, 'normal', true))}><Dice5 size={15}/>Скрытый d20</Button>{lastRoll !== undefined && <output className="badge">d20 · {lastRoll}</output>}</div>{battle && <p>Раунд {battle.round} · {actors.find(a => a.id === battle.order[battle.turn])?.name}</p>}</section>
       <section><h3><Pin size={16}/> Избранные материалы</h3>{pinned.length ? pinned.map(m => <Button className="screen-row" key={m.id} onClick={() => onMaterial(m.id)}><BookOpen size={15}/>{m.name}</Button>) : <Empty>Закрепите материал в журнале.</Empty>}</section>
-      <section><h3><ScrollText size={16}/> Заметки и раздатки</h3>{[...notes, ...materials.filter(m => m.kind === 'letter' && !m.pinned)].slice(0, 6).map(m => <Button className="screen-row" key={m.id} onClick={() => onMaterial(m.id)}><ScrollText size={15}/>{m.name}</Button>)}</section>
+      <section><h3><ScrollText size={16}/> Заметки и раздатки</h3><Button onClick={onJournal}>Открыть журнал</Button>{[...notes, ...materials.filter(m => m.kind === 'letter' && !m.pinned)].slice(0, 6).map(m => <Button className="screen-row" key={m.id} onClick={() => onMaterial(m.id)}><ScrollText size={15}/>{m.name}</Button>)}</section>
       <section><h3><Layers3 size={16}/> Сцены</h3>{scenes.map(s => <Button className="screen-row" aria-pressed={s.id === activeScene} key={s.id} onClick={() => onScene(s.id)}><Layers3 size={15}/>{s.name}</Button>)}</section>
       <section><h3><Users size={16}/> NPC и существа</h3>{actors.filter(a => a.kind !== 'hero').slice(0, 5).map(a => <Button className="screen-row" key={a.id} onClick={() => onSheet(a.id)}><Glyph name={a.symbol} size={15}/><span>{a.name}</span><small>{a.hp} HP · КД {a.ac}</small></Button>)}<Button onClick={onRoster}>Книги NPC и чудовищ</Button></section>
     </div>

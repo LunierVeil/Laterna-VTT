@@ -3,7 +3,7 @@ import { AnchoredPopover } from '../../shared/ui/AnchoredPopover';
 import { skills } from './skills';
 import portrait from '../../shared/assets/sheet-portrait.svg?inline';
 import { useState } from 'react';
-import { Heart, Dice5, Gauge, ArrowUp, Columns2, Pencil, RotateCcw, WandSparkles, Settings2, ListChecks, ListFilter, Minus, Plus, Shield, Swords } from 'lucide-react';
+import { Heart, Dice5, Gauge, ArrowUp, Columns2, Pencil, RotateCcw, WandSparkles, Settings2, ListChecks, ListFilter, Minus, Plus, Pin, Shield, Swords } from 'lucide-react';
 import { actionLabels, blankActions, uid, type Actor, type Material, type Role } from '../../entities/model';
 import { Biography, Equipment, Spellbook } from './SheetDetails';
 import { LevelReview } from './LevelReview';
@@ -186,6 +186,15 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
   const updateHp = (sign: number) => onChange(changeHp(actor, sign * hpAmount));
   const rollCheck = (label: string, bonus: number, attack = false) => setLast(onRoll(20, mode, false, bonus, label, attack));
   const availableAttacks = attackRows(actor);
+  function attackPin(actor: Actor, name: string) {
+    const attack = availableAttacks.find(item => item.name === name);
+    if (!attack) return null;
+    const key = 'attack:' + attack.id;
+    const pins = actor.quickActions ?? [];
+    const pinned = pins.includes(key);
+    return <IconButton label={pinned ? `Открепить: ${name}` : `Закрепить: ${name}`} aria-pressed={pinned}
+      onClick={() => onChange({ ...actor, quickActions: pinned ? pins.filter(item => item !== key) : [...pins, key] })}><Pin size={14}/></IconButton>;
+  }
   const attacks = availableAttacks.map(attack => attack.name).join('\n');
   const rollDamage = (name: string, formula: string) => {
     const damage = damageRoll(formula);
@@ -239,11 +248,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
         onChange={event => onChange({ ...actor, tempHp: Math.max(0, Math.min(999, Number(event.target.value))) })}/></label>
         : <small>Временные HP: {actor.tempHp ?? 0}</small>}
     </div>
-    {classic && <div className="classic-combat inline-form" aria-label="Боевые действия Classic">
-      {attacks.split('\n').filter(Boolean).slice(0,2).map(action => <Button key={action} onClick={()=>rollCheck(action,Number(/[+-]\d+/.exec(action)?.[0]??0),true)}>{action}</Button>)}
-      {charges}
-      {!!actor.conditions?.length && <small>{actor.conditions.join(' · ')}</small>}
-    </div>}
+    {classic && Boolean(actor.conditions?.length) && <small>{actor.conditions?.join(' · ')}</small>}
     </div>
     {editing && <section className="character-block"><h3>Редактирование листа</h3><div className="creature-stat-fields">
       <label>Имя персонажа<input value={actor.name} onChange={e => onChange({ ...actor, name: e.target.value })}/></label>
@@ -366,6 +371,7 @@ export function Sheet({ actor, role, onChange, onRoll, onCompact, onClassic, com
               })()}{key === 'attack' && <>
                 <Button onClick={() => rollCheck(action, Number(/[+-]\d+/.exec(action)?.[0] ?? 0), true)}><Dice5 size={15}/>Атака</Button>
                 <Button onClick={() => rollDamage(action.split(' · ')[0], availableAttacks.find(item => item.name === action)?.damage ?? '')}>Урон</Button>
+                {attackPin(actor, action)}
               </>}</div>)}
               {(key === 'bonus' || key === 'reaction') && actor[key === 'bonus' ? 'bonusUsed' : 'reactionUsed'] &&
                 <Button className="ghost" onClick={() => onChange({ ...actor, [key === 'bonus' ? 'bonusUsed' : 'reactionUsed']: false })}><RotateCcw size={14}/>Восстановить</Button>}

@@ -1,3 +1,4 @@
+import type { QuickActionCommands } from './QuickActions';
 import { DiceGlyph, DiceVisual, type DiceStyle } from './DiceVisual';
 import { controlsActor } from '../../entities/model';
 import { AnchoredPopover } from '../../shared/ui/AnchoredPopover';
@@ -9,8 +10,9 @@ import { PartyHealth, PartyOverview } from './Party';
 import type { CreatureKind, CreatureStart, Roll } from '../../features/roster';
 import { Button, Empty, Glyph, IconButton } from '../../shared/ui';
 
-export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend, expanded, onToggle, scenes, heroId, onSheet, onAddHero, onBooks, onStart, onNext, onEnd, sceneId, sceneName, sceneActorIds, onConfigure, onRoll, onQuickCreate, onPlaceActor, onRemoveActor, onHeroHp, onTokenHp, sceneTokens, combatRequest, closeCombatRequest }: {
+export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend, expanded, onToggle, scenes, heroId, onSheet, onAddHero, onBooks, onStart, onNext, onEnd, sceneId, sceneName, sceneActorIds, onConfigure, onRoll, onQuickCreate, onPlaceActor, onRemoveActor, onHeroHp, onTokenHp, sceneTokens, combatRequest, closeCombatRequest, actions, initialParty }: {
   entries: Entry[]; role: Role; battle?: Combat; actors: Actor[]; hiddenActorIds: string[]; sceneId: string; sceneName: string; sceneActorIds: string[];
+  actions: QuickActionCommands; initialParty?: string;
   combatRequest: number; closeCombatRequest: number;
   sceneTokens: MapObject[]; onHeroHp: (actor: Actor, delta: number) => void;
   onTokenHp: (token: MapObject, actor: Actor, delta: number) => void;
@@ -19,7 +21,7 @@ export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend
   onConfigure: (participants: CombatParticipant[]) => void;
   onSend: (text: string) => void; expanded: boolean; onToggle: () => void; scenes: ReactNode; heroId?: string; onAddHero: () => void; onBooks: () => void; onSheet: (id: string) => void; onStart: () => void; onNext: () => void; onEnd: () => void;
 }) {
-  const [tab, setTab] = useState<'chat' | 'actors' | 'party' | 'scenes' | 'events' | 'combat'>('chat');
+  const [tab, setTab] = useState<'chat' | 'actors' | 'party' | 'scenes' | 'events' | 'combat'>(initialParty ? 'party' : 'chat');
   const [confirmRemove, setConfirmRemove] = useState<Actor>();
   const [creatureKind, setCreatureKind] = useState<CreatureKind>();
   const [actorGroup, setActorGroup] = useState<'hero' | 'npc'>('hero');
@@ -42,18 +44,18 @@ export function Activity({ entries, role, battle, actors, hiddenActorIds, onSend
   }, [role]);
 
   return <aside className={`activity panel ${expanded ? '' : 'activity-collapsed'}`} aria-label="Правая панель стола">
-    <IconButton className="sidebar-toggle" label={expanded ? 'Свернуть правую панель' : 'Развернуть правую панель'} aria-expanded={expanded} onClick={onToggle}>
+    <div className="activity-tabs"><IconButton className="sidebar-toggle" label={expanded ? 'Свернуть правую панель' : 'Развернуть правую панель'} aria-expanded={expanded} onClick={onToggle}>
       {expanded ? <ChevronRight size={17}/> : <ChevronLeft size={17}/>}
     </IconButton>
     <nav className="side-tabs" aria-label="Разделы правой панели">
       <Button data-guide="chat" aria-pressed={tab === 'chat'} onClick={() => { setTab('chat'); if (!expanded) onToggle(); }}><MessageCircle size={16}/>Чат</Button>
       <Button data-guide="actors" aria-pressed={tab === 'actors'} onClick={() => { setTab('actors'); if (!expanded) onToggle(); }}><Users size={16}/>Персонажи</Button>
-      {role === 'gm' && <Button aria-pressed={tab === 'party'} onClick={() => { setTab('party'); if (!expanded) onToggle(); }}><HeartPulse size={16}/>Партия</Button>}
+      {role === 'gm' && <Button data-guide="actions" aria-pressed={tab === 'party'} onClick={() => { setTab('party'); if (!expanded) onToggle(); }}><HeartPulse size={16}/>Партия</Button>}
       {!expanded && battle && <Button aria-pressed={tab === 'combat'} onClick={() => { setTab('combat'); onToggle(); }}><Swords size={16}/>Раунд {battle.round}</Button>}
       {role === 'gm' && <Button data-guide="scenes" aria-pressed={tab === 'scenes'} onClick={() => { setTab('scenes'); if (!expanded) onToggle(); }}><Layers size={16}/>Сцены</Button>}
-    </nav>
+    </nav></div>
     {expanded && (tab === 'scenes' && role === 'gm' ? scenes : tab === 'party' && role === 'gm' ?
-      <PartyOverview actors={actors} tokens={sceneTokens} sceneName={sceneName} onSheet={onSheet} onHeroHp={onHeroHp} onTokenHp={onTokenHp}/>
+      <PartyOverview actors={actors} tokens={sceneTokens} sceneName={sceneName} onSheet={onSheet} onHeroHp={onHeroHp} onTokenHp={onTokenHp} actions={actions} initialActor={initialParty}/>
       : tab === 'actors' ? <div className="activity-content actor-sidebar">
       {role === 'gm' && <div className="segmented actor-group" aria-label="Состав персонажей">
         <Button aria-pressed={actorGroup === 'hero'} onClick={() => setActorGroup('hero')}><Users size={16}/>Герои</Button>
@@ -172,7 +174,7 @@ function InitiativeEditor({ actors, sceneActorIds, battle, onCancel, onSave, onR
   </form>;
 }
 
-export function RollResults({ entries, role, expanded, animate, style = 'lantern' }: { entries: Entry[]; role: Role; expanded: boolean; animate: boolean; style?: DiceStyle }) {
+export function RollResults({ legacyMotion, entries, role, expanded, animate, style = 'lantern' }: { entries: Entry[]; role: Role; expanded: boolean; animate: boolean; legacyMotion?: boolean; style?: DiceStyle }) {
   const seen = useRef(new Set(entries.map(entry => entry.id)));
   const [queue, setQueue] = useState<Entry[]>([]);
   const result = queue.find(entry => role === 'gm' || !entry.secret);
@@ -198,7 +200,7 @@ export function RollResults({ entries, role, expanded, animate, style = 'lantern
     <div><strong>{result.text}</strong>
       <span className="roll-dice" key={result.id}>
         {dice.map((value, i) => <span key={i} className={mode !== 'normal' && value !== chosen ? 'roll-discarded' : ''}>
-          {style !== 'readout' && i < 4 && <DiceVisual sides={faces?.[i] ?? sides} value={value} animate={animate}/>}
+          {style !== 'readout' && i < 4 && <DiceVisual sides={faces?.[i] ?? sides} value={value} animate={animate} legacy={legacyMotion} index={i}/>}
           <small>d{faces?.[i] ?? sides}: <b>{value}</b></small>
         </span>)}
       </span>

@@ -1,6 +1,6 @@
 import { LightingPanel } from './LightingPanel';
 import { useState, useRef, type FormEvent } from 'react';
-import { Aperture, BrickWall, Check, DoorClosed, Eye, EyeOff, Folder, ImagePlus, Layers3, Pencil, Plus, Trash2, PanelsTopLeft } from 'lucide-react';
+import { Aperture, BrickWall, Check, DoorClosed, Eye, EyeOff, Folder, ImagePlus, Layers3, Pencil, Plus, Trash2, X, PanelsTopLeft } from 'lucide-react';
 import { emptyScene, objectKinds, tokenSizes, type TokenSize, type Campaign, type MapObject, type Scene, type WallMode, type Tool } from '../../entities/model';
 import { readUvtt } from './uvtt';
 import { MapThumbnail } from '../../shared/map-art';
@@ -61,9 +61,9 @@ export function SceneLibrary({ campaign, onSave, onActivate, onDelete, onFolder 
   </>;
 }
 
-export function Inspector({ object, tool, wallMode, onWallMode, onTool, onUndo, canUndo, onObject, onDelete }: {
+export function Inspector({ object, tool, wallMode, onWallMode, onTool, onUndo, canUndo, onObject, onDelete, onClose }: {
   wallMode: WallMode; onWallMode: (mode: WallMode) => void; tool: Tool; onTool: (tool: Tool) => void; onUndo: () => void; canUndo: boolean;
-  object?: MapObject; onObject: (o: MapObject) => void; onDelete: () => void;
+  object?: MapObject; onObject: (o: MapObject) => void; onDelete: () => void; onClose: () => void;
 }) {
   if (tool === 'wall' || tool === 'door' || tool === 'window') return <aside className="inspector geometry-inspector" aria-label="Геометрия">
     <h2>Геометрия</h2>
@@ -86,6 +86,7 @@ export function Inspector({ object, tool, wallMode, onWallMode, onTool, onUndo, 
     const Icon = { wall: BrickWall, door: DoorClosed, window: PanelsTopLeft }[object.kind];
     return <aside className="inspector segment-inspector glass" aria-label={objectKinds[object.kind]}>
       <div><Icon size={17}/><strong>{objectKinds[object.kind]}</strong>
+        <IconButton label="Закрыть свойства" onClick={onClose}><X size={16}/></IconButton>
         <IconButton label="Удалить отрезок" onClick={onDelete}><Trash2 size={16}/></IconButton>
       </div>
       <small>Перетащите конец отрезка на карте</small>
@@ -95,11 +96,16 @@ export function Inspector({ object, tool, wallMode, onWallMode, onTool, onUndo, 
   }
   if (!object) return null;
   return <aside className="inspector glass" aria-label={objectKinds[object.kind]}>
-    <div className="inspector-head"><Layers3 size={16}/><strong>{objectKinds[object.kind]}</strong></div>
+    <div className="inspector-head"><Layers3 size={16}/><strong>{objectKinds[object.kind]}</strong><IconButton label="Закрыть свойства" onClick={onClose}><X size={16}/></IconButton></div>
       {object.kind === 'token' && <TokenSizeSelect object={object} onObject={onObject}/>}
       <label>Название<input aria-label="Название объекта" maxLength={80} value={object.name} onChange={e => onObject({ ...object, name: e.target.value })}/></label>
       {object.kind === 'light' && <LightingPanel key={object.id} object={object} onChange={onObject}/>}
-      {(object.kind === 'token' || object.kind === 'prop') && <Button onClick={() => onObject({ ...object, secret: !object.secret })}>{object.secret ? <Eye size={15}/> : <EyeOff size={15}/>} {object.secret ? 'Показать игрокам' : 'Скрыть от игроков'}</Button>}
+      {object.decal && <label>Размер декали<input type="range" min={24} max={240} value={object.decal.size}
+        onChange={event => object.decal && onObject({...object, decal: {...object.decal, size:Number(event.target.value)}})}/></label>}
+      {object.decal && <label>Поворот декали<input type="range" min={0} max={359} value={object.decal.rotation}
+        onChange={event => object.decal && onObject({...object, decal: {...object.decal, rotation:Number(event.target.value)}})}/></label>}
+      {object.decal && <Button onClick={() => object.decal && onObject({...object, decal: {...object.decal, variant:(object.decal.variant+1)%9999}})}>Другой вариант</Button>}
+      {(object.kind === 'token'  || object.kind === 'prop') && <Button onClick={() => onObject({ ...object, secret: !object.secret })}>{object.secret ? <Eye size={15}/> : <EyeOff size={15}/>} {object.secret ? 'Показать игрокам' : 'Скрыть от игроков'}</Button>}
       <Button className="ghost danger-text" onClick={onDelete}><Trash2 size={15}/>Удалить объект</Button>
   </aside>;
 }
